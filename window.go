@@ -217,15 +217,24 @@ func (w *Window) getInstance() w32.HINSTANCE {
 	return w32.HINSTANCE(w32.GetWindowLong(w.handle, w32.GWL_HINSTANCE))
 }
 
-func (w *Window) ClassName() string { return w.className }
-
-func (w *Window) SetClassName(name string) {
-	if w.handle != 0 {
-		w.className = name
-	}
+// ClassName returns the Windows class name for the window.
+func (w *Window) ClassName() string {
+	return w.className
 }
 
-func (w *Window) ClassStyle() uint32 { return w.classStyle }
+// SetClassName sets the Windows class name for the window. This can only be
+// called before the window is shown. It will panic if called after the window
+// is shown.
+func (w *Window) SetClassName(name string) {
+	if w.handle != 0 {
+		panic("wui.Window.SetClassName can only be called before showing the window")
+	}
+	w.className = name
+}
+
+func (w *Window) ClassStyle() uint32 {
+	return w.classStyle
+}
 
 func (w *Window) SetClassStyle(style uint32) {
 	w.classStyle = style
