@@ -225,24 +225,18 @@ func (w *Window) SetFont(f *Font) *Window {
 	if w.handle != 0 {
 		f.create()
 		for _, control := range w.controls {
+			var handle w32.HWND
 			switch c := control.(type) {
 			case *Button:
-				w32.SendMessage(
-					c.handle,
-					w32.WM_SETFONT,
-					uintptr(w.font.handle),
-					1,
-				)
+				handle = c.handle
 			case *NumberUpDown:
-				w32.SendMessage(
-					c.editHandle,
-					w32.WM_SETFONT,
-					uintptr(w.font.handle),
-					1,
-				)
+				handle = c.editHandle
+			case *Label:
+				handle = c.handle
 			default:
 				panic("unhandled control type")
 			}
+			w32.SendMessage(handle, w32.WM_SETFONT, uintptr(w.font.handle), 1)
 		}
 	}
 	return w
@@ -596,6 +590,23 @@ func createControl(
 				1,
 			)
 		}
+	case *Label:
+		c.handle = w32.CreateWindowExStr(
+			0,
+			"STATIC",
+			c.text,
+			w32.WS_VISIBLE|w32.WS_CHILD|w32.SS_CENTERIMAGE|c.align,
+			c.x, c.y, c.width, c.height,
+			parent.handle, w32.HMENU(id), instance, nil,
+		)
+		if parent.font != nil {
+			w32.SendMessage(
+				c.handle,
+				w32.WM_SETFONT,
+				uintptr(parent.font.handle),
+				1,
+			)
+		}
 	default:
 		panic("unhandled control type")
 	}
@@ -698,7 +709,7 @@ type Button struct {
 	onClick func()
 }
 
-func (Button) isControl() {}
+func (*Button) isControl() {}
 
 func NewButton() *Button {
 	return &Button{}
@@ -750,7 +761,7 @@ type NumberUpDown struct {
 	onValueChange func(value int)
 }
 
-func (NumberUpDown) isControl() {}
+func (*NumberUpDown) isControl() {}
 
 func NewNumberUpDown() *NumberUpDown {
 	return &NumberUpDown{
@@ -860,6 +871,70 @@ func (n *NumberUpDown) SetBounds(x, y, width, height int) *NumberUpDown {
 func (n *NumberUpDown) SetOnValueChange(f func(value int)) *NumberUpDown {
 	n.onValueChange = f
 	return n
+}
+
+type Label struct {
+	handle w32.HWND
+	x      int
+	y      int
+	width  int
+	height int
+	text   string
+	align  uint
+}
+
+func NewLabel() *Label {
+	return &Label{
+		align: w32.SS_LEFT,
+	}
+}
+
+func (*Label) isControl() {}
+
+func (l *Label) SetText(text string) *Label {
+	l.text = text
+	if l.handle != 0 {
+		w32.SetWindowText(l.handle, text)
+	}
+	return l
+}
+
+func (l *Label) SetBounds(x, y, width, height int) *Label {
+	l.x = x
+	l.y = y
+	l.width = width
+	l.height = height
+	if l.handle != 0 {
+		w32.SetWindowPos(
+			l.handle, 0,
+			l.x, l.y, l.width, l.height,
+			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
+		)
+	}
+	return l
+}
+
+func (l *Label) setAlign(align uint) *Label {
+	l.align = align
+	if l.handle != 0 {
+		style := uint(w32.GetWindowLongPtr(l.handle, w32.GWL_STYLE))
+		style = style &^ w32.SS_LEFT &^ w32.SS_CENTER &^ w32.SS_RIGHT
+		w32.SetWindowLongPtr(l.handle, w32.GWL_STYLE, uintptr(style|l.align))
+		w32.InvalidateRect(l.handle, nil, true)
+	}
+	return l
+}
+
+func (l *Label) SetLeftAlign() *Label {
+	return l.setAlign(w32.SS_LEFT)
+}
+
+func (l *Label) SetCenterAlign() *Label {
+	return l.setAlign(w32.SS_CENTER)
+}
+
+func (l *Label) SetRightAlign() *Label {
+	return l.setAlign(w32.SS_RIGHT)
 }
 
 // NOTE this was the first attempt, restructuring the API
