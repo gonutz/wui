@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"syscall"
 	"unicode/utf16"
+	"unsafe"
 
 	"github.com/gonutz/w32"
 )
@@ -450,6 +451,8 @@ func (w *Window) SetFont(f *Font) *Window {
 				handle = c.editHandle
 			case *Label:
 				handle = c.handle
+			case *Panel:
+				handle = c.handle
 			default:
 				panic("unhandled control type")
 			}
@@ -538,6 +541,18 @@ func (w *Window) Show() error {
 						int(lParam&0xFFFF0000)>>16,
 					)
 					return 0
+				}
+			case w32.WM_DRAWITEM:
+				id := wParam
+				index := id - controlIDOffset
+				if 0 <= index && index < uintptr(len(w.controls)) {
+					if p, ok := w.controls[index].(*Panel); ok {
+						if p.onPaint != nil {
+							p.onPaint(&Canvas{
+								hdc: ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam))).HDC,
+							})
+						}
+					}
 				}
 			case w32.WM_KEYDOWN:
 				if w.onKeyDown != nil {
@@ -805,6 +820,23 @@ func createControl(
 			"STATIC",
 			c.text,
 			w32.WS_VISIBLE|w32.WS_CHILD|w32.SS_CENTERIMAGE|c.align,
+			c.x, c.y, c.width, c.height,
+			parent.handle, w32.HMENU(id), instance, nil,
+		)
+		if parent.font != nil {
+			w32.SendMessage(
+				c.handle,
+				w32.WM_SETFONT,
+				uintptr(parent.font.handle),
+				1,
+			)
+		}
+	case *Panel:
+		c.handle = w32.CreateWindowExStr(
+			0,
+			"STATIC",
+			"",
+			w32.WS_VISIBLE|w32.WS_CHILD|w32.SS_OWNERDRAW,
 			c.x, c.y, c.width, c.height,
 			parent.handle, w32.HMENU(id), instance, nil,
 		)
@@ -1153,6 +1185,77 @@ func (l *Label) SetCenterAlign() *Label {
 
 func (l *Label) SetRightAlign() *Label {
 	return l.setAlign(w32.SS_RIGHT)
+}
+
+type Panel struct {
+	handle  w32.HWND
+	x       int
+	y       int
+	width   int
+	height  int
+	onPaint func(*Canvas)
+}
+
+func NewPanel() *Panel {
+	return &Panel{}
+}
+
+func (*Panel) isControl() {}
+
+func (p *Panel) SetBounds(x, y, width, height int) *Panel {
+	p.x = x
+	p.y = y
+	p.width = width
+	p.height = height
+	if p.handle != 0 {
+		w32.SetWindowPos(
+			p.handle, 0,
+			p.x, p.y, p.width, p.height,
+			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
+		)
+	}
+	return p
+}
+
+func (p *Panel) SetOnPaint(f func(*Canvas)) *Panel {
+	p.onPaint = f
+	return p
+}
+
+type Color w32.COLORREF
+
+func (c Color) R() uint8 { return uint8(c & 0xFF) }
+func (c Color) G() uint8 { return uint8((c & 0xFF00) >> 8) }
+func (c Color) B() uint8 { return uint8((c & 0xFF0000) >> 16) }
+
+func RGB(r, g, b uint8) Color {
+	return Color(r) + Color(g)<<8 + Color(b)<<16
+}
+
+type Canvas struct {
+	hdc w32.HDC
+}
+
+func (c *Canvas) DrawRect(x, y, width, height int, color Color) {
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
+	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
+	w32.Rectangle(c.hdc, x, y, x+width, y+height)
+}
+
+func (c *Canvas) FillRect(x, y, width, height int, color Color) {
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
+	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_BRUSH))
+	w32.SetDCBrushColor(c.hdc, w32.COLORREF(color))
+	w32.Rectangle(c.hdc, x, y, x+width, y+height)
+}
+
+func (c *Canvas) Line(x1, y1, x2, y2 int, color Color) {
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
+	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
+	w32.MoveToEx(c.hdc, x1, y1, nil)
+	w32.LineTo(c.hdc, x2, y2)
 }
 
 // NOTE this was the first attempt, restructuring the API
