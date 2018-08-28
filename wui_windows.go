@@ -22,17 +22,19 @@ type Window struct {
 	className   string
 	classStyle  uint32
 	title       string
+	style       uint
 	x           int
 	y           int
 	width       int
 	height      int
-	style       uint
 	state       int
 	background  w32.HBRUSH
 	cursor      w32.HCURSOR
 	menu        *Menu
 	font        *Font
 	controls    []Control
+	onShow      func(*Window)
+	onClose     func(*Window)
 	onMouseMove func(x, y int)
 	onKeyDown   func(key int)
 	onKeyUp     func(key int)
@@ -52,10 +54,7 @@ func NewWindow() *Window {
 	}
 }
 
-func (w *Window) X() int      { return w.x }
-func (w *Window) Y() int      { return w.y }
-func (w *Window) Width() int  { return w.width }
-func (w *Window) Height() int { return w.height }
+func (w *Window) ClassName() string { return w.className }
 
 func (w *Window) SetClassName(name string) *Window {
 	if w.handle != 0 {
@@ -64,12 +63,53 @@ func (w *Window) SetClassName(name string) *Window {
 	return w
 }
 
+func (w *Window) ClassStyle() uint32 { return w.classStyle }
+
+func (w *Window) SetClassStyle(style uint32) *Window {
+	w.classStyle = style
+	if w.handle != 0 {
+		w32.SetClassLongPtr(w.handle, w32.GCL_STYLE, uintptr(w.classStyle))
+		w.classStyle = uint32(w32.GetClassLongPtr(w.handle, w32.GCL_STYLE))
+	}
+	return w
+}
+
+func (w *Window) Title() string { return w.title }
+
 func (w *Window) SetTitle(title string) *Window {
 	w.title = title
 	if w.handle != 0 {
 		w32.SetWindowText(w.handle, title)
 	}
 	return w
+}
+
+func (w *Window) Style() uint { return w.style }
+
+func (w *Window) SetStyle(ws uint) *Window {
+	w.style = ws
+	if w.handle != 0 {
+		w32.SetWindowLongPtr(w.handle, w32.GWL_STYLE, uintptr(w.style))
+		w32.ShowWindow(w.handle, w.state) // for the new style to take effect
+		w.style = uint(w32.GetWindowLongPtr(w.handle, w32.GWL_STYLE))
+		w.readBounds()
+	}
+	return w
+}
+
+func (w *Window) readBounds() {
+	r := w32.GetWindowRect(w.handle)
+	w.x = int(r.Left)
+	w.y = int(r.Top)
+	w.width = int(r.Width())
+	w.height = int(r.Height())
+}
+
+func (w *Window) X() int {
+	if w.handle != 0 {
+		w.readBounds()
+	}
+	return w.x
 }
 
 func (w *Window) SetX(x int) *Window {
@@ -84,6 +124,13 @@ func (w *Window) SetX(x int) *Window {
 	return w
 }
 
+func (w *Window) Y() int {
+	if w.handle != 0 {
+		w.readBounds()
+	}
+	return w.y
+}
+
 func (w *Window) SetY(y int) *Window {
 	w.y = y
 	if w.handle != 0 {
@@ -94,6 +141,13 @@ func (w *Window) SetY(y int) *Window {
 		)
 	}
 	return w
+}
+
+func (w *Window) Pos() (x, y int) {
+	if w.handle != 0 {
+		w.readBounds()
+	}
+	return w.x, w.y
 }
 
 func (w *Window) SetPos(x, y int) *Window {
@@ -107,6 +161,13 @@ func (w *Window) SetPos(x, y int) *Window {
 		)
 	}
 	return w
+}
+
+func (w *Window) Width() int {
+	if w.handle != 0 {
+		w.readBounds()
+	}
+	return w.width
 }
 
 func (w *Window) SetWidth(width int) *Window {
@@ -124,6 +185,13 @@ func (w *Window) SetWidth(width int) *Window {
 	return w
 }
 
+func (w *Window) Height() int {
+	if w.handle != 0 {
+		w.readBounds()
+	}
+	return w.height
+}
+
 func (w *Window) SetHeight(height int) *Window {
 	if height <= 0 {
 		return w
@@ -137,6 +205,13 @@ func (w *Window) SetHeight(height int) *Window {
 		)
 	}
 	return w
+}
+
+func (w *Window) Size() (width, height int) {
+	if w.handle != 0 {
+		w.readBounds()
+	}
+	return w.width, w.height
 }
 
 func (w *Window) SetSize(width, height int) *Window {
@@ -155,6 +230,80 @@ func (w *Window) SetSize(width, height int) *Window {
 	return w
 }
 
+func (w *Window) Bounds() (x, y, width, height int) {
+	if w.handle != 0 {
+		w.readBounds()
+	}
+	return w.x, w.y, w.width, w.height
+}
+
+func (w *Window) SetBounds(x, y, width, height int) *Window {
+	if width <= 0 || height <= 0 {
+		return w
+	}
+	w.x = x
+	w.y = y
+	w.width = width
+	w.height = height
+	if w.handle != 0 {
+		w32.SetWindowPos(
+			w.handle, 0,
+			w.x, w.y, w.width, w.height,
+			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
+		)
+	}
+	return w
+}
+
+func (w *Window) ClientX() int {
+	x, _ := w.ClientPos()
+	return x
+}
+
+func (w *Window) ClientY() int {
+	_, y := w.ClientPos()
+	return y
+}
+
+func (w *Window) ClientPos() (x, y int) {
+	if w.handle != 0 {
+		x, y = w32.ClientToScreen(w.handle, 0, 0)
+	}
+	return
+}
+
+func (w *Window) ClientWidth() int {
+	width, _ := w.ClientSize()
+	return width
+}
+
+func (w *Window) ClientHeight() int {
+	_, height := w.ClientSize()
+	return height
+}
+
+func (w *Window) ClientSize() (width, height int) {
+	if w.handle == 0 {
+		if w.width < 0 {
+			width = -w.width
+		}
+		if w.height < 0 {
+			height = -height
+		}
+	} else {
+		r := w32.GetClientRect(w.handle)
+		width = int(r.Width())
+		height = int(r.Height())
+	}
+	return
+}
+
+func (w *Window) ClientBounds() (x, y, width, height int) {
+	x, y = w.ClientPos()
+	width, height = w.ClientSize()
+	return
+}
+
 func (w *Window) SetClientWidth(width int) *Window {
 	if width <= 0 {
 		return w
@@ -171,6 +320,26 @@ func (w *Window) SetClientWidth(width int) *Window {
 	} else {
 		// save negative size for Show to indicate client size
 		w.width = -width
+	}
+	return w
+}
+
+func (w *Window) SetClientHeight(height int) *Window {
+	if height <= 0 {
+		return w
+	}
+	if w.handle != 0 {
+		var r w32.RECT
+		w32.AdjustWindowRect(&r, w.style, w.menu != nil)
+		w.height = height + int(r.Height())
+		w32.SetWindowPos(
+			w.handle, 0,
+			w.x, w.y, w.width, w.height,
+			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
+		)
+	} else {
+		// save negative size for Show to indicate client size
+		w.height = -height
 	}
 	return w
 }
@@ -197,24 +366,72 @@ func (w *Window) SetClientSize(width, height int) *Window {
 	return w
 }
 
-func (w *Window) SetClientHeight(height int) *Window {
-	if height <= 0 {
-		return w
-	}
+func (w *Window) setState(s uint) *Window {
+	w.state = w32.SW_MAXIMIZE
 	if w.handle != 0 {
-		var r w32.RECT
-		w32.AdjustWindowRect(&r, w.style, w.menu != nil)
-		w.height = height + int(r.Height())
-		w32.SetWindowPos(
-			w.handle, 0,
-			w.x, w.y, w.width, w.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	} else {
-		// save negative size for Show to indicate client size
-		w.height = -height
+		w32.ShowWindow(w.handle, w.state)
 	}
 	return w
+}
+
+func (w *Window) readState() {
+	var p w32.WINDOWPLACEMENT
+	if w32.GetWindowPlacement(w.handle, &p) {
+		w.state = int(p.ShowCmd)
+	}
+}
+
+func (w *Window) Maximized() bool {
+	if w.handle != 0 {
+		w.readState()
+	}
+	return w.state == w32.SW_MAXIMIZE
+}
+
+func (w *Window) Maximize() *Window {
+	return w.setState(w32.SW_MAXIMIZE)
+}
+
+func (w *Window) Minimized() bool {
+	if w.handle != 0 {
+		w.readState()
+	}
+	return w.state == w32.SW_MINIMIZE
+}
+
+func (w *Window) Minimize() *Window {
+	return w.setState(w32.SW_MINIMIZE)
+}
+
+func (w *Window) Restore() *Window {
+	return w.setState(w32.SW_SHOWNORMAL)
+}
+
+func (w *Window) GetBackground() w32.HBRUSH { return w.background }
+
+func (w *Window) SetBackground(b w32.HBRUSH) *Window {
+	w.background = b
+	if w.handle != 0 {
+		w32.SetClassLongPtr(w.handle, w32.GCLP_HBRBACKGROUND, uintptr(b))
+		w32.InvalidateRect(w.handle, nil, true)
+	}
+	return w
+}
+
+func (w *Window) Cursor() w32.HCURSOR { return w.cursor }
+
+func (w *Window) SetCursor(c w32.HCURSOR) *Window {
+	w.cursor = c
+	if w.handle != 0 {
+		w32.SetClassLongPtr(w.handle, w32.GCLP_HCURSOR, uintptr(c))
+	}
+	return w
+}
+
+// TODO Menu() and SetMenu()
+
+func (w *Window) Font() *Font {
+	return w.font
 }
 
 func (w *Window) SetFont(f *Font) *Window {
@@ -242,27 +459,28 @@ func (w *Window) SetFont(f *Font) *Window {
 	return w
 }
 
-func (w *Window) Maximize() *Window {
-	w.state = w32.SW_MAXIMIZE
+const controlIDOffset = 2
+
+func (w *Window) Add(c Control) *Window {
+	w.controls = append(w.controls, c)
 	if w.handle != 0 {
-		w32.ShowWindow(w.handle, w.state)
+		createControl(
+			c,
+			w,
+			len(w.controls)-1+controlIDOffset,
+			w32.HINSTANCE(w32.GetWindowLong(w.handle, w32.GWL_HINSTANCE)),
+		)
 	}
 	return w
 }
 
-func (w *Window) Minimize() *Window {
-	w.state = w32.SW_MINIMIZE
-	if w.handle != 0 {
-		w32.ShowWindow(w.handle, w.state)
-	}
+func (w *Window) SetOnShow(f func(*Window)) *Window {
+	w.onShow = f
 	return w
 }
 
-func (w *Window) Restore() *Window {
-	w.state = w32.SW_SHOWNORMAL
-	if w.handle != 0 {
-		w32.ShowWindow(w.handle, w.state)
-	}
+func (w *Window) SetOnClose(f func(*Window)) *Window {
+	w.onClose = f
 	return w
 }
 
@@ -280,21 +498,6 @@ func (w *Window) SetOnKeyUp(f func(key int)) *Window {
 	w.onKeyUp = f
 	return w
 }
-
-func (w *Window) Add(c Control) *Window {
-	w.controls = append(w.controls, c)
-	if w.handle != 0 {
-		createControl(
-			c,
-			w,
-			len(w.controls)-1+controlIDOffset,
-			w32.HINSTANCE(w32.GetWindowLong(w.handle, w32.GWL_HINSTANCE)),
-		)
-	}
-	return w
-}
-
-const controlIDOffset = 2
 
 func (w *Window) Show() error {
 	if w.handle != 0 {
@@ -366,7 +569,7 @@ func (w *Window) Show() error {
 						switch c := control.(type) {
 						case *Button:
 							if c.onClick != nil {
-								c.onClick()
+								c.onClick(c)
 							}
 						case *NumberUpDown:
 							if cmd == w32.EN_CHANGE {
@@ -399,6 +602,9 @@ func (w *Window) Show() error {
 				return 0
 			}*/
 			case w32.WM_DESTROY:
+				if w.onClose != nil {
+					w.onClose(w)
+				}
 				w32.PostQuitMessage(0)
 				return 0
 			}
@@ -466,6 +672,9 @@ func (w *Window) Show() error {
 	}
 
 	w32.ShowWindow(window, w.state)
+	if w.onShow != nil {
+		w.onShow(w)
+	}
 
 	var msg w32.MSG
 	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
@@ -700,13 +909,14 @@ func (f *Font) SetStrikedOut(strikedOut bool) *Font {
 }
 
 type Button struct {
-	handle  w32.HWND
-	text    string
-	x       int
-	y       int
-	width   int
-	height  int
-	onClick func()
+	handle   w32.HWND
+	text     string
+	x        int
+	y        int
+	width    int
+	height   int
+	disabled bool
+	onClick  func(*Button)
 }
 
 func (*Button) isControl() {}
@@ -743,7 +953,15 @@ func (b *Button) SetBounds(x, y, width, height int) *Button {
 	return b
 }
 
-func (b *Button) SetOnClick(f func()) *Button {
+func (b *Button) SetEnabled(e bool) *Button {
+	b.disabled = !e
+	if b.handle != 0 {
+		w32.EnableWindow(b.handle, e)
+	}
+	return b
+}
+
+func (b *Button) SetOnClick(f func(*Button)) *Button {
 	b.onClick = f
 	return b
 }
