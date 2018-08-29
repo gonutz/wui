@@ -451,7 +451,7 @@ func (w *Window) SetFont(f *Font) *Window {
 				handle = c.editHandle
 			case *Label:
 				handle = c.handle
-			case *Panel:
+			case *Paintbox:
 				handle = c.handle
 			default:
 				panic("unhandled control type")
@@ -546,7 +546,7 @@ func (w *Window) Show() error {
 				id := wParam
 				index := id - controlIDOffset
 				if 0 <= index && index < uintptr(len(w.controls)) {
-					if p, ok := w.controls[index].(*Panel); ok {
+					if p, ok := w.controls[index].(*Paintbox); ok {
 						if p.onPaint != nil {
 							p.onPaint(&Canvas{
 								hdc: ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam))).HDC,
@@ -831,7 +831,7 @@ func createControl(
 				1,
 			)
 		}
-	case *Panel:
+	case *Paintbox:
 		c.handle = w32.CreateWindowExStr(
 			0,
 			"STATIC",
@@ -1187,7 +1187,7 @@ func (l *Label) SetRightAlign() *Label {
 	return l.setAlign(w32.SS_RIGHT)
 }
 
-type Panel struct {
+type Paintbox struct {
 	handle  w32.HWND
 	x       int
 	y       int
@@ -1196,13 +1196,13 @@ type Panel struct {
 	onPaint func(*Canvas)
 }
 
-func NewPanel() *Panel {
-	return &Panel{}
+func NewPaintbox() *Paintbox {
+	return &Paintbox{}
 }
 
-func (*Panel) isControl() {}
+func (*Paintbox) isControl() {}
 
-func (p *Panel) SetBounds(x, y, width, height int) *Panel {
+func (p *Paintbox) SetBounds(x, y, width, height int) *Paintbox {
 	p.x = x
 	p.y = y
 	p.width = width
@@ -1217,7 +1217,7 @@ func (p *Panel) SetBounds(x, y, width, height int) *Panel {
 	return p
 }
 
-func (p *Panel) SetOnPaint(f func(*Canvas)) *Panel {
+func (p *Paintbox) SetOnPaint(f func(*Canvas)) *Paintbox {
 	p.onPaint = f
 	return p
 }
@@ -1256,6 +1256,116 @@ func (c *Canvas) Line(x1, y1, x2, y2 int, color Color) {
 	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
 	w32.MoveToEx(c.hdc, x1, y1, nil)
 	w32.LineTo(c.hdc, x2, y2)
+}
+
+func (c *Canvas) DrawEllipse(x, y, width, height int, color Color) {
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
+	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
+	w32.Ellipse(c.hdc, x, y, x+width, y+height)
+}
+
+func (c *Canvas) FillEllipse(x, y, width, height int, color Color) {
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
+	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_BRUSH))
+	w32.SetDCBrushColor(c.hdc, w32.COLORREF(color))
+	w32.Ellipse(c.hdc, x, y, x+width, y+height)
+}
+
+func (c *Canvas) Polyline(p []w32.POINT, color Color) {
+	if len(p) < 2 {
+		return
+	}
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
+	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
+	w32.Polyline(c.hdc, p)
+}
+
+func (c *Canvas) Polygon(p []w32.POINT, color Color) {
+	if len(p) < 2 {
+		return
+	}
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
+	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_BRUSH))
+	w32.SetDCBrushColor(c.hdc, w32.COLORREF(color))
+	w32.Polygon(c.hdc, p)
+}
+
+func (c *Canvas) Arc(x, y, width, height int, fromClockAngle, dAngle float64, color Color) {
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
+	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
+	c.arcLike(x, y, width, height, fromClockAngle, dAngle, w32.Arc)
+}
+
+func (c *Canvas) FillPie(x, y, width, height int, fromClockAngle, dAngle float64, color Color) {
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
+	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_BRUSH))
+	w32.SetDCBrushColor(c.hdc, w32.COLORREF(color))
+	c.arcLike(x, y, width, height, fromClockAngle, dAngle, w32.Pie)
+}
+
+func (c *Canvas) DrawPie(x, y, width, height int, fromClockAngle, dAngle float64, color Color) {
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
+	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
+	c.arcLike(x, y, width, height, fromClockAngle, dAngle, w32.Pie)
+}
+
+func (c *Canvas) arcLike(
+	x, y, width, height int,
+	fromClockAngle, dAngle float64,
+	draw func(w32.HDC, int, int, int, int, int, int, int, int) bool) {
+	toRad := func(clock float64) float64 {
+		return (90 - clock) * math.Pi / 180
+	}
+	a, b := fromClockAngle+dAngle, fromClockAngle
+	if dAngle < 0 {
+		a, b = b, a
+	}
+	y1, x1 := math.Sincos(toRad(a))
+	y2, x2 := math.Sincos(toRad(b))
+	x1, x2, y1, y2 = 100*x1, 100*x2, -100*y1, -100*y2
+	round := func(f float64) int {
+		if f < 0 {
+			return int(f - 0.5)
+		}
+		return int(f + 0.5)
+	}
+	cx := float64(x) + float64(width)/2.0
+	cy := float64(y) + float64(height)/2.0
+	draw(
+		c.hdc,
+		x, y, x+width, y+height,
+		round(cx+100*x1), round(cy+100*y1), round(cx+100*x2), round(cy+100*y2),
+	)
+}
+
+func (c *Canvas) TextExtent(s string) (width, height int) {
+	size, ok := w32.GetTextExtentPoint32(c.hdc, s)
+	if ok {
+		width = int(size.CX)
+		height = int(size.CY)
+	}
+	return
+}
+
+func (c *Canvas) TextOut(x, y int, s string) {
+	w32.SetBkMode(c.hdc, w32.TRANSPARENT)
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
+	w32.TextOut(c.hdc, x, y, s)
+	w32.SetBkMode(c.hdc, w32.OPAQUE)
+}
+
+func (c *Canvas) SetFont(font *Font) *Canvas {
+	// TODO this creates a new font every time, either cache them or create one
+	// per canvas
+	font.create()
+	w32.SelectObject(c.hdc, w32.HGDIOBJ(font.handle))
+	return c
 }
 
 // NOTE this was the first attempt, restructuring the API
