@@ -612,7 +612,9 @@ func (w *Window) Show() error {
 					if p, ok := w.controls[index].(*Paintbox); ok {
 						if p.onPaint != nil {
 							p.onPaint(&Canvas{
-								hdc: ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam))).HDC,
+								hdc:    ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam))).HDC,
+								width:  p.width,
+								height: p.height,
 							})
 						}
 					}
@@ -1078,11 +1080,11 @@ func NewNumberUpDown() *NumberUpDown {
 	}
 }
 
-func (n *NumberUpDown) Value() int32 {
+func (n *NumberUpDown) Value() int {
 	if n.upDownHandle != 0 {
 		n.value = int32(w32.SendMessage(n.upDownHandle, w32.UDM_GETPOS32, 0, 0))
 	}
-	return n.value
+	return int(n.value)
 }
 
 func (n *NumberUpDown) SetValue(v int32) *NumberUpDown {
@@ -1100,7 +1102,7 @@ func (n *NumberUpDown) SetValue(v int32) *NumberUpDown {
 }
 
 func (n *NumberUpDown) SetMinValue(min int32) *NumberUpDown {
-	if n.Value() < min {
+	if int32(n.Value()) < min {
 		n.SetValue(min)
 	}
 	n.minValue = min
@@ -1116,7 +1118,7 @@ func (n *NumberUpDown) SetMinValue(min int32) *NumberUpDown {
 }
 
 func (n *NumberUpDown) SetMaxValue(max int32) *NumberUpDown {
-	if n.Value() > max {
+	if int32(n.Value()) > max {
 		n.SetValue(max)
 	}
 	n.maxValue = max
@@ -1132,9 +1134,9 @@ func (n *NumberUpDown) SetMaxValue(max int32) *NumberUpDown {
 }
 
 func (n *NumberUpDown) SetMinMaxValues(min, max int32) *NumberUpDown {
-	if n.Value() < min {
+	if int32(n.Value()) < min {
 		n.SetValue(min)
-	} else if n.Value() > max {
+	} else if int32(n.Value()) > max {
 		n.SetValue(max)
 	}
 	n.minValue = min
@@ -1260,6 +1262,12 @@ func NewPaintbox() *Paintbox {
 
 func (*Paintbox) isControl() {}
 
+func (p *Paintbox) Paint() {
+	if p.handle != 0 {
+		w32.InvalidateRect(p.handle, nil, true)
+	}
+}
+
 func (p *Paintbox) SetBounds(x, y, width, height int) *Paintbox {
 	p.x = x
 	p.y = y
@@ -1291,7 +1299,22 @@ func RGB(r, g, b uint8) Color {
 }
 
 type Canvas struct {
-	hdc w32.HDC
+	hdc    w32.HDC
+	width  int
+	height int
+}
+
+func (c *Canvas) Size() (width, height int) {
+	width, height = c.width, c.height
+	return
+}
+
+func (c *Canvas) Width() int {
+	return c.width
+}
+
+func (c *Canvas) Height() int {
+	return c.height
 }
 
 func (c *Canvas) DrawRect(x, y, width, height int, color Color) {
@@ -1411,9 +1434,10 @@ func (c *Canvas) TextExtent(s string) (width, height int) {
 	return
 }
 
-func (c *Canvas) TextOut(x, y int, s string) {
+func (c *Canvas) TextOut(x, y int, s string, color Color) {
 	w32.SetBkMode(c.hdc, w32.TRANSPARENT)
 	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
+	w32.SetTextColor(c.hdc, w32.COLORREF(color))
 	w32.TextOut(c.hdc, x, y, s)
 	w32.SetBkMode(c.hdc, w32.OPAQUE)
 }
