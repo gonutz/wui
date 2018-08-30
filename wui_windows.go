@@ -747,9 +747,8 @@ func (w *Window) Show() error {
 		createControl(c, w, i+controlIDOffset, instance)
 	}
 
-	w.readBounds()
-
 	w32.ShowWindow(window, w.state)
+	w.readBounds()
 	if w.onShow != nil {
 		w.onShow(w)
 	}
@@ -835,6 +834,9 @@ func createControl(
 			c.x, c.y, c.width, c.height,
 			parent.handle, w32.HMENU(id), instance, nil,
 		)
+		if c.disabled {
+			w32.EnableWindow(c.handle, false)
+		}
 		if parent.font != nil {
 			w32.SendMessage(
 				c.handle,
@@ -860,6 +862,9 @@ func createControl(
 			c.x, c.y, c.width, c.height,
 			parent.handle, w32.HMENU(id), instance, nil,
 		)
+		if c.disabled {
+			w32.EnableWindow(edit, false)
+		}
 		w32.SendMessage(upDown, w32.UDM_SETBUDDY, uintptr(edit), 0)
 		w32.SendMessage(
 			upDown,
@@ -1045,6 +1050,10 @@ func (b *Button) SetBounds(x, y, width, height int) *Button {
 	return b
 }
 
+func (b *Button) Enabled() bool {
+	return !b.disabled
+}
+
 func (b *Button) SetEnabled(e bool) *Button {
 	b.disabled = !e
 	if b.handle != 0 {
@@ -1068,6 +1077,7 @@ type NumberUpDown struct {
 	value         int32
 	minValue      int32
 	maxValue      int32
+	disabled      bool
 	onValueChange func(value int)
 }
 
@@ -1078,6 +1088,18 @@ func NewNumberUpDown() *NumberUpDown {
 		minValue: math.MinInt32,
 		maxValue: math.MaxInt32,
 	}
+}
+
+func (n *NumberUpDown) Enabled() bool {
+	return !n.disabled
+}
+
+func (n *NumberUpDown) SetEnabled(e bool) *NumberUpDown {
+	n.disabled = !e
+	if n.editHandle != 0 {
+		w32.EnableWindow(n.editHandle, e)
+	}
+	return n
 }
 
 func (n *NumberUpDown) Value() int {
