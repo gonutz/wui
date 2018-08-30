@@ -32,6 +32,7 @@ type Window struct {
 	background  w32.HBRUSH
 	cursor      w32.HCURSOR
 	menu        *Menu
+	menuStrings []*MenuString
 	font        *Font
 	controls    []Control
 	onShow      func(*Window)
@@ -429,7 +430,63 @@ func (w *Window) SetCursor(c w32.HCURSOR) *Window {
 	return w
 }
 
-// TODO Menu() and SetMenu()
+func (w *Window) Menu() *Menu {
+	return w.menu
+}
+
+func (w *Window) SetMenu(m *Menu) *Window {
+	w.menu = m
+	if w.handle != 0 {
+		// TODO update menu
+	}
+	return w
+}
+
+type MenuItem interface {
+	isMenuItem()
+}
+
+type Menu struct {
+	name  string
+	items []MenuItem
+}
+
+func NewMenu(name string) *Menu {
+	return &Menu{name: name}
+}
+
+func (*Menu) isMenuItem() {}
+
+func (m *Menu) Add(item MenuItem) *Menu {
+	m.items = append(m.items, item)
+	return m
+}
+
+func NewMenuString(name string) *MenuString {
+	return &MenuString{name: name}
+}
+
+type MenuString struct {
+	name    string
+	onClick func()
+}
+
+func (*MenuString) isMenuItem() {}
+
+func (m *MenuString) SetOnClick(f func()) *MenuString {
+	m.onClick = f
+	return m
+}
+
+func NewMenuSeparator() MenuItem {
+	return separator
+}
+
+type menuSeparator int
+
+func (menuSeparator) isMenuItem() {}
+
+var separator menuSeparator
 
 func (w *Window) Font() *Font {
 	return w.font
@@ -502,6 +559,12 @@ func (w *Window) SetOnKeyUp(f func(key int)) *Window {
 	return w
 }
 
+func (w *Window) Close() {
+	if w.handle != 0 {
+		w32.SendMessage(w.handle, w32.WM_CLOSE, 0, 0)
+	}
+}
+
 func (w *Window) Show() error {
 	if w.handle != 0 {
 		return errors.New("wui.Window.Show: window already visible")
@@ -566,14 +629,13 @@ func (w *Window) Show() error {
 				}
 			case w32.WM_COMMAND:
 				if lParam == 0 && wParam&0xFFFF0000 == 0 {
-					// TODO menu item clicked
-					/*id := int(wParam & 0xFFFF)
-					if 0 <= id && id < len(w.menuItems) {
-						f := w.menuItems[id].OnClick
+					id := int(wParam & 0xFFFF)
+					if 0 <= id && id < len(w.menuStrings) {
+						f := w.menuStrings[id].onClick
 						if f != nil {
 							f()
 						}
-					}*/
+					}
 				} else if lParam != 0 {
 					// control clicked
 					id := wParam & 0xFFFF
@@ -584,7 +646,7 @@ func (w *Window) Show() error {
 						switch c := control.(type) {
 						case *Button:
 							if c.onClick != nil {
-								c.onClick(c)
+								c.onClick()
 							}
 						case *NumberUpDown:
 							if cmd == w32.EN_CHANGE {
@@ -645,46 +707,45 @@ func (w *Window) Show() error {
 		return errors.New("win.NewWindow: CreateWindowEx failed")
 	}
 	w.handle = window
-	r := w32.GetWindowRect(w.handle)
-	w.x = int(r.Left)
-	w.y = int(r.Top)
 
 	if w.font != nil {
 		w.font.create()
 	}
 
-	//if w.Menu != nil {
-	//	var addItems func(m w32.HMENU, items []menuItem)
-	//	addItems = func(m w32.HMENU, items []menuItem) {
-	//		for _, item := range items {
-	//			switch menuItem := item.(type) {
-	//			case *Menu:
-	//				menu := w32.CreateMenu()
-	//				w32.AppendMenu(m, w32.MF_POPUP, uintptr(menu),
-	// menuItem.name)
-	//				addItems(menu, menuItem.items)
-	//			case *MenuItem:
-	//				w32.AppendMenu(
-	//					m,
-	//					w32.MF_STRING,
-	//					uintptr(len(w.menuItems)),
-	//					menuItem.name,
-	//				)
-	//				w.menuItems = append(w.menuItems, menuItem)
-	//			case *menuSeparator:
-	//				w32.AppendMenu(m, w32.MF_SEPARATOR, 0, "")
-	//			}
-	//		}
-	//	}
-	//	menuBar := w32.CreateMenu()
-	//	addItems(menuBar, w.Menu.items)
-	//	w32.SetMenu(window, menuBar)
-	//}
+	if w.menu != nil {
+		var addItems func(m w32.HMENU, items []MenuItem)
+		addItems = func(m w32.HMENU, items []MenuItem) {
+			for _, item := range items {
+				switch menuItem := item.(type) {
+				case *Menu:
+					menu := w32.CreateMenu()
+					w32.AppendMenu(m, w32.MF_POPUP, uintptr(menu),
+						menuItem.name)
+					addItems(menu, menuItem.items)
+				case *MenuString:
+					w32.AppendMenu(
+						m,
+						w32.MF_STRING,
+						uintptr(len(w.menuStrings)),
+						menuItem.name,
+					)
+					w.menuStrings = append(w.menuStrings, menuItem)
+				case menuSeparator:
+					w32.AppendMenu(m, w32.MF_SEPARATOR, 0, "")
+				}
+			}
+		}
+		menuBar := w32.CreateMenu()
+		addItems(menuBar, w.menu.items)
+		w32.SetMenu(window, menuBar)
+	}
 
 	instance := w32.HINSTANCE(w32.GetWindowLong(window, w32.GWL_HINSTANCE))
 	for i, c := range w.controls {
 		createControl(c, w, i+controlIDOffset, instance)
 	}
+
+	w.readBounds()
 
 	w32.ShowWindow(window, w.state)
 	if w.onShow != nil {
@@ -853,9 +914,6 @@ func createControl(
 	}
 }
 
-type Menu struct {
-}
-
 type Font struct {
 	handle     w32.HFONT
 	name       string
@@ -948,7 +1006,7 @@ type Button struct {
 	width    int
 	height   int
 	disabled bool
-	onClick  func(*Button)
+	onClick  func()
 }
 
 func (*Button) isControl() {}
@@ -993,7 +1051,7 @@ func (b *Button) SetEnabled(e bool) *Button {
 	return b
 }
 
-func (b *Button) SetOnClick(f func(*Button)) *Button {
+func (b *Button) SetOnClick(f func()) *Button {
 	b.onClick = f
 	return b
 }
