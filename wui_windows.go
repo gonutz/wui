@@ -548,6 +548,9 @@ func (w *Window) Add(c Control) *Window {
 			w32.HINSTANCE(w32.GetWindowLong(w.handle, w32.GWL_HINSTANCE)),
 		)
 	}
+	if label, ok := c.(*Label); ok {
+		label.parent = w
+	}
 	return w
 }
 
@@ -1222,6 +1225,8 @@ type Label struct {
 	height int
 	text   string
 	align  uint
+	parent *Window
+	font   *Font
 }
 
 func NewLabel() *Label {
@@ -1236,6 +1241,26 @@ func (l *Label) X() int      { return l.x }
 func (l *Label) Y() int      { return l.y }
 func (l *Label) Width() int  { return l.width }
 func (l *Label) Height() int { return l.height }
+func (l *Label) Font() *Font { return l.font }
+
+func (l *Label) SetFont(f *Font) *Label {
+	l.font = f
+	if l.handle != 0 {
+		if l.font != nil {
+			l.font.create()
+			w32.SendMessage(l.handle, w32.WM_SETFONT, uintptr(l.font.handle), 1)
+		}
+		if l.font == nil && l.parent != nil && l.parent.font != nil {
+			w32.SendMessage(
+				l.handle,
+				w32.WM_SETFONT,
+				uintptr(l.parent.font.handle),
+				1,
+			)
+		}
+	}
+	return l
+}
 
 func (l *Label) SetText(text string) *Label {
 	l.text = text
