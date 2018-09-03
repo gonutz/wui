@@ -56,6 +56,7 @@ type Window struct {
 	onMouseMove func(x, y int)
 	onKeyDown   func(key int)
 	onKeyUp     func(key int)
+	onResize    func()
 }
 
 func NewWindow() *Window {
@@ -575,6 +576,11 @@ func (w *Window) SetOnKeyUp(f func(key int)) *Window {
 	return w
 }
 
+func (w *Window) SetOnResize(f func()) *Window {
+	w.onResize = f
+	return w
+}
+
 func (w *Window) Close() {
 	if w.handle != 0 {
 		w32.SendMessage(w.handle, w32.WM_CLOSE, 0, 0)
@@ -676,26 +682,13 @@ func (w *Window) Show() error {
 						return 0
 					}
 				}
-			/*case w32.WM_PAINT:
-			if w.OnPaint != nil {
-				func() {
-					var ps w32.PAINTSTRUCT
-					hdc := w32.BeginPaint(window, &ps)
-					defer w32.EndPaint(window, &ps)
-					var b w32.LOGBRUSH
-					w32.GetObject(
-						w32.HGDIOBJ(w.Background),
-						unsafe.Sizeof(b),
-						unsafe.Pointer(&b),
-					)
-					w32.SetBkColor(hdc, b.LbColor)
-					if w.font != 0 {
-						w32.SelectObject(hdc, w32.HGDIOBJ(w.font))
-					}
-					w.OnPaint(Painter(hdc))
-				}()
+
+			case w32.WM_SIZE:
+				if w.onResize != nil {
+					w.onResize()
+				}
+				w32.InvalidateRect(window, nil, true)
 				return 0
-			}*/
 			case w32.WM_DESTROY:
 				if w.onClose != nil {
 					w.onClose(w)
@@ -1125,8 +1118,8 @@ func (n *NumberUpDown) Value() int {
 	return int(n.value)
 }
 
-func (n *NumberUpDown) SetValue(v int32) *NumberUpDown {
-	n.value = v
+func (n *NumberUpDown) SetValue(v int) *NumberUpDown {
+	n.value = int32(v)
 	if n.value < n.minValue {
 		n.value = n.minValue
 	}
@@ -1139,11 +1132,11 @@ func (n *NumberUpDown) SetValue(v int32) *NumberUpDown {
 	return n
 }
 
-func (n *NumberUpDown) SetMinValue(min int32) *NumberUpDown {
-	if int32(n.Value()) < min {
+func (n *NumberUpDown) SetMinValue(min int) *NumberUpDown {
+	if n.Value() < min {
 		n.SetValue(min)
 	}
-	n.minValue = min
+	n.minValue = int32(min)
 	if n.upDownHandle != 0 {
 		w32.SendMessage(
 			n.upDownHandle,
@@ -1155,11 +1148,11 @@ func (n *NumberUpDown) SetMinValue(min int32) *NumberUpDown {
 	return n
 }
 
-func (n *NumberUpDown) SetMaxValue(max int32) *NumberUpDown {
-	if int32(n.Value()) > max {
+func (n *NumberUpDown) SetMaxValue(max int) *NumberUpDown {
+	if n.Value() > max {
 		n.SetValue(max)
 	}
-	n.maxValue = max
+	n.maxValue = int32(max)
 	if n.upDownHandle != 0 {
 		w32.SendMessage(
 			n.upDownHandle,
@@ -1171,14 +1164,14 @@ func (n *NumberUpDown) SetMaxValue(max int32) *NumberUpDown {
 	return n
 }
 
-func (n *NumberUpDown) SetMinMaxValues(min, max int32) *NumberUpDown {
-	if int32(n.Value()) < min {
+func (n *NumberUpDown) SetMinMaxValues(min, max int) *NumberUpDown {
+	if n.Value() < min {
 		n.SetValue(min)
-	} else if int32(n.Value()) > max {
+	} else if n.Value() > max {
 		n.SetValue(max)
 	}
-	n.minValue = min
-	n.maxValue = max
+	n.minValue = int32(min)
+	n.maxValue = int32(max)
 	if n.upDownHandle != 0 {
 		w32.SendMessage(
 			n.upDownHandle,
@@ -1238,6 +1231,11 @@ func NewLabel() *Label {
 }
 
 func (*Label) isControl() {}
+
+func (l *Label) X() int      { return l.x }
+func (l *Label) Y() int      { return l.y }
+func (l *Label) Width() int  { return l.width }
+func (l *Label) Height() int { return l.height }
 
 func (l *Label) SetText(text string) *Label {
 	l.text = text
