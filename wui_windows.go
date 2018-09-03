@@ -903,7 +903,15 @@ func createControl(
 			c.x, c.y, c.width, c.height,
 			parent.handle, w32.HMENU(id), instance, nil,
 		)
-		if parent.font != nil {
+		if c.font != nil {
+			c.font.create()
+			w32.SendMessage(
+				c.handle,
+				w32.WM_SETFONT,
+				uintptr(c.font.handle),
+				1,
+			)
+		} else if parent.font != nil {
 			w32.SendMessage(
 				c.handle,
 				w32.WM_SETFONT,
