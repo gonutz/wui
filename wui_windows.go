@@ -847,11 +847,15 @@ func createControl(
 ) {
 	switch c := control.(type) {
 	case *Button:
+		var visible uint
+		if !c.hidden {
+			visible = w32.WS_VISIBLE
+		}
 		c.handle = w32.CreateWindowExStr(
 			0,
 			"BUTTON",
 			c.text,
-			w32.WS_VISIBLE|w32.WS_CHILD|w32.WS_TABSTOP|w32.BS_DEFPUSHBUTTON,
+			visible|w32.WS_CHILD|w32.WS_TABSTOP|w32.BS_DEFPUSHBUTTON,
 			c.x, c.y, c.width, c.height,
 			parent.handle, w32.HMENU(id), instance, nil,
 		)
@@ -1060,6 +1064,7 @@ type Button struct {
 	width    int
 	height   int
 	disabled bool
+	hidden   bool
 	onClick  func()
 }
 
@@ -1111,6 +1116,22 @@ func (b *Button) SetEnabled(e bool) *Button {
 
 func (b *Button) SetOnClick(f func()) *Button {
 	b.onClick = f
+	return b
+}
+
+func (b *Button) Visible() bool {
+	return !b.hidden
+}
+
+func (b *Button) SetVisible(v bool) *Button {
+	b.hidden = !v
+	if b.handle != 0 {
+		cmd := w32.SW_SHOW
+		if b.hidden {
+			cmd = w32.SW_HIDE
+		}
+		w32.ShowWindow(b.handle, cmd)
+	}
 	return b
 }
 
