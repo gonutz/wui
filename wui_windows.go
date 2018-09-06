@@ -692,6 +692,8 @@ func (w *Window) SetFont(f *Font) *Window {
 				handle = c.handle
 			case *EditLine:
 				handle = c.handle
+			case *ProgressBar:
+				handle = c.handle
 			default:
 				panic("unhandled control type")
 			}
@@ -1143,10 +1145,33 @@ func createControl(
 			w32.WS_EX_CLIENTEDGE,
 			"EDIT",
 			c.text,
-			visible|w32.WS_TABSTOP|w32.WS_CHILD,
+			visible|w32.WS_CHILD|w32.WS_TABSTOP,
 			c.x, c.y, c.width, c.height,
 			parent.handle, w32.HMENU(id), instance, nil,
 		)
+		if parent.font != nil {
+			w32.SendMessage(
+				c.handle,
+				w32.WM_SETFONT,
+				uintptr(parent.font.handle),
+				1,
+			)
+		}
+	case *ProgressBar:
+		var visible uint
+		if !c.hidden {
+			visible = w32.WS_VISIBLE
+		}
+		c.handle = w32.CreateWindowExStr(
+			w32.WS_EX_CLIENTEDGE,
+			w32.PROGRESS_CLASS,
+			"",
+			visible|w32.WS_CHILD,
+			c.x, c.y, c.width, c.height,
+			parent.handle, w32.HMENU(id), instance, nil,
+		)
+		w32.SendMessage(c.handle, w32.PBM_SETRANGE32, 0, maxProgressBarValue)
+		c.SetValue(c.value)
 		if parent.font != nil {
 			w32.SendMessage(
 				c.handle,
@@ -1979,4 +2004,106 @@ func (e *EditLine) SetVisible(v bool) *EditLine {
 		w32.ShowWindow(e.handle, cmd)
 	}
 	return e
+}
+
+const maxProgressBarValue = 10000
+
+type ProgressBar struct {
+	handle w32.HWND
+	x      int
+	y      int
+	width  int
+	height int
+	hidden bool
+	value  float64
+}
+
+func (p *ProgressBar) isControl() {}
+
+func NewProgressBar() *ProgressBar {
+	return &ProgressBar{}
+}
+
+func (p *ProgressBar) X() int      { return p.x }
+func (p *ProgressBar) Y() int      { return p.y }
+func (p *ProgressBar) Width() int  { return p.width }
+func (p *ProgressBar) Height() int { return p.height }
+
+func (p *ProgressBar) SetX(x int) *ProgressBar {
+	return p.SetBounds(x, p.y, p.width, p.height)
+}
+
+func (p *ProgressBar) SetY(y int) *ProgressBar {
+	return p.SetBounds(p.x, y, p.width, p.height)
+}
+
+func (p *ProgressBar) SetPos(x, y int) *ProgressBar {
+	return p.SetBounds(x, y, p.width, p.height)
+}
+
+func (p *ProgressBar) SetWidth(width int) *ProgressBar {
+	return p.SetBounds(p.x, p.y, width, p.height)
+}
+
+func (p *ProgressBar) SetHeight(height int) *ProgressBar {
+	return p.SetBounds(p.x, p.y, p.width, height)
+}
+
+func (p *ProgressBar) SetSize(width, height int) *ProgressBar {
+	return p.SetBounds(p.x, p.y, width, height)
+}
+
+func (p *ProgressBar) SetBounds(x, y, width, height int) *ProgressBar {
+	p.x = x
+	p.y = y
+	p.width = width
+	p.height = height
+	if p.handle != 0 {
+		w32.SetWindowPos(
+			p.handle, 0,
+			p.x, p.y, p.width, p.height,
+			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
+		)
+	}
+	return p
+}
+
+func (p *ProgressBar) SetValue(v float64) *ProgressBar {
+	if v < 0 {
+		v = 0
+	}
+	if v > 1 {
+		v = 1
+	}
+	p.value = v
+	if p.handle != 0 {
+		pos := int(v*maxProgressBarValue + 0.5)
+		w32.SendMessage(p.handle, w32.PBM_SETPOS, uintptr(pos), 0)
+	}
+	return p
+}
+
+func (p *ProgressBar) Value() float64 {
+	// NOTE this is not necessary as long as nobody else can set the position
+	//if p.handle != 0 {
+	//	pos := w32.SendMessage(p.handle, w32.PBM_GETPOS, 0, 0)
+	//	p.value = float64(pos) / maxProgressBarValue
+	//}
+	return p.value
+}
+
+func (p *ProgressBar) Visible() bool {
+	return !p.hidden
+}
+
+func (p *ProgressBar) SetVisible(v bool) *ProgressBar {
+	p.hidden = !v
+	if p.handle != 0 {
+		cmd := w32.SW_SHOW
+		if p.hidden {
+			cmd = w32.SW_HIDE
+		}
+		w32.ShowWindow(p.handle, cmd)
+	}
+	return p
 }
