@@ -690,6 +690,8 @@ func (w *Window) SetFont(f *Font) *Window {
 				handle = c.handle
 			case *Checkbox:
 				handle = c.handle
+			case *EditLine:
+				handle = c.handle
 			default:
 				panic("unhandled control type")
 			}
@@ -1069,11 +1071,15 @@ func createControl(
 			)
 		}
 	case *Label:
+		var visible uint
+		if !c.hidden {
+			visible = w32.WS_VISIBLE
+		}
 		c.handle = w32.CreateWindowExStr(
 			0,
 			"STATIC",
 			c.text,
-			w32.WS_VISIBLE|w32.WS_CHILD|w32.SS_CENTERIMAGE|c.align,
+			visible|w32.WS_CHILD|w32.SS_CENTERIMAGE|c.align,
 			c.x, c.y, c.width, c.height,
 			parent.handle, w32.HMENU(id), instance, nil,
 		)
@@ -1120,6 +1126,27 @@ func createControl(
 			parent.handle, w32.HMENU(id), instance, nil,
 		)
 		w32.SendMessage(c.handle, w32.BM_SETCHECK, toCheckState(c.checked), 0)
+		if parent.font != nil {
+			w32.SendMessage(
+				c.handle,
+				w32.WM_SETFONT,
+				uintptr(parent.font.handle),
+				1,
+			)
+		}
+	case *EditLine:
+		var visible uint
+		if !c.hidden {
+			visible = w32.WS_VISIBLE
+		}
+		c.handle = w32.CreateWindowExStr(
+			w32.WS_EX_CLIENTEDGE,
+			"EDIT",
+			c.text,
+			visible|w32.WS_TABSTOP|w32.WS_CHILD,
+			c.x, c.y, c.width, c.height,
+			parent.handle, w32.HMENU(id), instance, nil,
+		)
 		if parent.font != nil {
 			w32.SendMessage(
 				c.handle,
@@ -1246,6 +1273,30 @@ func (b *Button) SetText(text string) *Button {
 		w32.SetWindowText(b.handle, b.text)
 	}
 	return b
+}
+
+func (b *Button) SetX(x int) *Button {
+	return b.SetBounds(x, b.y, b.width, b.height)
+}
+
+func (b *Button) SetY(y int) *Button {
+	return b.SetBounds(b.x, y, b.width, b.height)
+}
+
+func (b *Button) SetPos(x, y int) *Button {
+	return b.SetBounds(x, y, b.width, b.height)
+}
+
+func (b *Button) SetWidth(width int) *Button {
+	return b.SetBounds(b.x, b.y, width, b.height)
+}
+
+func (b *Button) SetHeight(height int) *Button {
+	return b.SetBounds(b.x, b.y, b.width, height)
+}
+
+func (b *Button) SetSize(width, height int) *Button {
+	return b.SetBounds(b.x, b.y, width, height)
 }
 
 func (b *Button) SetBounds(x, y, width, height int) *Button {
@@ -1442,6 +1493,7 @@ type Label struct {
 	height int
 	text   string
 	align  uint
+	hidden bool
 	parent *Window
 	font   *Font
 }
@@ -1487,6 +1539,30 @@ func (l *Label) SetText(text string) *Label {
 	return l
 }
 
+func (l *Label) SetX(x int) *Label {
+	return l.SetBounds(x, l.y, l.width, l.height)
+}
+
+func (l *Label) SetY(y int) *Label {
+	return l.SetBounds(l.x, y, l.width, l.height)
+}
+
+func (l *Label) SetPos(x, y int) *Label {
+	return l.SetBounds(x, y, l.width, l.height)
+}
+
+func (l *Label) SetWidth(width int) *Label {
+	return l.SetBounds(l.x, l.y, width, l.height)
+}
+
+func (l *Label) SetHeight(height int) *Label {
+	return l.SetBounds(l.x, l.y, l.width, height)
+}
+
+func (l *Label) SetSize(width, height int) *Label {
+	return l.SetBounds(l.x, l.y, width, height)
+}
+
 func (l *Label) SetBounds(x, y, width, height int) *Label {
 	l.x = x
 	l.y = y
@@ -1523,6 +1599,22 @@ func (l *Label) SetCenterAlign() *Label {
 
 func (l *Label) SetRightAlign() *Label {
 	return l.setAlign(w32.SS_RIGHT)
+}
+
+func (l *Label) Visible() bool {
+	return !l.hidden
+}
+
+func (l *Label) SetVisible(v bool) *Label {
+	l.hidden = !v
+	if l.handle != 0 {
+		cmd := w32.SW_SHOW
+		if l.hidden {
+			cmd = w32.SW_HIDE
+		}
+		w32.ShowWindow(l.handle, cmd)
+	}
+	return l
 }
 
 type Paintbox struct {
@@ -1796,4 +1888,95 @@ func toCheckState(checked bool) uintptr {
 func (c *Checkbox) SetOnChange(f func(checked bool)) *Checkbox {
 	c.onChange = f
 	return c
+}
+
+type EditLine struct {
+	handle w32.HWND
+	x      int
+	y      int
+	width  int
+	height int
+	text   string
+	hidden bool
+}
+
+func NewEditLine() *EditLine {
+	return &EditLine{}
+}
+
+func (*EditLine) isControl() {}
+
+func (e *EditLine) X() int      { return e.x }
+func (e *EditLine) Y() int      { return e.y }
+func (e *EditLine) Width() int  { return e.width }
+func (e *EditLine) Height() int { return e.height }
+
+func (e *EditLine) SetX(x int) *EditLine {
+	return e.SetBounds(x, e.y, e.width, e.height)
+}
+
+func (e *EditLine) SetY(y int) *EditLine {
+	return e.SetBounds(e.x, y, e.width, e.height)
+}
+
+func (e *EditLine) SetPos(x, y int) *EditLine {
+	return e.SetBounds(x, y, e.width, e.height)
+}
+
+func (e *EditLine) SetWidth(width int) *EditLine {
+	return e.SetBounds(e.x, e.y, width, e.height)
+}
+
+func (e *EditLine) SetHeight(height int) *EditLine {
+	return e.SetBounds(e.x, e.y, e.width, height)
+}
+
+func (e *EditLine) SetSize(width, height int) *EditLine {
+	return e.SetBounds(e.x, e.y, width, height)
+}
+
+func (e *EditLine) SetBounds(x, y, width, height int) *EditLine {
+	e.x = x
+	e.y = y
+	e.width = width
+	e.height = height
+	if e.handle != 0 {
+		w32.SetWindowPos(
+			e.handle, 0,
+			e.x, e.y, e.width, e.height,
+			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
+		)
+	}
+	return e
+}
+
+func (e *EditLine) Text() string {
+	if e.handle != 0 {
+		e.text = w32.GetWindowText(e.handle)
+	}
+	return e.text
+}
+
+func (e *EditLine) SetText(text string) *EditLine {
+	e.text = text
+	if e.handle != 0 {
+		w32.SetWindowText(e.handle, text)
+	}
+	return e
+}
+
+func (e *EditLine) Visible() bool {
+	return !e.hidden
+}
+
+func (e *EditLine) SetVisible(v bool) *EditLine {
+	e.hidden = !v
+	if e.handle != 0 {
+		cmd := w32.SW_SHOW
+		if e.hidden {
+			cmd = w32.SW_HIDE
+		}
+		w32.ShowWindow(e.handle, cmd)
+	}
+	return e
 }
