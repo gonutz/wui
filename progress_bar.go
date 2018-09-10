@@ -20,6 +20,12 @@ type ProgressBar struct {
 
 const maxProgressBarValue = 10000
 
+func (p *ProgressBar) create(id int) {
+	p.control.create(id, w32.WS_EX_CLIENTEDGE, w32.PROGRESS_CLASS, 0)
+	w32.SendMessage(p.handle, w32.PBM_SETRANGE32, 0, maxProgressBarValue)
+	p.SetValue(p.value)
+}
+
 func (p *ProgressBar) Value() float64 {
 	return p.value
 }

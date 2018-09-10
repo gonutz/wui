@@ -14,6 +14,16 @@ type RadioButton struct {
 	onChange func(bool)
 }
 
+func (r *RadioButton) create(id int) {
+	r.textControl.create(
+		id,
+		0,
+		"BUTTON",
+		w32.WS_TABSTOP|w32.BS_AUTORADIOBUTTON|w32.BS_NOTIFY,
+	)
+	w32.SendMessage(r.handle, w32.BM_SETCHECK, toCheckState(r.checked), 0)
+}
+
 func (r *RadioButton) Checked() bool {
 	return r.checked
 }

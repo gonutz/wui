@@ -14,6 +14,11 @@ type Checkbox struct {
 	onChange func(bool)
 }
 
+func (c *Checkbox) create(id int) {
+	c.textControl.create(id, 0, "BUTTON", w32.WS_TABSTOP|w32.BS_AUTOCHECKBOX)
+	w32.SendMessage(c.handle, w32.BM_SETCHECK, toCheckState(c.checked), 0)
+}
+
 func (c *Checkbox) Checked() bool {
 	return c.checked
 }

@@ -17,6 +17,10 @@ type Paintbox struct {
 	onPaint func(*Canvas)
 }
 
+func (p *Paintbox) create(id int) {
+	p.control.create(id, 0, "STATIC", w32.SS_OWNERDRAW)
+}
+
 func (p *Paintbox) SetOnPaint(f func(*Canvas)) {
 	p.onPaint = f
 }

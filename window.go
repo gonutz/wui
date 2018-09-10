@@ -1,3 +1,5 @@
+//+build windows
+
 package wui
 
 import (
@@ -5,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
-	"strconv"
 	"syscall"
 	"unsafe"
 
@@ -53,41 +54,61 @@ type Window struct {
 
 type Control interface {
 	isControl()
+	setParent(parent container)
+	create(id int)
+	parentFontChanged()
+}
+
+type container interface {
+	isContainer()
+	setParent(parent container)
+	getHandle() w32.HWND
+	getInstance() w32.HINSTANCE
+	Font() *Font
+}
+
+func (*Window) isContainer() {}
+
+func (*Window) setParent(parent container) {}
+
+func (w *Window) getHandle() w32.HWND {
+	return w.handle
+}
+
+func (w *Window) getInstance() w32.HINSTANCE {
+	return w32.HINSTANCE(w32.GetWindowLong(w.handle, w32.GWL_HINSTANCE))
 }
 
 func (w *Window) ClassName() string { return w.className }
 
-func (w *Window) SetClassName(name string) *Window {
+func (w *Window) SetClassName(name string) {
 	if w.handle != 0 {
 		w.className = name
 	}
-	return w
 }
 
 func (w *Window) ClassStyle() uint32 { return w.classStyle }
 
-func (w *Window) SetClassStyle(style uint32) *Window {
+func (w *Window) SetClassStyle(style uint32) {
 	w.classStyle = style
 	if w.handle != 0 {
 		w32.SetClassLongPtr(w.handle, w32.GCL_STYLE, uintptr(w.classStyle))
 		w.classStyle = uint32(w32.GetClassLongPtr(w.handle, w32.GCL_STYLE))
 	}
-	return w
 }
 
 func (w *Window) Title() string { return w.title }
 
-func (w *Window) SetTitle(title string) *Window {
+func (w *Window) SetTitle(title string) {
 	w.title = title
 	if w.handle != 0 {
 		w32.SetWindowText(w.handle, title)
 	}
-	return w
 }
 
 func (w *Window) Style() uint { return w.style }
 
-func (w *Window) SetStyle(ws uint) *Window {
+func (w *Window) SetStyle(ws uint) {
 	w.style = ws
 	if w.handle != 0 {
 		w32.SetWindowLongPtr(w.handle, w32.GWL_STYLE, uintptr(w.style))
@@ -95,7 +116,6 @@ func (w *Window) SetStyle(ws uint) *Window {
 		w.style = uint(w32.GetWindowLongPtr(w.handle, w32.GWL_STYLE))
 		w.readBounds()
 	}
-	return w
 }
 
 func (w *Window) readBounds() {
@@ -113,7 +133,7 @@ func (w *Window) X() int {
 	return w.x
 }
 
-func (w *Window) SetX(x int) *Window {
+func (w *Window) SetX(x int) {
 	w.x = x
 	if w.handle != 0 {
 		w32.SetWindowPos(
@@ -122,7 +142,6 @@ func (w *Window) SetX(x int) *Window {
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
 	}
-	return w
 }
 
 func (w *Window) Y() int {
@@ -132,7 +151,7 @@ func (w *Window) Y() int {
 	return w.y
 }
 
-func (w *Window) SetY(y int) *Window {
+func (w *Window) SetY(y int) {
 	w.y = y
 	if w.handle != 0 {
 		w32.SetWindowPos(
@@ -141,7 +160,6 @@ func (w *Window) SetY(y int) *Window {
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
 	}
-	return w
 }
 
 func (w *Window) Pos() (x, y int) {
@@ -151,7 +169,7 @@ func (w *Window) Pos() (x, y int) {
 	return w.x, w.y
 }
 
-func (w *Window) SetPos(x, y int) *Window {
+func (w *Window) SetPos(x, y int) {
 	w.x = x
 	w.y = y
 	if w.handle != 0 {
@@ -161,7 +179,6 @@ func (w *Window) SetPos(x, y int) *Window {
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
 	}
-	return w
 }
 
 func (w *Window) Width() int {
@@ -171,9 +188,9 @@ func (w *Window) Width() int {
 	return w.width
 }
 
-func (w *Window) SetWidth(width int) *Window {
+func (w *Window) SetWidth(width int) {
 	if width <= 0 {
-		return w
+		return
 	}
 	w.width = width
 	if w.handle != 0 {
@@ -183,7 +200,6 @@ func (w *Window) SetWidth(width int) *Window {
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
 	}
-	return w
 }
 
 func (w *Window) Height() int {
@@ -193,9 +209,9 @@ func (w *Window) Height() int {
 	return w.height
 }
 
-func (w *Window) SetHeight(height int) *Window {
+func (w *Window) SetHeight(height int) {
 	if height <= 0 {
-		return w
+		return
 	}
 	w.height = height
 	if w.handle != 0 {
@@ -205,7 +221,6 @@ func (w *Window) SetHeight(height int) *Window {
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
 	}
-	return w
 }
 
 func (w *Window) Size() (width, height int) {
@@ -215,9 +230,9 @@ func (w *Window) Size() (width, height int) {
 	return w.width, w.height
 }
 
-func (w *Window) SetSize(width, height int) *Window {
+func (w *Window) SetSize(width, height int) {
 	if width <= 0 || height <= 0 {
-		return w
+		return
 	}
 	w.width = width
 	w.height = height
@@ -228,7 +243,7 @@ func (w *Window) SetSize(width, height int) *Window {
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
 	}
-	return w
+	return
 }
 
 func (w *Window) Bounds() (x, y, width, height int) {
@@ -238,9 +253,9 @@ func (w *Window) Bounds() (x, y, width, height int) {
 	return w.x, w.y, w.width, w.height
 }
 
-func (w *Window) SetBounds(x, y, width, height int) *Window {
+func (w *Window) SetBounds(x, y, width, height int) {
 	if width <= 0 || height <= 0 {
-		return w
+		return
 	}
 	w.x = x
 	w.y = y
@@ -253,7 +268,6 @@ func (w *Window) SetBounds(x, y, width, height int) *Window {
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
 	}
-	return w
 }
 
 func (w *Window) ClientX() int {
@@ -305,9 +319,9 @@ func (w *Window) ClientBounds() (x, y, width, height int) {
 	return
 }
 
-func (w *Window) SetClientWidth(width int) *Window {
+func (w *Window) SetClientWidth(width int) {
 	if width <= 0 {
-		return w
+		return
 	}
 	if w.handle != 0 {
 		var r w32.RECT
@@ -322,12 +336,11 @@ func (w *Window) SetClientWidth(width int) *Window {
 		// save negative size for Show to indicate client size
 		w.width = -width
 	}
-	return w
 }
 
-func (w *Window) SetClientHeight(height int) *Window {
+func (w *Window) SetClientHeight(height int) {
 	if height <= 0 {
-		return w
+		return
 	}
 	if w.handle != 0 {
 		var r w32.RECT
@@ -342,12 +355,11 @@ func (w *Window) SetClientHeight(height int) *Window {
 		// save negative size for Show to indicate client size
 		w.height = -height
 	}
-	return w
 }
 
-func (w *Window) SetClientSize(width, height int) *Window {
+func (w *Window) SetClientSize(width, height int) {
 	if width <= 0 || height <= 0 {
-		return w
+		return
 	}
 	if w.handle != 0 {
 		var r w32.RECT
@@ -364,15 +376,13 @@ func (w *Window) SetClientSize(width, height int) *Window {
 		w.width = -width
 		w.height = -height
 	}
-	return w
 }
 
-func (w *Window) setState(s uint) *Window {
+func (w *Window) setState(s uint) {
 	w.state = w32.SW_MAXIMIZE
 	if w.handle != 0 {
 		w32.ShowWindow(w.handle, w.state)
 	}
-	return w
 }
 
 func (w *Window) readState() {
@@ -389,8 +399,8 @@ func (w *Window) Maximized() bool {
 	return w.state == w32.SW_MAXIMIZE
 }
 
-func (w *Window) Maximize() *Window {
-	return w.setState(w32.SW_MAXIMIZE)
+func (w *Window) Maximize() {
+	w.setState(w32.SW_MAXIMIZE)
 }
 
 func (w *Window) Minimized() bool {
@@ -400,131 +410,87 @@ func (w *Window) Minimized() bool {
 	return w.state == w32.SW_MINIMIZE
 }
 
-func (w *Window) Minimize() *Window {
-	return w.setState(w32.SW_MINIMIZE)
+func (w *Window) Minimize() {
+	w.setState(w32.SW_MINIMIZE)
 }
 
-func (w *Window) Restore() *Window {
-	return w.setState(w32.SW_SHOWNORMAL)
+func (w *Window) Restore() {
+	w.setState(w32.SW_SHOWNORMAL)
 }
 
 func (w *Window) GetBackground() w32.HBRUSH { return w.background }
 
-func (w *Window) SetBackground(b w32.HBRUSH) *Window {
+func (w *Window) SetBackground(b w32.HBRUSH) {
 	w.background = b
 	if w.handle != 0 {
 		w32.SetClassLongPtr(w.handle, w32.GCLP_HBRBACKGROUND, uintptr(b))
 		w32.InvalidateRect(w.handle, nil, true)
 	}
-	return w
 }
 
 func (w *Window) Cursor() w32.HCURSOR { return w.cursor }
 
-func (w *Window) SetCursor(c w32.HCURSOR) *Window {
+func (w *Window) SetCursor(c w32.HCURSOR) {
 	w.cursor = c
 	if w.handle != 0 {
 		w32.SetClassLongPtr(w.handle, w32.GCLP_HCURSOR, uintptr(c))
 	}
-	return w
 }
 
 func (w *Window) Menu() *Menu {
 	return w.menu
 }
 
-func (w *Window) SetMenu(m *Menu) *Window {
+func (w *Window) SetMenu(m *Menu) {
 	w.menu = m
 	if w.handle != 0 {
 		// TODO update menu
 	}
-	return w
 }
 
 func (w *Window) Font() *Font {
 	return w.font
 }
 
-func (w *Window) SetFont(f *Font) *Window {
+func (w *Window) SetFont(f *Font) {
 	w.font = f
-	if f == nil {
-		return w
+	for _, c := range w.controls {
+		c.parentFontChanged()
 	}
-	if w.handle != 0 {
-		for _, control := range w.controls {
-			var handle w32.HWND
-			switch c := control.(type) {
-			case *Button:
-				handle = c.handle
-			case *NumberUpDown:
-				handle = c.editHandle
-			case *Label:
-				handle = c.handle
-			case *Paintbox:
-				handle = c.handle
-			case *Checkbox:
-				handle = c.handle
-			case *RadioButton:
-				handle = c.handle
-			case *EditLine:
-				handle = c.handle
-			case *ProgressBar:
-				handle = c.handle
-			default:
-				panic("unhandled control type")
-			}
-			w32.SendMessage(handle, w32.WM_SETFONT, uintptr(w.font.handle), 1)
-		}
-	}
-	return w
 }
 
 const controlIDOffset = 2
 
-func (w *Window) Add(c Control) *Window {
-	w.controls = append(w.controls, c)
+func (w *Window) Add(c Control) {
+	c.setParent(w)
 	if w.handle != 0 {
-		createControl(
-			c,
-			w,
-			len(w.controls)-1+controlIDOffset,
-			w32.HINSTANCE(w32.GetWindowLong(w.handle, w32.GWL_HINSTANCE)),
-		)
+		c.create(len(w.controls) + controlIDOffset)
 	}
-	if label, ok := c.(*Label); ok {
-		label.parent = w
-	}
-	return w
+	w.controls = append(w.controls, c)
 }
 
-func (w *Window) SetOnShow(f func(*Window)) *Window {
+func (w *Window) SetOnShow(f func(*Window)) {
 	w.onShow = f
-	return w
 }
 
-func (w *Window) SetOnClose(f func(*Window)) *Window {
+func (w *Window) SetOnClose(f func(*Window)) {
 	w.onClose = f
-	return w
 }
 
-func (w *Window) SetOnMouseMove(f func(x, y int)) *Window {
+func (w *Window) SetOnMouseMove(f func(x, y int)) {
 	w.onMouseMove = f
-	return w
 }
 
-func (w *Window) SetOnKeyDown(f func(key int)) *Window {
+func (w *Window) SetOnKeyDown(f func(key int)) {
 	w.onKeyDown = f
-	return w
 }
 
-func (w *Window) SetOnKeyUp(f func(key int)) *Window {
+func (w *Window) SetOnKeyUp(f func(key int)) {
 	w.onKeyUp = f
-	return w
 }
 
-func (w *Window) SetOnResize(f func()) *Window {
+func (w *Window) SetOnResize(f func()) {
 	w.onResize = f
-	return w
 }
 
 func (w *Window) Close() {
@@ -730,9 +696,8 @@ func (w *Window) Show() error {
 		w32.SetMenu(window, menuBar)
 	}
 
-	instance := w32.HINSTANCE(w32.GetWindowLong(window, w32.GWL_HINSTANCE))
 	for i, c := range w.controls {
-		createControl(c, w, i+controlIDOffset, instance)
+		c.create(i + controlIDOffset)
 	}
 
 	w32.ShowWindow(window, w.state)
@@ -805,203 +770,4 @@ func setManifest() {
 		Source: syscall.StringToUTF16Ptr(manifestPath),
 	})
 	w32.ActivateActCtx(ctx)
-}
-
-func createControl(
-	control Control,
-	parent *Window,
-	id int,
-	instance w32.HINSTANCE,
-) {
-	switch c := control.(type) {
-	case *Button:
-		var visible uint
-		if !c.hidden {
-			visible = w32.WS_VISIBLE
-		}
-		c.handle = w32.CreateWindowExStr(
-			0,
-			"BUTTON",
-			c.text,
-			visible|w32.WS_CHILD|w32.WS_TABSTOP|w32.BS_DEFPUSHBUTTON,
-			c.x, c.y, c.width, c.height,
-			parent.handle, w32.HMENU(id), instance, nil,
-		)
-		if c.disabled {
-			w32.EnableWindow(c.handle, false)
-		}
-		if parent.font != nil {
-			w32.SendMessage(
-				c.handle,
-				w32.WM_SETFONT,
-				uintptr(parent.font.handle),
-				1,
-			)
-		}
-	case *NumberUpDown:
-		upDown := w32.CreateWindowStr(
-			w32.UPDOWN_CLASS,
-			"",
-			w32.WS_VISIBLE|w32.WS_CHILD|
-				w32.UDS_SETBUDDYINT|w32.UDS_ALIGNRIGHT|w32.UDS_ARROWKEYS,
-			c.x, c.y, c.width, c.height,
-			parent.handle, 0, instance, nil,
-		)
-		edit := w32.CreateWindowExStr(
-			w32.WS_EX_CLIENTEDGE,
-			"EDIT",
-			strconv.Itoa(int(c.value)),
-			w32.WS_TABSTOP|w32.WS_VISIBLE|w32.WS_CHILD|w32.ES_NUMBER,
-			c.x, c.y, c.width, c.height,
-			parent.handle, w32.HMENU(id), instance, nil,
-		)
-		if c.disabled {
-			w32.EnableWindow(edit, false)
-		}
-		w32.SendMessage(upDown, w32.UDM_SETBUDDY, uintptr(edit), 0)
-		w32.SendMessage(
-			upDown,
-			w32.UDM_SETRANGE32,
-			uintptr(c.minValue),
-			uintptr(c.maxValue),
-		)
-		c.upDownHandle = upDown
-		c.editHandle = edit
-		if parent.font != nil {
-			w32.SendMessage(
-				edit,
-				w32.WM_SETFONT,
-				uintptr(parent.font.handle),
-				1,
-			)
-		}
-	case *Label:
-		var visible uint
-		if !c.hidden {
-			visible = w32.WS_VISIBLE
-		}
-		c.handle = w32.CreateWindowExStr(
-			0,
-			"STATIC",
-			c.text,
-			visible|w32.WS_CHILD|w32.SS_CENTERIMAGE|c.align,
-			c.x, c.y, c.width, c.height,
-			parent.handle, w32.HMENU(id), instance, nil,
-		)
-		if c.font != nil {
-			w32.SendMessage(
-				c.handle,
-				w32.WM_SETFONT,
-				uintptr(c.font.handle),
-				1,
-			)
-		} else if parent.font != nil {
-			w32.SendMessage(
-				c.handle,
-				w32.WM_SETFONT,
-				uintptr(parent.font.handle),
-				1,
-			)
-		}
-	case *Paintbox:
-		c.handle = w32.CreateWindowExStr(
-			0,
-			"STATIC",
-			"",
-			w32.WS_VISIBLE|w32.WS_CHILD|w32.SS_OWNERDRAW,
-			c.x, c.y, c.width, c.height,
-			parent.handle, w32.HMENU(id), instance, nil,
-		)
-		if parent.font != nil {
-			w32.SendMessage(
-				c.handle,
-				w32.WM_SETFONT,
-				uintptr(parent.font.handle),
-				1,
-			)
-		}
-	case *Checkbox:
-		c.handle = w32.CreateWindowExStr(
-			0,
-			"BUTTON",
-			c.text,
-			w32.WS_VISIBLE|w32.WS_CHILD|w32.WS_TABSTOP|w32.BS_AUTOCHECKBOX,
-			c.x, c.y, c.width, c.height,
-			parent.handle, w32.HMENU(id), instance, nil,
-		)
-		w32.SendMessage(c.handle, w32.BM_SETCHECK, toCheckState(c.checked), 0)
-		if parent.font != nil {
-			w32.SendMessage(
-				c.handle,
-				w32.WM_SETFONT,
-				uintptr(parent.font.handle),
-				1,
-			)
-		}
-	case *RadioButton:
-		c.handle = w32.CreateWindowExStr(
-			0,
-			"BUTTON",
-			c.text,
-			w32.WS_VISIBLE|w32.WS_CHILD|w32.WS_TABSTOP|
-				w32.BS_AUTORADIOBUTTON|w32.BS_NOTIFY,
-			c.x, c.y, c.width, c.height,
-			parent.handle, w32.HMENU(id), instance, nil,
-		)
-		w32.SendMessage(c.handle, w32.BM_SETCHECK, toCheckState(c.checked), 0)
-		if parent.font != nil {
-			w32.SendMessage(
-				c.handle,
-				w32.WM_SETFONT,
-				uintptr(parent.font.handle),
-				1,
-			)
-		}
-	case *EditLine:
-		var visible uint
-		if !c.hidden {
-			visible = w32.WS_VISIBLE
-		}
-		c.handle = w32.CreateWindowExStr(
-			w32.WS_EX_CLIENTEDGE,
-			"EDIT",
-			c.text,
-			visible|w32.WS_CHILD|w32.WS_TABSTOP,
-			c.x, c.y, c.width, c.height,
-			parent.handle, w32.HMENU(id), instance, nil,
-		)
-		if parent.font != nil {
-			w32.SendMessage(
-				c.handle,
-				w32.WM_SETFONT,
-				uintptr(parent.font.handle),
-				1,
-			)
-		}
-	case *ProgressBar:
-		var visible uint
-		if !c.hidden {
-			visible = w32.WS_VISIBLE
-		}
-		c.handle = w32.CreateWindowExStr(
-			w32.WS_EX_CLIENTEDGE,
-			w32.PROGRESS_CLASS,
-			"",
-			visible|w32.WS_CHILD,
-			c.x, c.y, c.width, c.height,
-			parent.handle, w32.HMENU(id), instance, nil,
-		)
-		w32.SendMessage(c.handle, w32.PBM_SETRANGE32, 0, maxProgressBarValue)
-		c.SetValue(c.value)
-		if parent.font != nil {
-			w32.SendMessage(
-				c.handle,
-				w32.WM_SETFONT,
-				uintptr(parent.font.handle),
-				1,
-			)
-		}
-	default:
-		panic("unhandled control type")
-	}
 }

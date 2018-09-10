@@ -13,6 +13,10 @@ type Label struct {
 	align uint
 }
 
+func (l *Label) create(id int) {
+	l.textControl.create(id, 0, "STATIC", w32.SS_CENTERIMAGE|l.align)
+}
+
 func (l *Label) setAlign(align uint) *Label {
 	l.align = align
 	if l.handle != 0 {

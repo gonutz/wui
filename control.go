@@ -10,12 +10,36 @@ type control struct {
 	y        int
 	width    int
 	height   int
-	parent   *Window
+	parent   container
 	disabled bool
 	hidden   bool
 }
 
 func (*control) isControl() {}
+
+func (c *control) setParent(parent container) {
+	c.parent = parent
+}
+
+func (c *control) create(id int, exStyle uint, className string, style uint) {
+	var visible uint
+	if !c.hidden {
+		visible = w32.WS_VISIBLE
+	}
+	c.handle = w32.CreateWindowExStr(
+		exStyle,
+		className,
+		"",
+		visible|w32.WS_CHILD|style,
+		c.x, c.y, c.width, c.height,
+		c.parent.getHandle(), w32.HMENU(id), c.parent.getInstance(), nil,
+	)
+	if c.disabled {
+		w32.EnableWindow(c.handle, false)
+	}
+}
+
+func (c *control) parentFontChanged() {}
 
 func (c *control) X() int {
 	return c.x
@@ -113,6 +137,12 @@ type textControl struct {
 	font *Font
 }
 
+func (c *textControl) create(id int, exStyle uint, className string, style uint) {
+	c.control.create(id, exStyle, className, style)
+	w32.SetWindowText(c.handle, c.text)
+	c.SetFont(c.font)
+}
+
 func (c *textControl) Text() string {
 	return c.text
 }
@@ -128,28 +158,26 @@ func (c *textControl) Font() *Font {
 	return c.font
 }
 
+func (c *textControl) parentFontChanged() {
+	c.SetFont(c.font)
+}
+
 func (c *textControl) SetFont(font *Font) {
 	c.font = font
 	if c.handle != 0 {
-		// TODO
+		w32.SendMessage(c.handle, w32.WM_SETFONT, uintptr(c.fontHandle()), 1)
 	}
 }
 
-//func (l *Label) SetFont(f *Font) *Label {
-//	l.font = f
-//	if l.handle != 0 {
-//		if l.font != nil {
-//			l.font.create()
-//			w32.SendMessage(l.handle, w32.WM_SETFONT, uintptr(l.font.handle), 1)
-//		}
-//		if l.font == nil && l.parent != nil && l.parent.font != nil {
-//			w32.SendMessage(
-//				l.handle,
-//				w32.WM_SETFONT,
-//				uintptr(l.parent.font.handle),
-//				1,
-//			)
-//		}
-//	}
-//	return l
-//}
+func (c *textControl) fontHandle() w32.HFONT {
+	if c.font != nil {
+		return c.font.handle
+	}
+	if c.parent != nil {
+		font := c.parent.Font()
+		if font != nil {
+			return font.handle
+		}
+	}
+	return 0
+}

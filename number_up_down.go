@@ -3,9 +3,10 @@
 package wui
 
 import (
-	"github.com/gonutz/w32"
-
 	"math"
+	"strconv"
+
+	"github.com/gonutz/w32"
 )
 
 func NewNumberUpDown() *NumberUpDown {
@@ -22,14 +23,68 @@ type NumberUpDown struct {
 	y             int
 	width         int
 	height        int
+	parent        container
 	value         int32
 	minValue      int32
 	maxValue      int32
 	disabled      bool
+	hidden        bool
 	onValueChange func(value int)
 }
 
 func (*NumberUpDown) isControl() {}
+
+func (n *NumberUpDown) setParent(parent container) {
+	n.parent = parent
+}
+
+func (n *NumberUpDown) create(id int) {
+	var visible uint
+	if !n.hidden {
+		visible = w32.WS_VISIBLE
+	}
+	upDown := w32.CreateWindowStr(
+		w32.UPDOWN_CLASS,
+		"",
+		visible|w32.WS_CHILD|
+			w32.UDS_SETBUDDYINT|w32.UDS_ALIGNRIGHT|w32.UDS_ARROWKEYS,
+		n.x, n.y, n.width, n.height,
+		n.parent.getHandle(), 0, n.parent.getInstance(), nil,
+	)
+	edit := w32.CreateWindowExStr(
+		w32.WS_EX_CLIENTEDGE,
+		"EDIT",
+		strconv.Itoa(int(n.value)),
+		visible|w32.WS_CHILD|w32.WS_TABSTOP|w32.ES_NUMBER,
+		n.x, n.y, n.width, n.height,
+		n.parent.getHandle(), w32.HMENU(id), n.parent.getInstance(), nil,
+	)
+	if n.disabled {
+		w32.EnableWindow(edit, false)
+	}
+	w32.SendMessage(upDown, w32.UDM_SETBUDDY, uintptr(edit), 0)
+	w32.SendMessage(
+		upDown,
+		w32.UDM_SETRANGE32,
+		uintptr(n.minValue),
+		uintptr(n.maxValue),
+	)
+	n.upDownHandle = upDown
+	n.editHandle = edit
+	// TODO handle font
+	//if n.parent.font != nil {
+	//	w32.SendMessage(
+	//		edit,
+	//		w32.WM_SETFONT,
+	//		uintptr(n.parent.font.handle),
+	//		1,
+	//	)
+	//}
+}
+
+func (n *NumberUpDown) parentFontChanged() {
+	// TODO
+}
 
 func (n *NumberUpDown) Enabled() bool {
 	return !n.disabled
