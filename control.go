@@ -144,6 +144,9 @@ func (c *textControl) create(id int, exStyle uint, className string, style uint)
 }
 
 func (c *textControl) Text() string {
+	if c.handle != 0 {
+		c.text = w32.GetWindowText(c.handle)
+	}
 	return c.text
 }
 
