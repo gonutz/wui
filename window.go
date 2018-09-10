@@ -65,6 +65,9 @@ type container interface {
 	getHandle() w32.HWND
 	getInstance() w32.HINSTANCE
 	Font() *Font
+	registerControl(c Control)
+	handleWM_COMMAND(w, l uintptr)
+	controlCount() int
 }
 
 func (*Window) isContainer() {}
@@ -466,7 +469,15 @@ func (w *Window) Add(c Control) {
 	if w.handle != 0 {
 		c.create(len(w.controls) + controlIDOffset)
 	}
+	w.registerControl(c)
+}
+
+func (w *Window) registerControl(c Control) {
 	w.controls = append(w.controls, c)
+}
+
+func (w *Window) controlCount() int {
+	return len(w.controls)
 }
 
 func (w *Window) SetOnShow(f func(*Window)) {
@@ -563,75 +574,8 @@ func (w *Window) Show() error {
 					return 0
 				}
 			case w32.WM_COMMAND:
-				if lParam == 0 && wParam&0xFFFF0000 == 0 {
-					id := int(wParam & 0xFFFF)
-					if 0 <= id && id < len(w.menuStrings) {
-						f := w.menuStrings[id].onClick
-						if f != nil {
-							f()
-						}
-					}
-				} else if lParam != 0 {
-					// control clicked
-					id := wParam & 0xFFFF
-					cmd := (wParam & 0xFFFF0000) >> 16
-					index := id - controlIDOffset
-					if 0 <= index && index < uintptr(len(w.controls)) {
-						control := w.controls[index]
-						switch c := control.(type) {
-						case *Button:
-							if c.onClick != nil {
-								c.onClick()
-							}
-						case *NumberUpDown:
-							if cmd == w32.EN_CHANGE {
-								if c.onValueChange != nil {
-									c.onValueChange(int(c.Value()))
-								}
-							}
-						case *Checkbox:
-							state := w32.IsDlgButtonChecked(window, id)
-							checked := state == w32.BST_CHECKED
-							if c.checked != checked {
-								c.checked = checked
-								if c.onChange != nil {
-									c.onChange(checked)
-								}
-							}
-						case *RadioButton:
-							// look through all RadioButtons to see which have
-							// changed, first change to false, at the end change
-							// the newly selected one to true, always in this
-							// order
-							var changedToTrue *RadioButton
-							for i, c := range w.controls {
-								if rb, ok := c.(*RadioButton); ok {
-									id := uintptr(i) + controlIDOffset
-									state := w32.IsDlgButtonChecked(window, id)
-									checked := state == w32.BST_CHECKED
-									if rb.checked != checked {
-										if checked {
-											changedToTrue = rb
-										} else {
-											rb.checked = checked
-											if rb.onChange != nil {
-												rb.onChange(checked)
-											}
-										}
-									}
-								}
-							}
-							if changedToTrue != nil {
-								changedToTrue.checked = true
-								if changedToTrue.onChange != nil {
-									changedToTrue.onChange(true)
-								}
-							}
-						}
-						return 0
-					}
-				}
-
+				w.handleWM_COMMAND(wParam, lParam)
+				return 0
 			case w32.WM_SIZE:
 				if w.onResize != nil {
 					w.onResize()
@@ -716,6 +660,79 @@ func (w *Window) Show() error {
 		}
 	}
 	return nil
+}
+func (w *Window) handleWM_COMMAND(wParam, lParam uintptr) {
+	if lParam == 0 && wParam&0xFFFF0000 == 0 {
+		id := int(wParam & 0xFFFF)
+		if 0 <= id && id < len(w.menuStrings) {
+			f := w.menuStrings[id].onClick
+			if f != nil {
+				f()
+			}
+		}
+	} else if lParam != 0 {
+		// control clicked
+		id := wParam & 0xFFFF
+		cmd := (wParam & 0xFFFF0000) >> 16
+		index := id - controlIDOffset
+		if 0 <= index && index < uintptr(len(w.controls)) {
+			control := w.controls[index]
+			switch c := control.(type) {
+			case *Button:
+				if c.onClick != nil {
+					c.onClick()
+				}
+			case *NumberUpDown:
+				if cmd == w32.EN_CHANGE {
+					if c.onValueChange != nil {
+						c.onValueChange(int(c.Value()))
+					}
+				}
+			case *Checkbox:
+				state := w32.IsDlgButtonChecked(w.handle, id)
+				checked := state == w32.BST_CHECKED
+				if c.checked != checked {
+					c.checked = checked
+					if c.onChange != nil {
+						c.onChange(checked)
+					}
+				}
+			case *RadioButton:
+				// look through all RadioButtons to see which have
+				// changed, first change to false, at the end change
+				// the newly selected one to true, always in this
+				// order
+				var changedToTrue *RadioButton
+				for i, c := range w.controls {
+					if rb, ok := c.(*RadioButton); ok {
+						id := uintptr(i) + controlIDOffset
+						state := w32.IsDlgButtonChecked(
+							rb.parent.getHandle(),
+							id,
+						)
+						checked := state == w32.BST_CHECKED
+						if rb.checked != checked {
+							if checked {
+								changedToTrue = rb
+							} else {
+								rb.checked = checked
+								if rb.onChange != nil {
+									rb.onChange(checked)
+								}
+							}
+						}
+					}
+				}
+				if changedToTrue != nil {
+					changedToTrue.checked = true
+					if changedToTrue.onChange != nil {
+						changedToTrue.onChange(true)
+					}
+				}
+			}
+			return
+		}
+	}
 }
 
 // TODO make this optional?
