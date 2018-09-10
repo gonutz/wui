@@ -56,6 +56,30 @@ func (n *NumberUpDown) create(id int) {
 	n.upDownHandle = upDown
 }
 
+func (n *NumberUpDown) SetX(x int) {
+	n.SetBounds(x, n.y, n.width, n.height)
+}
+
+func (n *NumberUpDown) SetY(y int) {
+	n.SetBounds(n.x, y, n.width, n.height)
+}
+
+func (n *NumberUpDown) SetPos(x, y int) {
+	n.SetBounds(x, y, n.width, n.height)
+}
+
+func (n *NumberUpDown) SetWidth(width int) {
+	n.SetBounds(n.x, n.y, width, n.height)
+}
+
+func (n *NumberUpDown) SetHeight(height int) {
+	n.SetBounds(n.x, n.y, n.width, height)
+}
+
+func (n *NumberUpDown) SetSize(width, height int) {
+	n.SetBounds(n.x, n.y, width, height)
+}
+
 func (n *NumberUpDown) SetBounds(x, y, width, height int) {
 	n.textControl.SetBounds(x, y, width, height)
 	if n.upDownHandle != 0 {
