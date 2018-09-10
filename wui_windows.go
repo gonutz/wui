@@ -3,196 +3,27 @@ package wui
 import (
 	"errors"
 	"io/ioutil"
-	"math"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
 	"syscall"
-	"unicode/utf16"
 	"unsafe"
 
 	"github.com/gonutz/w32"
 )
 
-func MessageBox(caption, text string) {
-	w32.MessageBox(0, text, caption, w32.MB_OK|w32.MB_TOPMOST)
-}
-
-func MessageBoxError(caption, text string) {
-	w32.MessageBox(0, text, caption, w32.MB_OK|w32.MB_ICONERROR|w32.MB_TOPMOST)
-}
-
-func MessageBoxOKCancel(caption, text string) bool {
-	return w32.MessageBox(0, text, caption, w32.MB_OKCANCEL|w32.MB_TOPMOST) == w32.IDOK
-}
-
-func MessageBoxYesNo(caption, text string) bool {
-	return w32.MessageBox(0, text, caption, w32.MB_YESNO|w32.MB_TOPMOST) == w32.IDYES
-}
-
-type FileOpenDialog struct {
-	parent      *Window
-	filters     []uint16
-	filterCount int
-	filterIndex int
-	initPath    string
-	title       string
-	defaultExt  string
-}
-
-func NewFileOpenDialog() *FileOpenDialog {
-	return &FileOpenDialog{}
-}
-
-func (dlg *FileOpenDialog) SetParent(w *Window) *FileOpenDialog {
-	dlg.parent = w
-	return dlg
-}
-
-func (dlg *FileOpenDialog) SetTitle(title string) *FileOpenDialog {
-	dlg.title = title
-	return dlg
-}
-
-func (dlg *FileOpenDialog) SetInitialPath(path string) *FileOpenDialog {
-	dlg.initPath = path
-	return dlg
-}
-
-func (dlg *FileOpenDialog) AddFilter(text, ext1 string, exts ...string) *FileOpenDialog {
-	text16, err := syscall.UTF16FromString(text)
-	if err != nil {
-		return dlg
+func NewWindow() *Window {
+	return &Window{
+		className:  "wui_window_class",
+		x:          w32.CW_USEDEFAULT,
+		y:          w32.CW_USEDEFAULT,
+		width:      w32.CW_USEDEFAULT,
+		height:     w32.CW_USEDEFAULT,
+		style:      w32.WS_OVERLAPPEDWINDOW,
+		state:      w32.SW_SHOWNORMAL,
+		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
+		cursor:     w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_ARROW)),
 	}
-	validateMask := func(ext string) string {
-		ext = strings.TrimSpace(ext)
-		if ext == "" {
-			return "*.*"
-		}
-		if !strings.HasPrefix(ext, ".") {
-			ext = "*." + ext
-		} else if !strings.HasPrefix(ext, "*") {
-			ext = "*" + ext
-		}
-		return ext
-	}
-	mask := validateMask(ext1)
-	for _, ext := range exts {
-		mask += ";" + validateMask(ext)
-	}
-	mask16, err := syscall.UTF16FromString(mask)
-	if err != nil {
-		return dlg
-	}
-	dlg.filters = append(dlg.filters, text16...)
-	dlg.filters = append(dlg.filters, mask16...)
-	dlg.filterCount++
-	return dlg
-}
-
-func (dlg *FileOpenDialog) SetFilterIndex(i int) *FileOpenDialog {
-	dlg.filterIndex = i
-	return dlg
-}
-
-func (dlg *FileOpenDialog) ExecuteSingleSelection() (bool, string) {
-	ok, buf := dlg.getOpenFileName(w32.MAX_PATH+2, 0)
-	if ok {
-		return true, syscall.UTF16ToString(buf)
-	}
-	return false, ""
-}
-
-func (dlg *FileOpenDialog) ExecuteMultiSelection() (bool, []string) {
-	ok, buf := dlg.getOpenFileName(65535, w32.OFN_ALLOWMULTISELECT)
-	if ok {
-		// parse mutliple files, the format is 0-separated UTF-16 strings, first
-		// comes the directory, then the file names, after the last file name
-		// there are two zeros
-		var dir string
-		var files []string
-		var start int
-		for i := range buf[:len(buf)-1] {
-			if buf[i] == 0 {
-				part := buf[start:i]
-				if start == 0 {
-					dir = syscall.UTF16ToString(part)
-				} else {
-					file := syscall.UTF16ToString(part)
-					files = append(files, filepath.Join(dir, file))
-				}
-				start = i + 1
-				if buf[i+1] == 0 {
-					break
-				}
-			}
-		}
-		if dir != "" && files == nil {
-			// in this case, only one file was selected
-			return true, []string{dir}
-		}
-		return true, files
-	}
-	return false, nil
-}
-
-func (dlg *FileOpenDialog) getOpenFileName(bufLen int, flags uint32) (bool, []uint16) {
-	var owner w32.HWND
-	if dlg.parent != nil {
-		owner = dlg.parent.handle
-	}
-
-	dlg.filters = append(dlg.filters, 0)
-	if dlg.filterIndex < 0 || dlg.filterIndex >= dlg.filterCount {
-		dlg.filterIndex = 0
-	}
-
-	var initDir *uint16
-	var initDir16 []uint16
-	filenameBuf := make([]uint16, bufLen)
-	if dlg.initPath != "" {
-		if info, err := os.Stat(dlg.initPath); err == nil && info.IsDir() {
-			initDir16, err = syscall.UTF16FromString(dlg.initPath)
-			if err == nil {
-				initDir = &initDir16[0]
-			}
-		} else {
-			path, err := syscall.UTF16FromString(dlg.initPath)
-			if err == nil {
-				copy(filenameBuf, path)
-			}
-		}
-	}
-
-	var title16 []uint16
-	var title *uint16
-	if dlg.title != "" {
-		var err error
-		title16, err = syscall.UTF16FromString(dlg.title)
-		if err == nil {
-			title = &title16[0]
-		}
-	}
-
-	ok := w32.GetOpenFileName(&w32.OPENFILENAME{
-		Owner:       owner,
-		Filter:      &dlg.filters[0],
-		FilterIndex: uint32(dlg.filterIndex + 1), // NOTE one-indexed
-		File:        &filenameBuf[0],
-		MaxFile:     uint32(len(filenameBuf)),
-		InitialDir:  initDir,
-		Title:       title,
-		Flags: w32.OFN_ENABLESIZING | w32.OFN_EXPLORER |
-			w32.OFN_FILEMUSTEXIST | w32.OFN_LONGNAMES | w32.OFN_PATHMUSTEXIST |
-			w32.OFN_HIDEREADONLY | flags,
-	})
-	return ok, filenameBuf
-}
-
-type Control interface {
-	isControl()
 }
 
 type Window struct {
@@ -220,18 +51,8 @@ type Window struct {
 	onResize    func()
 }
 
-func NewWindow() *Window {
-	return &Window{
-		className:  "wui_window_class",
-		x:          w32.CW_USEDEFAULT,
-		y:          w32.CW_USEDEFAULT,
-		width:      w32.CW_USEDEFAULT,
-		height:     w32.CW_USEDEFAULT,
-		style:      w32.WS_OVERLAPPEDWINDOW,
-		state:      w32.SW_SHOWNORMAL,
-		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
-		cursor:     w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_ARROW)),
-	}
+type Control interface {
+	isControl()
 }
 
 func (w *Window) ClassName() string { return w.className }
@@ -620,52 +441,6 @@ func (w *Window) SetMenu(m *Menu) *Window {
 	return w
 }
 
-type MenuItem interface {
-	isMenuItem()
-}
-
-type Menu struct {
-	name  string
-	items []MenuItem
-}
-
-func NewMenu(name string) *Menu {
-	return &Menu{name: name}
-}
-
-func (*Menu) isMenuItem() {}
-
-func (m *Menu) Add(item MenuItem) *Menu {
-	m.items = append(m.items, item)
-	return m
-}
-
-func NewMenuString(name string) *MenuString {
-	return &MenuString{name: name}
-}
-
-type MenuString struct {
-	name    string
-	onClick func()
-}
-
-func (*MenuString) isMenuItem() {}
-
-func (m *MenuString) SetOnClick(f func()) *MenuString {
-	m.onClick = f
-	return m
-}
-
-func NewMenuSeparator() MenuItem {
-	return separator
-}
-
-type menuSeparator int
-
-func (menuSeparator) isMenuItem() {}
-
-var separator menuSeparator
-
 func (w *Window) Font() *Font {
 	return w.font
 }
@@ -676,7 +451,6 @@ func (w *Window) SetFont(f *Font) *Window {
 		return w
 	}
 	if w.handle != 0 {
-		f.create()
 		for _, control := range w.controls {
 			var handle w32.HWND
 			switch c := control.(type) {
@@ -689,6 +463,8 @@ func (w *Window) SetFont(f *Font) *Window {
 			case *Paintbox:
 				handle = c.handle
 			case *Checkbox:
+				handle = c.handle
+			case *RadioButton:
 				handle = c.handle
 			case *EditLine:
 				handle = c.handle
@@ -801,8 +577,9 @@ func (w *Window) Show() error {
 				if 0 <= index && index < uintptr(len(w.controls)) {
 					if p, ok := w.controls[index].(*Paintbox); ok {
 						if p.onPaint != nil {
+							drawItem := ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam)))
 							p.onPaint(&Canvas{
-								hdc:    ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam))).HDC,
+								hdc:    drawItem.HDC,
 								width:  p.width,
 								height: p.height,
 							})
@@ -855,6 +632,35 @@ func (w *Window) Show() error {
 									c.onChange(checked)
 								}
 							}
+						case *RadioButton:
+							// look through all RadioButtons to see which have
+							// changed, first change to false, at the end change
+							// the newly selected one to true, always in this
+							// order
+							var changedToTrue *RadioButton
+							for i, c := range w.controls {
+								if rb, ok := c.(*RadioButton); ok {
+									id := uintptr(i) + controlIDOffset
+									state := w32.IsDlgButtonChecked(window, id)
+									checked := state == w32.BST_CHECKED
+									if rb.checked != checked {
+										if checked {
+											changedToTrue = rb
+										} else {
+											rb.checked = checked
+											if rb.onChange != nil {
+												rb.onChange(checked)
+											}
+										}
+									}
+								}
+							}
+							if changedToTrue != nil {
+								changedToTrue.checked = true
+								if changedToTrue.onChange != nil {
+									changedToTrue.onChange(true)
+								}
+							}
 						}
 						return 0
 					}
@@ -895,10 +701,6 @@ func (w *Window) Show() error {
 		return errors.New("win.NewWindow: CreateWindowEx failed")
 	}
 	w.handle = window
-
-	if w.font != nil {
-		w.font.create()
-	}
 
 	if w.menu != nil {
 		var addItems func(m w32.HMENU, items []MenuItem)
@@ -951,6 +753,7 @@ func (w *Window) Show() error {
 	return nil
 }
 
+// TODO make this optional?
 // hideConsoleWindow hides the associated console window if it was created
 // because the ldflag H=windowsgui was not provided when building.
 func hideConsoleWindow() {
@@ -1086,7 +889,6 @@ func createControl(
 			parent.handle, w32.HMENU(id), instance, nil,
 		)
 		if c.font != nil {
-			c.font.create()
 			w32.SendMessage(
 				c.handle,
 				w32.WM_SETFONT,
@@ -1124,6 +926,25 @@ func createControl(
 			"BUTTON",
 			c.text,
 			w32.WS_VISIBLE|w32.WS_CHILD|w32.WS_TABSTOP|w32.BS_AUTOCHECKBOX,
+			c.x, c.y, c.width, c.height,
+			parent.handle, w32.HMENU(id), instance, nil,
+		)
+		w32.SendMessage(c.handle, w32.BM_SETCHECK, toCheckState(c.checked), 0)
+		if parent.font != nil {
+			w32.SendMessage(
+				c.handle,
+				w32.WM_SETFONT,
+				uintptr(parent.font.handle),
+				1,
+			)
+		}
+	case *RadioButton:
+		c.handle = w32.CreateWindowExStr(
+			0,
+			"BUTTON",
+			c.text,
+			w32.WS_VISIBLE|w32.WS_CHILD|w32.WS_TABSTOP|
+				w32.BS_AUTORADIOBUTTON|w32.BS_NOTIFY,
 			c.x, c.y, c.width, c.height,
 			parent.handle, w32.HMENU(id), instance, nil,
 		)
@@ -1183,927 +1004,4 @@ func createControl(
 	default:
 		panic("unhandled control type")
 	}
-}
-
-type Font struct {
-	handle     w32.HFONT
-	name       string
-	height     int
-	bold       bool
-	italic     bool
-	underlined bool
-	strikedOut bool
-}
-
-func NewFont() *Font {
-	return &Font{}
-}
-
-func (f *Font) Name() string     { return f.name }
-func (f *Font) Height() int      { return f.height }
-func (f *Font) Bold() bool       { return f.bold }
-func (f *Font) Italic() bool     { return f.italic }
-func (f *Font) Underlined() bool { return f.underlined }
-func (f *Font) StrikedOut() bool { return f.strikedOut }
-
-func (f *Font) create() {
-	if f.handle != 0 {
-		w32.DeleteObject(w32.HGDIOBJ(f.handle))
-	}
-	weight := int32(w32.FW_NORMAL)
-	if f.bold {
-		weight = w32.FW_BOLD
-	}
-	byteBool := func(b bool) byte {
-		if b {
-			return 1
-		}
-		return 0
-	}
-	desc := w32.LOGFONT{
-		Height:         int32(f.height),
-		Width:          0,
-		Escapement:     0,
-		Orientation:    0,
-		Weight:         weight,
-		Italic:         byteBool(f.italic),
-		Underline:      byteBool(f.underlined),
-		StrikeOut:      byteBool(f.strikedOut),
-		CharSet:        w32.DEFAULT_CHARSET,
-		OutPrecision:   w32.OUT_CHARACTER_PRECIS,
-		ClipPrecision:  w32.CLIP_CHARACTER_PRECIS,
-		Quality:        w32.DEFAULT_QUALITY,
-		PitchAndFamily: w32.DEFAULT_PITCH | w32.FF_DONTCARE,
-	}
-	copy(desc.FaceName[:], utf16.Encode([]rune(f.name)))
-	f.handle = w32.CreateFontIndirect(&desc)
-}
-
-func (f *Font) SetName(name string) *Font {
-	f.name = name
-	return f
-}
-
-func (f *Font) SetHeight(height int) *Font {
-	f.height = height
-	return f
-}
-
-func (f *Font) SetBold(bold bool) *Font {
-	f.bold = bold
-	return f
-}
-
-func (f *Font) SetItalic(italic bool) *Font {
-	f.italic = italic
-	return f
-}
-
-func (f *Font) SetUnderlined(underlined bool) *Font {
-	f.underlined = underlined
-	return f
-}
-
-func (f *Font) SetStrikedOut(strikedOut bool) *Font {
-	f.strikedOut = strikedOut
-	return f
-}
-
-type Button struct {
-	handle   w32.HWND
-	text     string
-	x        int
-	y        int
-	width    int
-	height   int
-	disabled bool
-	hidden   bool
-	onClick  func()
-}
-
-func (*Button) isControl() {}
-
-func NewButton() *Button {
-	return &Button{}
-}
-
-func (b *Button) X() int      { return b.x }
-func (b *Button) Y() int      { return b.y }
-func (b *Button) Width() int  { return b.width }
-func (b *Button) Height() int { return b.height }
-
-func (b *Button) SetText(text string) *Button {
-	b.text = text
-	if b.handle != 0 {
-		w32.SetWindowText(b.handle, b.text)
-	}
-	return b
-}
-
-func (b *Button) SetX(x int) *Button {
-	return b.SetBounds(x, b.y, b.width, b.height)
-}
-
-func (b *Button) SetY(y int) *Button {
-	return b.SetBounds(b.x, y, b.width, b.height)
-}
-
-func (b *Button) SetPos(x, y int) *Button {
-	return b.SetBounds(x, y, b.width, b.height)
-}
-
-func (b *Button) SetWidth(width int) *Button {
-	return b.SetBounds(b.x, b.y, width, b.height)
-}
-
-func (b *Button) SetHeight(height int) *Button {
-	return b.SetBounds(b.x, b.y, b.width, height)
-}
-
-func (b *Button) SetSize(width, height int) *Button {
-	return b.SetBounds(b.x, b.y, width, height)
-}
-
-func (b *Button) SetBounds(x, y, width, height int) *Button {
-	b.x = x
-	b.y = y
-	b.width = width
-	b.height = height
-	if b.handle != 0 {
-		w32.SetWindowPos(
-			b.handle, 0,
-			b.x, b.y, b.width, b.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
-	return b
-}
-
-func (b *Button) Enabled() bool {
-	return !b.disabled
-}
-
-func (b *Button) SetEnabled(e bool) *Button {
-	b.disabled = !e
-	if b.handle != 0 {
-		w32.EnableWindow(b.handle, e)
-	}
-	return b
-}
-
-func (b *Button) SetOnClick(f func()) *Button {
-	b.onClick = f
-	return b
-}
-
-func (b *Button) Visible() bool {
-	return !b.hidden
-}
-
-func (b *Button) SetVisible(v bool) *Button {
-	b.hidden = !v
-	if b.handle != 0 {
-		cmd := w32.SW_SHOW
-		if b.hidden {
-			cmd = w32.SW_HIDE
-		}
-		w32.ShowWindow(b.handle, cmd)
-	}
-	return b
-}
-
-type NumberUpDown struct {
-	upDownHandle  w32.HWND
-	editHandle    w32.HWND
-	x             int
-	y             int
-	width         int
-	height        int
-	value         int32
-	minValue      int32
-	maxValue      int32
-	disabled      bool
-	onValueChange func(value int)
-}
-
-func (*NumberUpDown) isControl() {}
-
-func NewNumberUpDown() *NumberUpDown {
-	return &NumberUpDown{
-		minValue: math.MinInt32,
-		maxValue: math.MaxInt32,
-	}
-}
-
-func (n *NumberUpDown) Enabled() bool {
-	return !n.disabled
-}
-
-func (n *NumberUpDown) SetEnabled(e bool) *NumberUpDown {
-	n.disabled = !e
-	if n.editHandle != 0 {
-		w32.EnableWindow(n.editHandle, e)
-	}
-	return n
-}
-
-func (n *NumberUpDown) Value() int {
-	if n.upDownHandle != 0 {
-		n.value = int32(w32.SendMessage(n.upDownHandle, w32.UDM_GETPOS32, 0, 0))
-	}
-	return int(n.value)
-}
-
-func (n *NumberUpDown) SetValue(v int) *NumberUpDown {
-	n.value = int32(v)
-	if n.value < n.minValue {
-		n.value = n.minValue
-	}
-	if n.value > n.maxValue {
-		n.value = n.maxValue
-	}
-	if n.upDownHandle != 0 {
-		w32.SendMessage(n.upDownHandle, w32.UDM_SETPOS32, 0, uintptr(v))
-	}
-	return n
-}
-
-func (n *NumberUpDown) SetMinValue(min int) *NumberUpDown {
-	if n.Value() < min {
-		n.SetValue(min)
-	}
-	n.minValue = int32(min)
-	if n.upDownHandle != 0 {
-		w32.SendMessage(
-			n.upDownHandle,
-			w32.UDM_SETRANGE32,
-			uintptr(n.minValue),
-			uintptr(n.maxValue),
-		)
-	}
-	return n
-}
-
-func (n *NumberUpDown) SetMaxValue(max int) *NumberUpDown {
-	if n.Value() > max {
-		n.SetValue(max)
-	}
-	n.maxValue = int32(max)
-	if n.upDownHandle != 0 {
-		w32.SendMessage(
-			n.upDownHandle,
-			w32.UDM_SETRANGE32,
-			uintptr(n.minValue),
-			uintptr(n.maxValue),
-		)
-	}
-	return n
-}
-
-func (n *NumberUpDown) SetMinMaxValues(min, max int) *NumberUpDown {
-	if n.Value() < min {
-		n.SetValue(min)
-	} else if n.Value() > max {
-		n.SetValue(max)
-	}
-	n.minValue = int32(min)
-	n.maxValue = int32(max)
-	if n.upDownHandle != 0 {
-		w32.SendMessage(
-			n.upDownHandle,
-			w32.UDM_SETRANGE32,
-			uintptr(n.minValue),
-			uintptr(n.maxValue),
-		)
-	}
-	return n
-}
-
-func (n *NumberUpDown) SetBounds(x, y, width, height int) *NumberUpDown {
-	n.x = x
-	n.y = y
-	n.width = width
-	n.height = height
-	if n.editHandle != 0 {
-		w32.SetWindowPos(
-			n.editHandle, 0,
-			n.x, n.y, n.width, n.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-		w32.SetWindowPos(
-			n.upDownHandle, 0,
-			n.x, n.y, n.width, n.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-		w32.SendMessage(
-			n.upDownHandle,
-			w32.UDM_SETBUDDY,
-			uintptr(n.editHandle),
-			0,
-		)
-	}
-	return n
-}
-
-func (n *NumberUpDown) SetOnValueChange(f func(value int)) *NumberUpDown {
-	n.onValueChange = f
-	return n
-}
-
-type Label struct {
-	handle w32.HWND
-	x      int
-	y      int
-	width  int
-	height int
-	text   string
-	align  uint
-	hidden bool
-	parent *Window
-	font   *Font
-}
-
-func NewLabel() *Label {
-	return &Label{
-		align: w32.SS_LEFT,
-	}
-}
-
-func (*Label) isControl() {}
-
-func (l *Label) X() int      { return l.x }
-func (l *Label) Y() int      { return l.y }
-func (l *Label) Width() int  { return l.width }
-func (l *Label) Height() int { return l.height }
-func (l *Label) Font() *Font { return l.font }
-
-func (l *Label) SetFont(f *Font) *Label {
-	l.font = f
-	if l.handle != 0 {
-		if l.font != nil {
-			l.font.create()
-			w32.SendMessage(l.handle, w32.WM_SETFONT, uintptr(l.font.handle), 1)
-		}
-		if l.font == nil && l.parent != nil && l.parent.font != nil {
-			w32.SendMessage(
-				l.handle,
-				w32.WM_SETFONT,
-				uintptr(l.parent.font.handle),
-				1,
-			)
-		}
-	}
-	return l
-}
-
-func (l *Label) SetText(text string) *Label {
-	l.text = text
-	if l.handle != 0 {
-		w32.SetWindowText(l.handle, text)
-	}
-	return l
-}
-
-func (l *Label) SetX(x int) *Label {
-	return l.SetBounds(x, l.y, l.width, l.height)
-}
-
-func (l *Label) SetY(y int) *Label {
-	return l.SetBounds(l.x, y, l.width, l.height)
-}
-
-func (l *Label) SetPos(x, y int) *Label {
-	return l.SetBounds(x, y, l.width, l.height)
-}
-
-func (l *Label) SetWidth(width int) *Label {
-	return l.SetBounds(l.x, l.y, width, l.height)
-}
-
-func (l *Label) SetHeight(height int) *Label {
-	return l.SetBounds(l.x, l.y, l.width, height)
-}
-
-func (l *Label) SetSize(width, height int) *Label {
-	return l.SetBounds(l.x, l.y, width, height)
-}
-
-func (l *Label) SetBounds(x, y, width, height int) *Label {
-	l.x = x
-	l.y = y
-	l.width = width
-	l.height = height
-	if l.handle != 0 {
-		w32.SetWindowPos(
-			l.handle, 0,
-			l.x, l.y, l.width, l.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
-	return l
-}
-
-func (l *Label) setAlign(align uint) *Label {
-	l.align = align
-	if l.handle != 0 {
-		style := uint(w32.GetWindowLongPtr(l.handle, w32.GWL_STYLE))
-		style = style &^ w32.SS_LEFT &^ w32.SS_CENTER &^ w32.SS_RIGHT
-		w32.SetWindowLongPtr(l.handle, w32.GWL_STYLE, uintptr(style|l.align))
-		w32.InvalidateRect(l.handle, nil, true)
-	}
-	return l
-}
-
-func (l *Label) SetLeftAlign() *Label {
-	return l.setAlign(w32.SS_LEFT)
-}
-
-func (l *Label) SetCenterAlign() *Label {
-	return l.setAlign(w32.SS_CENTER)
-}
-
-func (l *Label) SetRightAlign() *Label {
-	return l.setAlign(w32.SS_RIGHT)
-}
-
-func (l *Label) Visible() bool {
-	return !l.hidden
-}
-
-func (l *Label) SetVisible(v bool) *Label {
-	l.hidden = !v
-	if l.handle != 0 {
-		cmd := w32.SW_SHOW
-		if l.hidden {
-			cmd = w32.SW_HIDE
-		}
-		w32.ShowWindow(l.handle, cmd)
-	}
-	return l
-}
-
-type Paintbox struct {
-	handle  w32.HWND
-	x       int
-	y       int
-	width   int
-	height  int
-	onPaint func(*Canvas)
-}
-
-func NewPaintbox() *Paintbox {
-	return &Paintbox{}
-}
-
-func (*Paintbox) isControl() {}
-
-func (p *Paintbox) Paint() {
-	if p.handle != 0 {
-		w32.InvalidateRect(p.handle, nil, true)
-	}
-}
-
-func (p *Paintbox) SetBounds(x, y, width, height int) *Paintbox {
-	p.x = x
-	p.y = y
-	p.width = width
-	p.height = height
-	if p.handle != 0 {
-		w32.SetWindowPos(
-			p.handle, 0,
-			p.x, p.y, p.width, p.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
-	return p
-}
-
-func (p *Paintbox) SetOnPaint(f func(*Canvas)) *Paintbox {
-	p.onPaint = f
-	return p
-}
-
-type Color w32.COLORREF
-
-func (c Color) R() uint8 { return uint8(c & 0xFF) }
-func (c Color) G() uint8 { return uint8((c & 0xFF00) >> 8) }
-func (c Color) B() uint8 { return uint8((c & 0xFF0000) >> 16) }
-
-func RGB(r, g, b uint8) Color {
-	return Color(r) + Color(g)<<8 + Color(b)<<16
-}
-
-type Canvas struct {
-	hdc    w32.HDC
-	width  int
-	height int
-}
-
-func (c *Canvas) Size() (width, height int) {
-	width, height = c.width, c.height
-	return
-}
-
-func (c *Canvas) Width() int {
-	return c.width
-}
-
-func (c *Canvas) Height() int {
-	return c.height
-}
-
-func (c *Canvas) DrawRect(x, y, width, height int, color Color) {
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
-	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
-	w32.Rectangle(c.hdc, x, y, x+width, y+height)
-}
-
-func (c *Canvas) FillRect(x, y, width, height int, color Color) {
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
-	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_BRUSH))
-	w32.SetDCBrushColor(c.hdc, w32.COLORREF(color))
-	w32.Rectangle(c.hdc, x, y, x+width, y+height)
-}
-
-func (c *Canvas) Line(x1, y1, x2, y2 int, color Color) {
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
-	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
-	w32.MoveToEx(c.hdc, x1, y1, nil)
-	w32.LineTo(c.hdc, x2, y2)
-}
-
-func (c *Canvas) DrawEllipse(x, y, width, height int, color Color) {
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
-	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
-	w32.Ellipse(c.hdc, x, y, x+width, y+height)
-}
-
-func (c *Canvas) FillEllipse(x, y, width, height int, color Color) {
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
-	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_BRUSH))
-	w32.SetDCBrushColor(c.hdc, w32.COLORREF(color))
-	w32.Ellipse(c.hdc, x, y, x+width, y+height)
-}
-
-func (c *Canvas) Polyline(p []w32.POINT, color Color) {
-	if len(p) < 2 {
-		return
-	}
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
-	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
-	w32.Polyline(c.hdc, p)
-}
-
-func (c *Canvas) Polygon(p []w32.POINT, color Color) {
-	if len(p) < 2 {
-		return
-	}
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
-	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_BRUSH))
-	w32.SetDCBrushColor(c.hdc, w32.COLORREF(color))
-	w32.Polygon(c.hdc, p)
-}
-
-func (c *Canvas) Arc(x, y, width, height int, fromClockAngle, dAngle float64, color Color) {
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
-	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
-	c.arcLike(x, y, width, height, fromClockAngle, dAngle, w32.Arc)
-}
-
-func (c *Canvas) FillPie(x, y, width, height int, fromClockAngle, dAngle float64, color Color) {
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
-	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_BRUSH))
-	w32.SetDCBrushColor(c.hdc, w32.COLORREF(color))
-	c.arcLike(x, y, width, height, fromClockAngle, dAngle, w32.Pie)
-}
-
-func (c *Canvas) DrawPie(x, y, width, height int, fromClockAngle, dAngle float64, color Color) {
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
-	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
-	c.arcLike(x, y, width, height, fromClockAngle, dAngle, w32.Pie)
-}
-
-func (c *Canvas) arcLike(
-	x, y, width, height int,
-	fromClockAngle, dAngle float64,
-	draw func(w32.HDC, int, int, int, int, int, int, int, int) bool) {
-	toRad := func(clock float64) float64 {
-		return (90 - clock) * math.Pi / 180
-	}
-	a, b := fromClockAngle+dAngle, fromClockAngle
-	if dAngle < 0 {
-		a, b = b, a
-	}
-	y1, x1 := math.Sincos(toRad(a))
-	y2, x2 := math.Sincos(toRad(b))
-	x1, x2, y1, y2 = 100*x1, 100*x2, -100*y1, -100*y2
-	round := func(f float64) int {
-		if f < 0 {
-			return int(f - 0.5)
-		}
-		return int(f + 0.5)
-	}
-	cx := float64(x) + float64(width)/2.0
-	cy := float64(y) + float64(height)/2.0
-	draw(
-		c.hdc,
-		x, y, x+width, y+height,
-		round(cx+100*x1), round(cy+100*y1), round(cx+100*x2), round(cy+100*y2),
-	)
-}
-
-func (c *Canvas) TextExtent(s string) (width, height int) {
-	size, ok := w32.GetTextExtentPoint32(c.hdc, s)
-	if ok {
-		width = int(size.CX)
-		height = int(size.CY)
-	}
-	return
-}
-
-func (c *Canvas) TextOut(x, y int, s string, color Color) {
-	w32.SetBkMode(c.hdc, w32.TRANSPARENT)
-	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
-	w32.SetTextColor(c.hdc, w32.COLORREF(color))
-	w32.TextOut(c.hdc, x, y, s)
-	w32.SetBkMode(c.hdc, w32.OPAQUE)
-}
-
-func (c *Canvas) SetFont(font *Font) *Canvas {
-	// TODO this creates a new font every time, either cache them or create one
-	// per canvas
-	font.create()
-	w32.SelectObject(c.hdc, w32.HGDIOBJ(font.handle))
-	return c
-}
-
-type Checkbox struct {
-	handle   w32.HWND
-	x        int
-	y        int
-	width    int
-	height   int
-	text     string
-	checked  bool
-	onChange func(bool)
-}
-
-func NewCheckbox() *Checkbox {
-	return &Checkbox{}
-}
-
-func (*Checkbox) isControl() {}
-
-func (c *Checkbox) SetBounds(x, y, width, height int) *Checkbox {
-	c.x = x
-	c.y = y
-	c.width = width
-	c.height = height
-	if c.handle != 0 {
-		w32.SetWindowPos(
-			c.handle, 0,
-			c.x, c.y, c.width, c.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
-	return c
-}
-
-func (c *Checkbox) Text() string {
-	return c.text
-}
-
-func (c *Checkbox) SetText(text string) *Checkbox {
-	c.text = text
-	if c.handle != 0 {
-		w32.SetWindowText(c.handle, c.text)
-	}
-	return c
-}
-
-func (c *Checkbox) SetChecked(checked bool) *Checkbox {
-	if checked == c.checked {
-		return c
-	}
-	c.checked = checked
-	if c.handle != 0 {
-		w32.SendMessage(c.handle, w32.BM_SETCHECK, toCheckState(c.checked), 0)
-	}
-	if c.onChange != nil {
-		c.onChange(c.checked)
-	}
-	return c
-}
-
-func toCheckState(checked bool) uintptr {
-	if checked {
-		return w32.BST_CHECKED
-	}
-	return w32.BST_UNCHECKED
-}
-
-func (c *Checkbox) SetOnChange(f func(checked bool)) *Checkbox {
-	c.onChange = f
-	return c
-}
-
-type EditLine struct {
-	handle w32.HWND
-	x      int
-	y      int
-	width  int
-	height int
-	text   string
-	hidden bool
-}
-
-func NewEditLine() *EditLine {
-	return &EditLine{}
-}
-
-func (*EditLine) isControl() {}
-
-func (e *EditLine) X() int      { return e.x }
-func (e *EditLine) Y() int      { return e.y }
-func (e *EditLine) Width() int  { return e.width }
-func (e *EditLine) Height() int { return e.height }
-
-func (e *EditLine) SetX(x int) *EditLine {
-	return e.SetBounds(x, e.y, e.width, e.height)
-}
-
-func (e *EditLine) SetY(y int) *EditLine {
-	return e.SetBounds(e.x, y, e.width, e.height)
-}
-
-func (e *EditLine) SetPos(x, y int) *EditLine {
-	return e.SetBounds(x, y, e.width, e.height)
-}
-
-func (e *EditLine) SetWidth(width int) *EditLine {
-	return e.SetBounds(e.x, e.y, width, e.height)
-}
-
-func (e *EditLine) SetHeight(height int) *EditLine {
-	return e.SetBounds(e.x, e.y, e.width, height)
-}
-
-func (e *EditLine) SetSize(width, height int) *EditLine {
-	return e.SetBounds(e.x, e.y, width, height)
-}
-
-func (e *EditLine) SetBounds(x, y, width, height int) *EditLine {
-	e.x = x
-	e.y = y
-	e.width = width
-	e.height = height
-	if e.handle != 0 {
-		w32.SetWindowPos(
-			e.handle, 0,
-			e.x, e.y, e.width, e.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
-	return e
-}
-
-func (e *EditLine) Text() string {
-	if e.handle != 0 {
-		e.text = w32.GetWindowText(e.handle)
-	}
-	return e.text
-}
-
-func (e *EditLine) SetText(text string) *EditLine {
-	e.text = text
-	if e.handle != 0 {
-		w32.SetWindowText(e.handle, text)
-	}
-	return e
-}
-
-func (e *EditLine) Visible() bool {
-	return !e.hidden
-}
-
-func (e *EditLine) SetVisible(v bool) *EditLine {
-	e.hidden = !v
-	if e.handle != 0 {
-		cmd := w32.SW_SHOW
-		if e.hidden {
-			cmd = w32.SW_HIDE
-		}
-		w32.ShowWindow(e.handle, cmd)
-	}
-	return e
-}
-
-const maxProgressBarValue = 10000
-
-type ProgressBar struct {
-	handle w32.HWND
-	x      int
-	y      int
-	width  int
-	height int
-	hidden bool
-	value  float64
-}
-
-func (p *ProgressBar) isControl() {}
-
-func NewProgressBar() *ProgressBar {
-	return &ProgressBar{}
-}
-
-func (p *ProgressBar) X() int      { return p.x }
-func (p *ProgressBar) Y() int      { return p.y }
-func (p *ProgressBar) Width() int  { return p.width }
-func (p *ProgressBar) Height() int { return p.height }
-
-func (p *ProgressBar) SetX(x int) *ProgressBar {
-	return p.SetBounds(x, p.y, p.width, p.height)
-}
-
-func (p *ProgressBar) SetY(y int) *ProgressBar {
-	return p.SetBounds(p.x, y, p.width, p.height)
-}
-
-func (p *ProgressBar) SetPos(x, y int) *ProgressBar {
-	return p.SetBounds(x, y, p.width, p.height)
-}
-
-func (p *ProgressBar) SetWidth(width int) *ProgressBar {
-	return p.SetBounds(p.x, p.y, width, p.height)
-}
-
-func (p *ProgressBar) SetHeight(height int) *ProgressBar {
-	return p.SetBounds(p.x, p.y, p.width, height)
-}
-
-func (p *ProgressBar) SetSize(width, height int) *ProgressBar {
-	return p.SetBounds(p.x, p.y, width, height)
-}
-
-func (p *ProgressBar) SetBounds(x, y, width, height int) *ProgressBar {
-	p.x = x
-	p.y = y
-	p.width = width
-	p.height = height
-	if p.handle != 0 {
-		w32.SetWindowPos(
-			p.handle, 0,
-			p.x, p.y, p.width, p.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
-	return p
-}
-
-func (p *ProgressBar) SetValue(v float64) *ProgressBar {
-	if v < 0 {
-		v = 0
-	}
-	if v > 1 {
-		v = 1
-	}
-	p.value = v
-	if p.handle != 0 {
-		pos := int(v*maxProgressBarValue + 0.5)
-		w32.SendMessage(p.handle, w32.PBM_SETPOS, uintptr(pos), 0)
-	}
-	return p
-}
-
-func (p *ProgressBar) Value() float64 {
-	// NOTE this is not necessary as long as nobody else can set the position
-	//if p.handle != 0 {
-	//	pos := w32.SendMessage(p.handle, w32.PBM_GETPOS, 0, 0)
-	//	p.value = float64(pos) / maxProgressBarValue
-	//}
-	return p.value
-}
-
-func (p *ProgressBar) Visible() bool {
-	return !p.hidden
-}
-
-func (p *ProgressBar) SetVisible(v bool) *ProgressBar {
-	p.hidden = !v
-	if p.handle != 0 {
-		cmd := w32.SW_SHOW
-		if p.hidden {
-			cmd = w32.SW_HIDE
-		}
-		w32.ShowWindow(p.handle, cmd)
-	}
-	return p
 }
