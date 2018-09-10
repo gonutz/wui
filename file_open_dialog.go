@@ -25,25 +25,22 @@ func NewFileOpenDialog() *FileOpenDialog {
 	return &FileOpenDialog{}
 }
 
-func (dlg *FileOpenDialog) SetParent(w *Window) *FileOpenDialog {
+func (dlg *FileOpenDialog) SetParent(w *Window) {
 	dlg.parent = w
-	return dlg
 }
 
-func (dlg *FileOpenDialog) SetTitle(title string) *FileOpenDialog {
+func (dlg *FileOpenDialog) SetTitle(title string) {
 	dlg.title = title
-	return dlg
 }
 
-func (dlg *FileOpenDialog) SetInitialPath(path string) *FileOpenDialog {
+func (dlg *FileOpenDialog) SetInitialPath(path string) {
 	dlg.initPath = path
-	return dlg
 }
 
-func (dlg *FileOpenDialog) AddFilter(text, ext1 string, exts ...string) *FileOpenDialog {
+func (dlg *FileOpenDialog) AddFilter(text, ext1 string, exts ...string) {
 	text16, err := syscall.UTF16FromString(text)
 	if err != nil {
-		return dlg
+		return
 	}
 	validateMask := func(ext string) string {
 		ext = strings.TrimSpace(ext)
@@ -63,17 +60,15 @@ func (dlg *FileOpenDialog) AddFilter(text, ext1 string, exts ...string) *FileOpe
 	}
 	mask16, err := syscall.UTF16FromString(mask)
 	if err != nil {
-		return dlg
+		return
 	}
 	dlg.filters = append(dlg.filters, text16...)
 	dlg.filters = append(dlg.filters, mask16...)
 	dlg.filterCount++
-	return dlg
 }
 
-func (dlg *FileOpenDialog) SetFilterIndex(i int) *FileOpenDialog {
+func (dlg *FileOpenDialog) SetFilterIndex(i int) {
 	dlg.filterIndex = i
-	return dlg
 }
 
 func (dlg *FileOpenDialog) ExecuteSingleSelection() (bool, string) {
