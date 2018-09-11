@@ -4,6 +4,7 @@ package wui
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"runtime"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/gonutz/w32"
 )
+
+var TODO fmt.Formatter
 
 func NewWindow() *Window {
 	return &Window{
@@ -27,8 +30,23 @@ func NewWindow() *Window {
 	}
 }
 
+func NewDialogWindow() *Window {
+	return &Window{
+		className:  "wui_window_class",
+		x:          w32.CW_USEDEFAULT,
+		y:          w32.CW_USEDEFAULT,
+		width:      w32.CW_USEDEFAULT,
+		height:     w32.CW_USEDEFAULT,
+		style:      w32.WS_OVERLAPPED | w32.WS_CAPTION | w32.WS_SYSMENU,
+		state:      w32.SW_SHOWNORMAL,
+		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
+		cursor:     w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_ARROW)),
+	}
+}
+
 type Window struct {
 	handle      w32.HWND
+	parent      *Window
 	className   string
 	classStyle  uint32
 	title       string
@@ -511,27 +529,74 @@ func (w *Window) Close() {
 	}
 }
 
+func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uintptr {
+	switch msg {
+	case w32.WM_MOUSEMOVE:
+		if w.onMouseMove != nil {
+			w.onMouseMove(
+				int(lParam&0xFFFF),
+				int(lParam&0xFFFF0000)>>16,
+			)
+			return 0
+		}
+	case w32.WM_DRAWITEM:
+		id := wParam
+		index := id - controlIDOffset
+		if 0 <= index && index < uintptr(len(w.controls)) {
+			if p, ok := w.controls[index].(*Paintbox); ok {
+				if p.onPaint != nil {
+					drawItem := ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam)))
+					p.onPaint(&Canvas{
+						hdc:    drawItem.HDC,
+						width:  p.width,
+						height: p.height,
+					})
+				}
+			}
+		}
+	case w32.WM_KEYDOWN:
+		if w.onKeyDown != nil {
+			w.onKeyDown(int(wParam))
+			return 0
+		}
+	case w32.WM_KEYUP:
+		if w.onKeyUp != nil {
+			w.onKeyUp(int(wParam))
+			return 0
+		}
+	case w32.WM_COMMAND:
+		w.onWM_COMMAND(wParam, lParam)
+		return 0
+	case w32.WM_SIZE:
+		if w.onResize != nil {
+			w.onResize()
+		}
+		w32.InvalidateRect(window, nil, true)
+		return 0
+	case w32.WM_DESTROY:
+		if w.onClose != nil {
+			w.onClose(w)
+		}
+		w32.PostQuitMessage(0)
+		return 0
+	case w32.WM_CLOSE:
+		if w.parent != nil {
+			w32.EnableWindow(w.parent.handle, true)
+			w32.SetForegroundWindow(w.parent.handle)
+		}
+		return w32.DefWindowProc(window, msg, wParam, lParam)
+	}
+	return w32.DefWindowProc(window, msg, wParam, lParam)
+}
+
 func (w *Window) Show() error {
 	if w.handle != 0 {
 		return errors.New("wui.Window.Show: window already visible")
 	}
 
 	runtime.LockOSThread()
-
 	hideConsoleWindow()
-
 	setManifest()
-
-	// if the width or height are negative, this indicates it is the client
-	// rect's size
-	var r w32.RECT
-	w32.AdjustWindowRect(&r, w.style, w.menu != nil)
-	if w.width < 0 && w.width != w32.CW_USEDEFAULT {
-		w.width = -w.width + int(r.Width())
-	}
-	if w.height < 0 && w.height != w32.CW_USEDEFAULT {
-		w.height = -w.height + int(r.Height())
-	}
 
 	class := w32.WNDCLASSEX{
 		Background: w.background,
@@ -540,57 +605,7 @@ func (w *Window) Show() error {
 			msg uint32,
 			wParam, lParam uintptr,
 		) uintptr {
-			switch msg {
-			case w32.WM_MOUSEMOVE:
-				if w.onMouseMove != nil {
-					w.onMouseMove(
-						int(lParam&0xFFFF),
-						int(lParam&0xFFFF0000)>>16,
-					)
-					return 0
-				}
-			case w32.WM_DRAWITEM:
-				id := wParam
-				index := id - controlIDOffset
-				if 0 <= index && index < uintptr(len(w.controls)) {
-					if p, ok := w.controls[index].(*Paintbox); ok {
-						if p.onPaint != nil {
-							drawItem := ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam)))
-							p.onPaint(&Canvas{
-								hdc:    drawItem.HDC,
-								width:  p.width,
-								height: p.height,
-							})
-						}
-					}
-				}
-			case w32.WM_KEYDOWN:
-				if w.onKeyDown != nil {
-					w.onKeyDown(int(wParam))
-					return 0
-				}
-			case w32.WM_KEYUP:
-				if w.onKeyUp != nil {
-					w.onKeyUp(int(wParam))
-					return 0
-				}
-			case w32.WM_COMMAND:
-				w.onWM_COMMAND(wParam, lParam)
-				return 0
-			case w32.WM_SIZE:
-				if w.onResize != nil {
-					w.onResize()
-				}
-				w32.InvalidateRect(window, nil, true)
-				return 0
-			case w32.WM_DESTROY:
-				if w.onClose != nil {
-					w.onClose(w)
-				}
-				w32.PostQuitMessage(0)
-				return 0
-			}
-			return w32.DefWindowProc(window, msg, wParam, lParam)
+			return w.onMsg(window, msg, wParam, lParam)
 		}),
 		Cursor:    w.cursor,
 		ClassName: syscall.StringToUTF16Ptr(w.className),
@@ -600,6 +615,8 @@ func (w *Window) Show() error {
 	if atom == 0 {
 		return errors.New("win.NewWindow: RegisterClassEx failed")
 	}
+
+	w.adjustClientRect()
 	window := w32.CreateWindowEx(
 		0,
 		syscall.StringToUTF16Ptr(w.className),
@@ -613,6 +630,27 @@ func (w *Window) Show() error {
 	}
 	w.handle = window
 
+	w.createContents()
+	w.applyIcon()
+	w32.ShowWindow(window, w.state)
+	w.readBounds()
+	if w.onShow != nil {
+		w.onShow(w)
+	}
+
+	var msg w32.MSG
+	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
+		// TODO this eats VK_ESCAPE and VK_RETURN and makes escape press a
+		// focused button?!
+		if !w32.IsDialogMessage(w.handle, &msg) {
+			w32.TranslateMessage(&msg)
+			w32.DispatchMessage(&msg)
+		}
+	}
+	return nil
+}
+
+func (w *Window) createContents() {
 	if w.menu != nil {
 		var addItems func(m w32.HMENU, items []MenuItem)
 		addItems = func(m w32.HMENU, items []MenuItem) {
@@ -638,30 +676,12 @@ func (w *Window) Show() error {
 		}
 		menuBar := w32.CreateMenu()
 		addItems(menuBar, w.menu.items)
-		w32.SetMenu(window, menuBar)
+		w32.SetMenu(w.handle, menuBar)
 	}
 
 	for i, c := range w.controls {
 		c.create(i + controlIDOffset)
 	}
-
-	w.applyIcon()
-	w32.ShowWindow(window, w.state)
-	w.readBounds()
-	if w.onShow != nil {
-		w.onShow(w)
-	}
-
-	var msg w32.MSG
-	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
-		// TODO this eats VK_ESCAPE and VK_RETURN and makes escape press a
-		// focused button?!
-		if !w32.IsDialogMessage(w.handle, &msg) {
-			w32.TranslateMessage(&msg)
-			w32.DispatchMessage(&msg)
-		}
-	}
-	return nil
 }
 
 func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
@@ -845,4 +865,68 @@ func (w *Window) SetIconFromFile(path string) {
 		w32.LR_LOADFROMFILE,
 	))
 	w.applyIcon()
+}
+
+func (w *Window) adjustClientRect() {
+	// if the width or height are negative, this indicates it is the client
+	// rect's size
+	var r w32.RECT
+	w32.AdjustWindowRect(&r, w.style, w.menu != nil)
+	if w.width < 0 && w.width != w32.CW_USEDEFAULT {
+		w.width = -w.width + int(r.Width())
+	}
+	if w.height < 0 && w.height != w32.CW_USEDEFAULT {
+		w.height = -w.height + int(r.Height())
+	}
+}
+
+func (w *Window) ShowModal(parent *Window) {
+	w.parent = parent
+
+	w.adjustClientRect()
+	window := w32.CreateWindowEx(
+		0,
+		syscall.StringToUTF16Ptr(parent.className),
+		syscall.StringToUTF16Ptr(w.title),
+		w.style,
+		w.x, w.y, w.width, w.height,
+		parent.handle,
+		0, 0, nil,
+	)
+	if window == 0 {
+		return
+	}
+	w.handle = window
+
+	w32.SetWindowSubclass(window, syscall.NewCallback(func(
+		window w32.HWND,
+		msg uint32,
+		wParam, lParam uintptr,
+		subclassID uintptr,
+		refData uintptr,
+	) uintptr {
+		return w.onMsg(window, msg, wParam, lParam)
+	}), 0, 0)
+
+	w.createContents()
+	if w.icon == 0 {
+		w.icon = w.parent.icon
+	}
+	w.applyIcon()
+	w32.ShowWindow(window, w32.SW_SHOWNORMAL)
+	w32.EnableWindow(parent.handle, false)
+	w.readBounds()
+	if w.onShow != nil {
+		w.onShow(w)
+	}
+
+	var msg w32.MSG
+	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
+		// TODO this eats VK_ESCAPE and VK_RETURN and makes escape press a
+		// focused button?!
+		if !w32.IsDialogMessage(w.handle, &msg) {
+			w32.TranslateMessage(&msg)
+			w32.DispatchMessage(&msg)
+		}
+	}
 }
