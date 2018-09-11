@@ -44,6 +44,7 @@ type Window struct {
 	menuStrings []*MenuString
 	font        *Font
 	controls    []Control
+	icon        uintptr
 	onShow      func(*Window)
 	onClose     func(*Window)
 	onMouseMove func(x, y int)
@@ -644,6 +645,7 @@ func (w *Window) Show() error {
 		c.create(i + controlIDOffset)
 	}
 
+	w.applyIcon()
 	w32.ShowWindow(window, w.state)
 	w.readBounds()
 	if w.onShow != nil {
@@ -787,4 +789,59 @@ func setManifest() {
 		Source: syscall.StringToUTF16Ptr(manifestPath),
 	})
 	w32.ActivateActCtx(ctx)
+}
+
+func (w *Window) applyIcon() {
+	if w.handle != 0 {
+		w32.SendMessage(w.handle, w32.WM_SETICON, w32.ICON_SMALL, w.icon)
+		w32.SendMessage(w.handle, w32.WM_SETICON, w32.ICON_SMALL2, w.icon)
+		w32.SendMessage(w.handle, w32.WM_SETICON, w32.ICON_BIG, w.icon)
+	}
+}
+
+func (w *Window) SetIconFromExeResource(resourceID uint16) {
+	w.icon = uintptr(w32.LoadImage(
+		w32.GetModuleHandle(""),
+		w32.MakeIntResource(resourceID),
+		w32.IMAGE_ICON,
+		0, 0,
+		w32.LR_DEFAULTSIZE|w32.LR_SHARED,
+	))
+	w.applyIcon()
+}
+
+func (w *Window) SetIconFromMem(mem []byte) {
+	offset := w32.LookupIconIdFromDirectoryEx(
+		unsafe.Pointer(&mem[0]),
+		true,
+		0, 0,
+		w32.LR_DEFAULTCOLOR,
+	)
+	if offset <= 0 {
+		return
+	}
+	w.icon = uintptr(w32.CreateIconFromResourceEx(
+		unsafe.Pointer(&mem[offset]),
+		0,
+		true,
+		0x30000,
+		0, 0,
+		w32.LR_DEFAULTCOLOR,
+	))
+	w.applyIcon()
+}
+
+func (w *Window) SetIconFromFile(path string) {
+	p, err := syscall.UTF16PtrFromString(path)
+	if err != nil {
+		return
+	}
+	w.icon = uintptr(w32.LoadImage(
+		0,
+		p,
+		w32.IMAGE_ICON,
+		0, 0,
+		w32.LR_LOADFROMFILE,
+	))
+	w.applyIcon()
 }
