@@ -67,7 +67,7 @@ type container interface {
 	getInstance() w32.HINSTANCE
 	Font() *Font
 	registerControl(c Control)
-	handleWM_COMMAND(w, l uintptr)
+	onWM_COMMAND(w, l uintptr)
 	controlCount() int
 }
 
@@ -575,7 +575,7 @@ func (w *Window) Show() error {
 					return 0
 				}
 			case w32.WM_COMMAND:
-				w.handleWM_COMMAND(wParam, lParam)
+				w.onWM_COMMAND(wParam, lParam)
 				return 0
 			case w32.WM_SIZE:
 				if w.onResize != nil {
@@ -664,7 +664,7 @@ func (w *Window) Show() error {
 	return nil
 }
 
-func (w *Window) handleWM_COMMAND(wParam, lParam uintptr) {
+func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 	if lParam == 0 && wParam&0xFFFF0000 == 0 {
 		id := int(wParam & 0xFFFF)
 		if 0 <= id && id < len(w.menuStrings) {

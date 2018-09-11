@@ -61,7 +61,7 @@ func (p *Panel) create(id int) {
 		refData uintptr,
 	) uintptr {
 		if msg == w32.WM_COMMAND {
-			p.handleWM_COMMAND(wParam, lParam)
+			p.onWM_COMMAND(wParam, lParam)
 			return 0
 		}
 		return w32.DefSubclassProc(window, msg, wParam, lParam)
@@ -125,8 +125,8 @@ func (p *Panel) Add(c Control) {
 	p.registerControl(c)
 }
 
-func (p *Panel) handleWM_COMMAND(w, l uintptr) {
-	p.parent.handleWM_COMMAND(w, l)
+func (p *Panel) onWM_COMMAND(w, l uintptr) {
+	p.parent.onWM_COMMAND(w, l)
 }
 
 func (p *Panel) controlCount() int {
