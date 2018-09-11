@@ -663,6 +663,7 @@ func (w *Window) Show() error {
 	}
 	return nil
 }
+
 func (w *Window) handleWM_COMMAND(wParam, lParam uintptr) {
 	if lParam == 0 && wParam&0xFFFF0000 == 0 {
 		id := int(wParam & 0xFFFF)
