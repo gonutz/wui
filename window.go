@@ -63,8 +63,8 @@ type Window struct {
 	font        *Font
 	controls    []Control
 	icon        uintptr
-	onShow      func(*Window)
-	onClose     func(*Window)
+	onShow      func()
+	onClose     func()
 	onMouseMove func(x, y int)
 	onKeyDown   func(key int)
 	onKeyUp     func(key int)
@@ -325,7 +325,7 @@ func (w *Window) ClientSize() (width, height int) {
 			width = -w.width
 		}
 		if w.height < 0 {
-			height = -height
+			height = -w.height
 		}
 	} else {
 		r := w32.GetClientRect(w.handle)
@@ -499,11 +499,11 @@ func (w *Window) controlCount() int {
 	return len(w.controls)
 }
 
-func (w *Window) SetOnShow(f func(*Window)) {
+func (w *Window) SetOnShow(f func()) {
 	w.onShow = f
 }
 
-func (w *Window) SetOnClose(f func(*Window)) {
+func (w *Window) SetOnClose(f func()) {
 	w.onClose = f
 }
 
@@ -574,15 +574,15 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 		w32.InvalidateRect(window, nil, true)
 		return 0
 	case w32.WM_DESTROY:
-		if w.onClose != nil {
-			w.onClose(w)
-		}
 		w32.PostQuitMessage(0)
 		return 0
 	case w32.WM_CLOSE:
 		if w.parent != nil {
 			w32.EnableWindow(w.parent.handle, true)
 			w32.SetForegroundWindow(w.parent.handle)
+		}
+		if w.onClose != nil {
+			w.onClose()
 		}
 		return w32.DefWindowProc(window, msg, wParam, lParam)
 	}
@@ -635,7 +635,7 @@ func (w *Window) Show() error {
 	w32.ShowWindow(window, w.state)
 	w.readBounds()
 	if w.onShow != nil {
-		w.onShow(w)
+		w.onShow()
 	}
 
 	var msg w32.MSG
@@ -882,6 +882,12 @@ func (w *Window) adjustClientRect() {
 
 func (w *Window) ShowModal(parent *Window) {
 	w.parent = parent
+	if w.icon == 0 {
+		w.icon = w.parent.icon
+	}
+	if w.font == nil {
+		w.font = parent.font
+	}
 
 	w.adjustClientRect()
 	window := w32.CreateWindowEx(
@@ -898,7 +904,7 @@ func (w *Window) ShowModal(parent *Window) {
 	}
 	w.handle = window
 
-	w32.SetWindowSubclass(window, syscall.NewCallback(func(
+	w32.SetWindowSubclass(w.handle, syscall.NewCallback(func(
 		window w32.HWND,
 		msg uint32,
 		wParam, lParam uintptr,
@@ -909,15 +915,12 @@ func (w *Window) ShowModal(parent *Window) {
 	}), 0, 0)
 
 	w.createContents()
-	if w.icon == 0 {
-		w.icon = w.parent.icon
-	}
 	w.applyIcon()
-	w32.ShowWindow(window, w32.SW_SHOWNORMAL)
+	w32.ShowWindow(w.handle, w32.SW_SHOWNORMAL)
 	w32.EnableWindow(parent.handle, false)
 	w.readBounds()
 	if w.onShow != nil {
-		w.onShow(w)
+		w.onShow()
 	}
 
 	var msg w32.MSG
