@@ -63,6 +63,7 @@ type Window struct {
 	font        *Font
 	controls    []Control
 	icon        uintptr
+	showConsole bool
 	onShow      func()
 	onClose     func()
 	onMouseMove func(x, y int)
@@ -595,7 +596,9 @@ func (w *Window) Show() error {
 	}
 
 	runtime.LockOSThread()
-	hideConsoleWindow()
+	if !w.showConsole {
+		hideConsoleWindow()
+	}
 	setManifest()
 
 	class := w32.WNDCLASSEX{
@@ -932,4 +935,12 @@ func (w *Window) ShowModal(parent *Window) {
 			w32.DispatchMessage(&msg)
 		}
 	}
+}
+
+func (w *Window) ShowConsoleOnStart() {
+	w.showConsole = true
+}
+
+func (w *Window) HideConsoleOnStart() {
+	w.showConsole = false
 }
