@@ -4,7 +4,6 @@ package wui
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"runtime"
@@ -13,8 +12,6 @@ import (
 
 	"github.com/gonutz/w32"
 )
-
-var TODO fmt.Formatter
 
 func NewWindow() *Window {
 	return &Window{
@@ -45,32 +42,33 @@ func NewDialogWindow() *Window {
 }
 
 type Window struct {
-	handle      w32.HWND
-	parent      *Window
-	className   string
-	classStyle  uint32
-	title       string
-	style       uint
-	x           int
-	y           int
-	width       int
-	height      int
-	state       int
-	background  w32.HBRUSH
-	cursor      w32.HCURSOR
-	menu        *Menu
-	menuStrings []*MenuString
-	font        *Font
-	controls    []Control
-	icon        uintptr
-	showConsole bool
-	onShow      func()
-	onClose     func()
-	onCanClose  func() bool
-	onMouseMove func(x, y int)
-	onKeyDown   func(key int)
-	onKeyUp     func(key int)
-	onResize    func()
+	handle        w32.HWND
+	parent        *Window
+	className     string
+	classStyle    uint32
+	title         string
+	style         uint
+	x             int
+	y             int
+	width         int
+	height        int
+	state         int
+	background    w32.HBRUSH
+	cursor        w32.HCURSOR
+	menu          *Menu
+	menuStrings   []*MenuString
+	font          *Font
+	controls      []Control
+	icon          uintptr
+	showConsole   bool
+	altF4disabled bool
+	onShow        func()
+	onClose       func()
+	onCanClose    func() bool
+	onMouseMove   func(x, y int)
+	onKeyDown     func(key int)
+	onKeyUp       func(key int)
+	onResize      func()
 }
 
 type Control interface {
@@ -573,6 +571,11 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 	case w32.WM_COMMAND:
 		w.onWM_COMMAND(wParam, lParam)
 		return 0
+	case w32.WM_SYSCOMMAND:
+		if w.altF4disabled && wParam == w32.SC_CLOSE && (lParam>>16) <= 0 {
+			return 0
+		}
+		return w32.DefWindowProc(window, msg, wParam, lParam)
 	case w32.WM_SIZE:
 		if w.onResize != nil {
 			w.onResize()
@@ -953,4 +956,12 @@ func (w *Window) ShowConsoleOnStart() {
 
 func (w *Window) HideConsoleOnStart() {
 	w.showConsole = false
+}
+
+func (w *Window) DisableAltF4() {
+	w.altF4disabled = true
+}
+
+func (w *Window) EnableAltF4() {
+	w.altF4disabled = false
 }
