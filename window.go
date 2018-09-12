@@ -66,6 +66,7 @@ type Window struct {
 	showConsole bool
 	onShow      func()
 	onClose     func()
+	onCanClose  func() bool
 	onMouseMove func(x, y int)
 	onKeyDown   func(key int)
 	onKeyUp     func(key int)
@@ -508,6 +509,10 @@ func (w *Window) SetOnClose(f func()) {
 	w.onClose = f
 }
 
+func (w *Window) SetOnCanClose(f func() bool) {
+	w.onCanClose = f
+}
+
 func (w *Window) SetOnMouseMove(f func(x, y int)) {
 	w.onMouseMove = f
 }
@@ -578,6 +583,11 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 		w32.PostQuitMessage(0)
 		return 0
 	case w32.WM_CLOSE:
+		if w.onCanClose != nil {
+			if w.onCanClose() == false {
+				return 0
+			}
+		}
 		if w.parent != nil {
 			w32.EnableWindow(w.parent.handle, true)
 			w32.SetForegroundWindow(w.parent.handle)
