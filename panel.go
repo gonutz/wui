@@ -60,11 +60,16 @@ func (p *Panel) create(id int) {
 		subclassID uintptr,
 		refData uintptr,
 	) uintptr {
-		if msg == w32.WM_COMMAND {
+		switch msg {
+		case w32.WM_COMMAND:
 			p.onWM_COMMAND(wParam, lParam)
 			return 0
+		case w32.WM_DRAWITEM:
+			p.onWM_DRAWITEM(wParam, lParam)
+			return 0
+		default:
+			return w32.DefSubclassProc(window, msg, wParam, lParam)
 		}
-		return w32.DefSubclassProc(window, msg, wParam, lParam)
 	}), 0, 0)
 	for i, c := range p.controls {
 		c.create(id + i + 1)
@@ -127,6 +132,10 @@ func (p *Panel) Add(c Control) {
 
 func (p *Panel) onWM_COMMAND(w, l uintptr) {
 	p.parent.onWM_COMMAND(w, l)
+}
+
+func (p *Panel) onWM_DRAWITEM(w, l uintptr) {
+	p.parent.onWM_DRAWITEM(w, l)
 }
 
 func (p *Panel) controlCount() int {

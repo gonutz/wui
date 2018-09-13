@@ -86,6 +86,7 @@ type container interface {
 	Font() *Font
 	registerControl(c Control)
 	onWM_COMMAND(w, l uintptr)
+	onWM_DRAWITEM(w, l uintptr)
 	controlCount() int
 }
 
@@ -544,20 +545,8 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 			return 0
 		}
 	case w32.WM_DRAWITEM:
-		id := wParam
-		index := id - controlIDOffset
-		if 0 <= index && index < uintptr(len(w.controls)) {
-			if p, ok := w.controls[index].(*Paintbox); ok {
-				if p.onPaint != nil {
-					drawItem := ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam)))
-					p.onPaint(&Canvas{
-						hdc:    drawItem.HDC,
-						width:  p.width,
-						height: p.height,
-					})
-				}
-			}
-		}
+		w.onWM_DRAWITEM(wParam, lParam)
+		return 0
 	case w32.WM_KEYDOWN:
 		if w.onKeyDown != nil {
 			w.onKeyDown(int(wParam))
@@ -601,6 +590,23 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 		return w32.DefWindowProc(window, msg, wParam, lParam)
 	}
 	return w32.DefWindowProc(window, msg, wParam, lParam)
+}
+
+func (w *Window) onWM_DRAWITEM(wParam, lParam uintptr) {
+	id := wParam
+	index := id - controlIDOffset
+	if 0 <= index && index < uintptr(len(w.controls)) {
+		if p, ok := w.controls[index].(*Paintbox); ok {
+			if p.onPaint != nil {
+				drawItem := ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam)))
+				p.onPaint(&Canvas{
+					hdc:    drawItem.HDC,
+					width:  p.width,
+					height: p.height,
+				})
+			}
+		}
+	}
 }
 
 func (w *Window) Show() error {
