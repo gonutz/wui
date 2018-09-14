@@ -2,7 +2,11 @@
 
 package wui
 
-import "github.com/gonutz/w32"
+import (
+	"syscall"
+
+	"github.com/gonutz/w32"
+)
 
 func NewTextEdit() *TextEdit {
 	return &TextEdit{}
@@ -23,6 +27,29 @@ func (e *TextEdit) create(id int) {
 	if e.limit != 0 {
 		e.SetCharacterLimit(e.limit)
 	}
+	w32.SetWindowSubclass(e.handle, syscall.NewCallback(func(
+		window w32.HWND,
+		msg uint32,
+		wParam, lParam uintptr,
+		subclassID uintptr,
+		refData uintptr,
+	) uintptr {
+		switch msg {
+		case w32.WM_CHAR:
+			if wParam == 1 {
+				var all uintptr
+				all--
+				if w32.GetKeyState(w32.VK_CONTROL)&0x8000 != 0 {
+					println("Ctrl+A")
+					w32.SendMessage(e.handle, w32.EM_SETSEL, 0, all)
+					return 0
+				}
+			}
+			return w32.DefSubclassProc(window, msg, wParam, lParam)
+		default:
+			return w32.DefSubclassProc(window, msg, wParam, lParam)
+		}
+	}), 0, 0)
 }
 
 func (e *TextEdit) SetCharacterLimit(count int) {
