@@ -774,6 +774,12 @@ func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 						changedToTrue.onChange(true)
 					}
 				}
+			case *Combobox:
+				if cmd == w32.CBN_SELCHANGE {
+					if c.onChange != nil {
+						c.onChange(c.SelectedIndex())
+					}
+				}
 			}
 			return
 		}
