@@ -61,7 +61,7 @@ func (n *FloatUpDown) create(id int) {
 	}
 
 	// the main handle is for the edit field
-	n.text = strconv.Itoa(int(n.value))
+	n.text = strconv.FormatFloat(n.value, 'f', n.precision, 64)
 	n.textControl.create(
 		id,
 		w32.WS_EX_CLIENTEDGE,
