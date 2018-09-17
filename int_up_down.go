@@ -9,14 +9,14 @@ import (
 	"github.com/gonutz/w32"
 )
 
-func NewNumberUpDown() *NumberUpDown {
-	return &NumberUpDown{
+func NewIntUpDown() *IntUpDown {
+	return &IntUpDown{
 		minValue: math.MinInt32,
 		maxValue: math.MaxInt32,
 	}
 }
 
-type NumberUpDown struct {
+type IntUpDown struct {
 	textControl
 	upDownHandle  w32.HWND
 	value         int32
@@ -25,7 +25,7 @@ type NumberUpDown struct {
 	onValueChange func(value int)
 }
 
-func (n *NumberUpDown) create(id int) {
+func (n *IntUpDown) create(id int) {
 	// the main handle is for the edit field
 	n.text = strconv.Itoa(int(n.value))
 	n.textControl.create(
@@ -42,7 +42,8 @@ func (n *NumberUpDown) create(id int) {
 		w32.UPDOWN_CLASS,
 		"",
 		visible|w32.WS_CHILD|
-			w32.UDS_SETBUDDYINT|w32.UDS_ALIGNRIGHT|w32.UDS_ARROWKEYS,
+			w32.UDS_SETBUDDYINT|w32.UDS_ALIGNRIGHT|w32.UDS_NOTHOUSANDS|
+			w32.UDS_ARROWKEYS,
 		n.x, n.y, n.width, n.height,
 		n.parent.getHandle(), 0, n.parent.getInstance(), nil,
 	)
@@ -56,31 +57,31 @@ func (n *NumberUpDown) create(id int) {
 	n.upDownHandle = upDown
 }
 
-func (n *NumberUpDown) SetX(x int) {
+func (n *IntUpDown) SetX(x int) {
 	n.SetBounds(x, n.y, n.width, n.height)
 }
 
-func (n *NumberUpDown) SetY(y int) {
+func (n *IntUpDown) SetY(y int) {
 	n.SetBounds(n.x, y, n.width, n.height)
 }
 
-func (n *NumberUpDown) SetPos(x, y int) {
+func (n *IntUpDown) SetPos(x, y int) {
 	n.SetBounds(x, y, n.width, n.height)
 }
 
-func (n *NumberUpDown) SetWidth(width int) {
+func (n *IntUpDown) SetWidth(width int) {
 	n.SetBounds(n.x, n.y, width, n.height)
 }
 
-func (n *NumberUpDown) SetHeight(height int) {
+func (n *IntUpDown) SetHeight(height int) {
 	n.SetBounds(n.x, n.y, n.width, height)
 }
 
-func (n *NumberUpDown) SetSize(width, height int) {
+func (n *IntUpDown) SetSize(width, height int) {
 	n.SetBounds(n.x, n.y, width, height)
 }
 
-func (n *NumberUpDown) SetBounds(x, y, width, height int) {
+func (n *IntUpDown) SetBounds(x, y, width, height int) {
 	n.textControl.SetBounds(x, y, width, height)
 	if n.upDownHandle != 0 {
 		w32.SetWindowPos(
@@ -92,14 +93,14 @@ func (n *NumberUpDown) SetBounds(x, y, width, height int) {
 	}
 }
 
-func (n *NumberUpDown) Value() int {
+func (n *IntUpDown) Value() int {
 	if n.upDownHandle != 0 {
 		n.value = int32(w32.SendMessage(n.upDownHandle, w32.UDM_GETPOS32, 0, 0))
 	}
 	return int(n.value)
 }
 
-func (n *NumberUpDown) SetValue(v int) {
+func (n *IntUpDown) SetValue(v int) {
 	n.value = int32(v)
 	if n.value < n.minValue {
 		n.value = n.minValue
@@ -112,11 +113,11 @@ func (n *NumberUpDown) SetValue(v int) {
 	}
 }
 
-func (n *NumberUpDown) MinValue() int {
+func (n *IntUpDown) MinValue() int {
 	return int(n.minValue)
 }
 
-func (n *NumberUpDown) SetMinValue(min int) {
+func (n *IntUpDown) SetMinValue(min int) {
 	if n.Value() < min {
 		n.SetValue(min)
 	}
@@ -131,11 +132,11 @@ func (n *NumberUpDown) SetMinValue(min int) {
 	}
 }
 
-func (n *NumberUpDown) MaxValue() int {
+func (n *IntUpDown) MaxValue() int {
 	return int(n.maxValue)
 }
 
-func (n *NumberUpDown) SetMaxValue(max int) {
+func (n *IntUpDown) SetMaxValue(max int) {
 	if n.Value() > max {
 		n.SetValue(max)
 	}
@@ -150,11 +151,11 @@ func (n *NumberUpDown) SetMaxValue(max int) {
 	}
 }
 
-func (n *NumberUpDown) MinMaxValues() (min, max int) {
+func (n *IntUpDown) MinMaxValues() (min, max int) {
 	return int(n.minValue), int(n.maxValue)
 }
 
-func (n *NumberUpDown) SetMinMaxValues(min, max int) {
+func (n *IntUpDown) SetMinMaxValues(min, max int) {
 	if n.Value() < min {
 		n.SetValue(min)
 	} else if n.Value() > max {
@@ -172,7 +173,6 @@ func (n *NumberUpDown) SetMinMaxValues(min, max int) {
 	}
 }
 
-func (n *NumberUpDown) SetOnValueChange(f func(value int)) *NumberUpDown {
+func (n *IntUpDown) SetOnValueChange(f func(value int)) {
 	n.onValueChange = f
-	return n
 }

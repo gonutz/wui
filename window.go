@@ -565,6 +565,18 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 			return 0
 		}
 		return w32.DefWindowProc(window, msg, wParam, lParam)
+	case w32.WM_NOTIFY:
+		header := *((*w32.NMHDR)(unsafe.Pointer(lParam)))
+		if header.Code == uint32(w32.UDN_DELTAPOS) {
+			i := int(wParam) - controlIDOffset
+			if 0 <= i && i < len(w.controls) {
+				if f, ok := w.controls[i].(*FloatUpDown); ok {
+					updown := *((*w32.NMUPDOWN)(unsafe.Pointer(lParam)))
+					f.SetValue(f.value - float64(updown.Delta))
+				}
+			}
+		}
+		return 0
 	case w32.WM_SIZE:
 		if w.onResize != nil {
 			w.onResize()
@@ -727,7 +739,14 @@ func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 				if c.onClick != nil {
 					c.onClick()
 				}
-			case *NumberUpDown:
+			case *FloatUpDown:
+				if cmd == w32.EN_CHANGE {
+					// TODO
+					//if c.onValueChange != nil {
+					//	c.onValueChange(int(c.Value()))
+					//}
+				}
+			case *IntUpDown:
 				if cmd == w32.EN_CHANGE {
 					if c.onValueChange != nil {
 						c.onValueChange(int(c.Value()))
