@@ -3,9 +3,13 @@
 package wui
 
 import (
-	"github.com/gonutz/w32"
-
+	"image"
+	"image/draw"
 	"math"
+	"reflect"
+	"unsafe"
+
+	"github.com/gonutz/w32"
 )
 
 func NewPaintbox() *Paintbox {
@@ -187,4 +191,98 @@ func (c *Canvas) TextOut(x, y int, s string, color Color) {
 
 func (c *Canvas) SetFont(font *Font) {
 	w32.SelectObject(c.hdc, w32.HGDIOBJ(font.handle))
+}
+
+func (c *Canvas) DrawImage(img *Image, src Rectangle, destX, destY int) {
+	if src.Width == 0 {
+		src.Width = img.width
+	}
+	if src.Height == 0 {
+		src.Height = img.height
+	}
+
+	hdcMem := w32.CreateCompatibleDC(c.hdc)
+	old := w32.SelectObject(hdcMem, w32.HGDIOBJ(img.bitmap))
+
+	w32.BitBlt(
+		c.hdc,
+		destX, destY, src.Width, src.Height,
+		hdcMem,
+		src.X, src.Y,
+		w32.SRCCOPY,
+	)
+
+	w32.SelectObject(hdcMem, old)
+	w32.DeleteDC(hdcMem)
+}
+
+func MakeImage(img image.Image) *Image {
+	var bmp w32.BITMAPINFO
+	bmp.BmiHeader.BiSize = uint32(unsafe.Sizeof(bmp.BmiHeader))
+	bmp.BmiHeader.BiWidth = int32(img.Bounds().Dx())
+	bmp.BmiHeader.BiHeight = -int32(img.Bounds().Dy())
+	bmp.BmiHeader.BiPlanes = 1
+	bmp.BmiHeader.BiBitCount = 32
+	bmp.BmiHeader.BiCompression = w32.BI_RGB
+
+	var bits unsafe.Pointer
+	bitmap := w32.CreateDIBSection(0, &bmp, 0, &bits, 0, 0)
+	rgba := toRGBA(img)
+	pixels := rgba.Pix
+	var dest []byte
+	hdrp := (*reflect.SliceHeader)(unsafe.Pointer(&dest))
+	hdrp.Data = uintptr(bits)
+	hdrp.Len = len(pixels)
+	hdrp.Cap = hdrp.Len
+	// swap red and blue because we need BGR and not RGB on Windows
+	for i := 0; i < len(pixels); i += 4 {
+		dest[i+0] = pixels[i+2]
+		dest[i+1] = pixels[i+1]
+		dest[i+2] = pixels[i+0]
+	}
+	return &Image{
+		bitmap: bitmap,
+		width:  img.Bounds().Dx(),
+		height: img.Bounds().Dy(),
+	}
+}
+
+func toRGBA(img image.Image) *image.RGBA {
+	if rgba, ok := img.(*image.RGBA); ok {
+		return rgba
+	}
+	rgba := image.NewRGBA(img.Bounds())
+	draw.Draw(rgba, rgba.Bounds(), img, rgba.Bounds().Min, draw.Src)
+	return rgba
+}
+
+type Image struct {
+	bitmap w32.HBITMAP
+	width  int
+	height int
+}
+
+func (img *Image) Width() int {
+	return img.width
+}
+
+func (img *Image) Height() int {
+	return img.height
+}
+
+func (img *Image) Size() (w, h int) {
+	return img.width, img.height
+}
+
+func Rect(x, y, width, height int) Rectangle {
+	return Rectangle{
+		X:      x,
+		Y:      y,
+		Width:  width,
+		Height: height,
+	}
+}
+
+type Rectangle struct {
+	X, Y, Width, Height int
 }
