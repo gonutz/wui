@@ -78,6 +78,10 @@ type Control interface {
 	parentFontChanged()
 }
 
+type Container interface {
+	Add(Control)
+}
+
 type container interface {
 	isContainer()
 	setParent(parent container)
