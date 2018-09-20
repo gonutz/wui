@@ -129,6 +129,7 @@ func (p *Panel) SetRaisedBorder() {
 	p.setBorder(borderRaised)
 }
 
+// TODO there is a bug in this when Adding control while parent is not set
 func (p *Panel) Add(c Control) {
 	c.setParent(p)
 	if p.handle != 0 {
@@ -150,7 +151,9 @@ func (p *Panel) controlCount() int {
 }
 
 func (p *Panel) registerControl(c Control) {
-	p.parent.registerControl(c)
+	if p.parent != nil {
+		p.parent.registerControl(c)
+	}
 }
 
 func (p *Panel) Font() *Font {
