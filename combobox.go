@@ -45,6 +45,13 @@ func (e *Combobox) addItem(s string) {
 	w32.SendMessage(e.handle, w32.CB_ADDSTRING, 0, uintptr(unsafe.Pointer(ptr)))
 }
 
+func (e *Combobox) Clear() {
+	e.items = nil
+	if e.handle != 0 {
+		w32.SendMessage(e.handle, w32.CB_RESETCONTENT, 0, 0)
+	}
+}
+
 func (e *Combobox) Items() []string {
 	return e.items
 }
