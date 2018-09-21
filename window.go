@@ -757,7 +757,7 @@ func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 					}
 				}
 			case *Checkbox:
-				state := w32.IsDlgButtonChecked(w.handle, id)
+				state := w32.IsDlgButtonChecked(c.parent.getHandle(), id)
 				checked := state == w32.BST_CHECKED
 				if c.checked != checked {
 					c.checked = checked
