@@ -1000,3 +1000,9 @@ func (w *Window) DisableAltF4() {
 func (w *Window) EnableAltF4() {
 	w.altF4disabled = false
 }
+
+func (w *Window) Destroy() {
+	if w.handle != 0 {
+		w32.DestroyWindow(w.handle)
+	}
+}
