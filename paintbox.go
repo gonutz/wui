@@ -218,7 +218,7 @@ func (c *Canvas) DrawImage(img *Image, src Rectangle, destX, destY int) {
 	w32.DeleteDC(hdcMem)
 }
 
-func MakeImage(img image.Image) *Image {
+func NewImage(img image.Image) *Image {
 	var bmp w32.BITMAPINFO
 	bmp.BmiHeader.BiSize = uint32(unsafe.Sizeof(bmp.BmiHeader))
 	bmp.BmiHeader.BiWidth = int32(img.Bounds().Dx())
