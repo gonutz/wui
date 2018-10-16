@@ -620,13 +620,13 @@ func (w *Window) onWM_DRAWITEM(wParam, lParam uintptr) {
 			if p.onPaint != nil {
 				drawItem := ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam)))
 				// create a back buffer
-				hdcMem := w32.CreateCompatibleDC(drawItem.HDC)
-				bmpMem := w32.CreateCompatibleBitmap(drawItem.HDC, p.width, p.height)
-				bmpOld := w32.SelectObject(hdcMem, w32.HGDIOBJ(bmpMem))
-				// TODO re-use the last back buffer, store it in the Paintbox
-				// and only change its size when the paint box's size changes
+				p.backBuffer.setMinSize(drawItem.HDC, p.width, p.height)
+				bmpOld := w32.SelectObject(
+					p.backBuffer.dc,
+					w32.HGDIOBJ(p.backBuffer.bmp),
+				)
 				c := &Canvas{
-					hdc:    hdcMem,
+					hdc:    p.backBuffer.dc,
 					width:  p.width,
 					height: p.height,
 				}
@@ -638,11 +638,9 @@ func (w *Window) onWM_DRAWITEM(wParam, lParam uintptr) {
 				// blit the backbuffer to the front
 				w32.BitBlt(
 					drawItem.HDC, 0, 0, p.width, p.height,
-					hdcMem, 0, 0, w32.SRCCOPY,
+					p.backBuffer.dc, 0, 0, w32.SRCCOPY,
 				)
-				w32.SelectObject(hdcMem, bmpOld)
-				w32.DeleteObject(w32.HGDIOBJ(bmpMem))
-				w32.DeleteDC(hdcMem)
+				w32.SelectObject(p.backBuffer.dc, bmpOld)
 			}
 		}
 	}

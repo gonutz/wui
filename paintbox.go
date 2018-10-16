@@ -18,7 +18,28 @@ func NewPaintbox() *Paintbox {
 
 type Paintbox struct {
 	control
-	onPaint func(*Canvas)
+	backBuffer backBuffer
+	onPaint    func(*Canvas)
+}
+
+type backBuffer struct {
+	w, h int
+	dc   w32.HDC
+	bmp  w32.HBITMAP
+}
+
+func (b *backBuffer) setMinSize(hdc w32.HDC, w, h int) {
+	if w > b.w || h > b.h {
+		if b.dc != 0 {
+			w32.DeleteObject(w32.HGDIOBJ(b.bmp))
+			w32.DeleteDC(b.dc)
+		}
+
+		b.dc = w32.CreateCompatibleDC(hdc)
+		b.bmp = w32.CreateCompatibleBitmap(hdc, w, h)
+		b.w = w
+		b.h = h
+	}
 }
 
 func (p *Paintbox) create(id int) {
