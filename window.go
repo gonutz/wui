@@ -8,6 +8,8 @@ import (
 	"os"
 	"runtime"
 	"syscall"
+	"unicode"
+	"unicode/utf16"
 	"unsafe"
 
 	"github.com/gonutz/w32"
@@ -62,6 +64,8 @@ type Window struct {
 	icon          uintptr
 	showConsole   bool
 	altF4disabled bool
+	shortcuts     []shortcut
+	accelTable    w32.HACCEL
 	onShow        func()
 	onClose       func()
 	onCanClose    func() bool
@@ -615,11 +619,15 @@ func (w *Window) onWM_DRAWITEM(wParam, lParam uintptr) {
 		if p, ok := w.controls[index].(*Paintbox); ok {
 			if p.onPaint != nil {
 				drawItem := ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam)))
-				p.onPaint(&Canvas{
+				c := &Canvas{
 					hdc:    drawItem.HDC,
 					width:  p.width,
 					height: p.height,
-				})
+				}
+				if p.parent != nil {
+					c.SetFont(p.parent.Font())
+				}
+				p.onPaint(c)
 			}
 		}
 	}
@@ -668,6 +676,7 @@ func (w *Window) Show() error {
 	}
 	w.handle = window
 
+	w.updateAccelerators()
 	w.createContents()
 	w.applyIcon()
 	w32.ShowWindow(window, w.state)
@@ -680,9 +689,12 @@ func (w *Window) Show() error {
 	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
 		// TODO this eats VK_ESCAPE and VK_RETURN and makes escape press a
 		// focused button?!
-		if !w32.IsDialogMessage(w.handle, &msg) {
-			w32.TranslateMessage(&msg)
-			w32.DispatchMessage(&msg)
+		if w.accelTable == 0 ||
+			!w32.TranslateAccelerator(w.handle, w.accelTable, &msg) {
+			if !w32.IsDialogMessage(w.handle, &msg) {
+				w32.TranslateMessage(&msg)
+				w32.DispatchMessage(&msg)
+			}
 		}
 	}
 	return nil
@@ -723,13 +735,22 @@ func (w *Window) createContents() {
 }
 
 func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
-	if lParam == 0 && wParam&0xFFFF0000 == 0 {
-		id := int(wParam & 0xFFFF)
+	wHi := (wParam & 0xFFFF0000) >> 16
+	wLo := wParam & 0xFFFF
+	if lParam == 0 && wHi == 0 {
+		// low word of w contains menu ID
+		id := int(wLo)
 		if 0 <= id && id < len(w.menuStrings) {
 			f := w.menuStrings[id].onClick
 			if f != nil {
 				f()
 			}
+		}
+	} else if lParam == 0 && wHi == 1 {
+		// low word of w contains accelerator ID
+		index := int(wLo)
+		if f := w.shortcuts[index].f; f != nil {
+			f()
 		}
 	} else if lParam != 0 {
 		// control clicked
@@ -809,7 +830,6 @@ func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 	}
 }
 
-// TODO make this optional?
 // hideConsoleWindow hides the associated console window if it was created
 // because the ldflag H=windowsgui was not provided when building.
 func hideConsoleWindow() {
@@ -965,6 +985,7 @@ func (w *Window) ShowModal(parent *Window) {
 		return w.onMsg(window, msg, wParam, lParam)
 	}), 0, 0)
 
+	w.updateAccelerators()
 	w.createContents()
 	w.applyIcon()
 	w32.ShowWindow(w.handle, w32.SW_SHOWNORMAL)
@@ -978,9 +999,12 @@ func (w *Window) ShowModal(parent *Window) {
 	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
 		// TODO this eats VK_ESCAPE and VK_RETURN and makes escape press a
 		// focused button?!
-		if !w32.IsDialogMessage(w.handle, &msg) {
-			w32.TranslateMessage(&msg)
-			w32.DispatchMessage(&msg)
+		if w.accelTable == 0 ||
+			!w32.TranslateAccelerator(w.handle, w.accelTable, &msg) {
+			if !w32.IsDialogMessage(w.handle, &msg) {
+				w32.TranslateMessage(&msg)
+				w32.DispatchMessage(&msg)
+			}
 		}
 	}
 }
@@ -1004,5 +1028,93 @@ func (w *Window) EnableAltF4() {
 func (w *Window) Destroy() {
 	if w.handle != 0 {
 		w32.DestroyWindow(w.handle)
+	}
+}
+
+type ShortcutKeys struct {
+	// Mod is a bit field combining any of ModControl, ModShift, ModAlt
+	Mod KeyMod
+	// Rune is the characters to be pressed for the accelerator. Either Rune or
+	// Key must be set, if both are set, Rune takes preference.
+	Rune rune
+	// Key is the virtual key to be pressed, it must be a w32.VK_... constant.
+	Key uint16
+}
+
+type KeyMod int
+
+const (
+	ModControl KeyMod = 1 << iota
+	ModShift
+	ModAlt
+)
+
+type shortcut struct {
+	keys ShortcutKeys
+	f    func()
+}
+
+func (s shortcut) toACCEL() w32.ACCEL {
+	var a w32.ACCEL
+	a.Virt |= w32.FVIRTKEY // NOTE need to set this in any case for some reason
+	if s.keys.Mod&ModControl != 0 {
+		a.Virt |= w32.FCONTROL
+	}
+	if s.keys.Mod&ModShift != 0 {
+		a.Virt |= w32.FSHIFT
+	}
+	if s.keys.Mod&ModAlt != 0 {
+		a.Virt |= w32.FALT
+	}
+	if s.keys.Rune != 0 {
+		// use rune
+		a.Key = utf16.Encode([]rune{unicode.ToUpper(s.keys.Rune)})[0]
+	} else {
+		// use virtual key
+		a.Key = s.keys.Key
+	}
+	return a
+}
+
+func (w *Window) SetShortcut(keys ShortcutKeys, f func()) {
+	func() {
+		// check if this shortcut was set before
+		for i := range w.shortcuts {
+			if keys == w.shortcuts[i].keys {
+				if f != nil {
+					// replace shortcut
+					w.shortcuts[i].f = f
+				} else {
+					// remove shortcut entirely
+					copy(w.shortcuts[i:], w.shortcuts[i+1:])
+					w.shortcuts = w.shortcuts[:len(w.shortcuts)-1]
+				}
+				return // shortcut was there before
+			}
+		}
+		// if we land here, the shortcut is new
+		w.shortcuts = append(w.shortcuts, shortcut{
+			keys: keys,
+			f:    f,
+		})
+	}()
+	if w.accelTable != 0 {
+		w.updateAccelerators()
+	}
+}
+
+func (w *Window) updateAccelerators() {
+	if w.accelTable != 0 {
+		w32.DestroyAcceleratorTable(w.accelTable)
+		w.accelTable = 0
+	}
+	if len(w.shortcuts) > 0 {
+		accels := make([]w32.ACCEL, len(w.shortcuts))
+		for i := range w.shortcuts {
+			accels[i] = w.shortcuts[i].toACCEL()
+			accels[i].Cmd = uint16(i)
+		}
+		w.accelTable = w32.CreateAcceleratorTable(accels)
+		println("accel", w.accelTable)
 	}
 }

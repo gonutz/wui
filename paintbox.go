@@ -190,7 +190,9 @@ func (c *Canvas) TextOut(x, y int, s string, color Color) {
 }
 
 func (c *Canvas) SetFont(font *Font) {
-	w32.SelectObject(c.hdc, w32.HGDIOBJ(font.handle))
+	if font != nil {
+		w32.SelectObject(c.hdc, w32.HGDIOBJ(font.handle))
+	}
 }
 
 func (c *Canvas) DrawImage(img *Image, src Rectangle, destX, destY int) {

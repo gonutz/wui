@@ -6,6 +6,10 @@ func NewMenu(name string) *Menu {
 	return &Menu{name: name}
 }
 
+func NewMainMenu() *Menu {
+	return &Menu{}
+}
+
 type Menu struct {
 	name  string
 	items []MenuItem
