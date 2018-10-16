@@ -1115,6 +1115,5 @@ func (w *Window) updateAccelerators() {
 			accels[i].Cmd = uint16(i)
 		}
 		w.accelTable = w32.CreateAcceleratorTable(accels)
-		println("accel", w.accelTable)
 	}
 }
