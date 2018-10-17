@@ -210,6 +210,20 @@ func (c *Canvas) TextOut(x, y int, s string, color Color) {
 	w32.SetBkMode(c.hdc, w32.OPAQUE)
 }
 
+func (c *Canvas) TextRect(x, y, w, h int, s string, color Color) {
+	w32.SetBkMode(c.hdc, w32.TRANSPARENT)
+	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
+	w32.SetTextColor(c.hdc, w32.COLORREF(color))
+	r := w32.RECT{
+		Left:   int32(x),
+		Top:    int32(y),
+		Right:  int32(x + w),
+		Bottom: int32(y + h),
+	}
+	w32.DrawText(c.hdc, s, &r, w32.DT_LEFT|w32.DT_WORDBREAK)
+	w32.SetBkMode(c.hdc, w32.OPAQUE)
+}
+
 func (c *Canvas) SetFont(font *Font) {
 	if font != nil {
 		w32.SelectObject(c.hdc, w32.HGDIOBJ(font.handle))
