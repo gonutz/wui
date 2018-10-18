@@ -153,6 +153,7 @@ func (c *textControl) Text() string {
 func (c *textControl) SetText(text string) {
 	c.text = text
 	if c.handle != 0 {
+		// TODO this does not work after closing a dialog window with a Label
 		w32.SetWindowText(c.handle, text)
 	}
 }
@@ -183,4 +184,10 @@ func (c *textControl) fontHandle() w32.HFONT {
 		}
 	}
 	return 0
+}
+
+func (c *textControl) Focus() {
+	if c.handle != 0 {
+		w32.SetFocus(c.handle)
+	}
 }
