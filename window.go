@@ -70,6 +70,7 @@ type Window struct {
 	onClose       func()
 	onCanClose    func() bool
 	onMouseMove   func(x, y int)
+	onMouseWheel  func(x, y int, delta float64)
 	onKeyDown     func(key int)
 	onKeyUp       func(key int)
 	onResize      func()
@@ -524,6 +525,10 @@ func (w *Window) SetOnMouseMove(f func(x, y int)) {
 	w.onMouseMove = f
 }
 
+func (w *Window) SetOnMouseWheel(f func(x, y int, delta float64)) {
+	w.onMouseWheel = f
+}
+
 func (w *Window) SetOnKeyDown(f func(key int)) {
 	w.onKeyDown = f
 }
@@ -552,6 +557,15 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 			)
 			return 0
 		}
+	case w32.WM_MOUSEWHEEL:
+		if w.onMouseWheel != nil {
+			w.onMouseWheel(
+				int(lParam&0xFFFF),
+				int(lParam&0xFFFF0000)>>16,
+				float64(int16(int32(wParam&0xFFFF0000)>>16))/120,
+			)
+		}
+		return 0
 	case w32.WM_DRAWITEM:
 		w.onWM_DRAWITEM(wParam, lParam)
 		return 0
@@ -1128,5 +1142,11 @@ func (w *Window) updateAccelerators() {
 			accels[i].Cmd = uint16(i)
 		}
 		w.accelTable = w32.CreateAcceleratorTable(accels)
+	}
+}
+
+func (w *Window) Scroll(dx, dy int) {
+	if w.handle != 0 {
+		w32.ScrollWindow(w.handle, dx, dy, nil, nil)
 	}
 }
