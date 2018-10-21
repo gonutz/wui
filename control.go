@@ -13,6 +13,7 @@ type control struct {
 	parent   container
 	disabled bool
 	hidden   bool
+	onResize func()
 }
 
 func (*control) isControl() {}
@@ -43,6 +44,14 @@ func (c *control) parentFontChanged() {}
 
 func (c *control) X() int {
 	return c.x
+}
+
+func (c *control) SetOnResize(f func()) {
+	c.onResize = f
+}
+
+func (c *control) OnResize() func() {
+	return c.onResize
 }
 
 func (c *control) SetX(x int) {
@@ -94,6 +103,10 @@ func (c *control) Bounds() (x, y, width, height int) {
 }
 
 func (c *control) SetBounds(x, y, width, height int) {
+	resize := false
+	if c.width != width || c.height != height {
+		resize = true
+	}
 	c.x, c.y, c.width, c.height = x, y, width, height
 	if c.handle != 0 {
 		w32.SetWindowPos(
@@ -101,6 +114,9 @@ func (c *control) SetBounds(x, y, width, height int) {
 			c.x, c.y, c.width, c.height,
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
+	}
+	if resize && c.onResize != nil {
+		c.onResize()
 	}
 }
 

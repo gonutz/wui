@@ -49,7 +49,7 @@ func (c *StringTable) create(id int) {
 			&w32.LVCOLUMN{
 				Mask:     w32.LVCF_FMT | w32.LVCF_WIDTH | w32.LVCF_TEXT | w32.LVCF_SUBITEM,
 				Fmt:      w32.LVCFMT_CENTER,
-				Cx:       maxW + 1,
+				Cx:       maxW + 5,
 				PszText:  header,
 				ISubItem: int32(i + 1),
 			})))

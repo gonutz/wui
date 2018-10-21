@@ -17,7 +17,6 @@ type Panel struct {
 	border   panelBorder
 	controls []Control
 	font     *Font
-	onResize func()
 }
 
 func (*Panel) isContainer() {}
@@ -67,12 +66,6 @@ func (p *Panel) create(id int) {
 			return 0
 		case w32.WM_DRAWITEM:
 			p.onWM_DRAWITEM(wParam, lParam)
-			return 0
-		case w32.WM_SIZE:
-			if p.onResize != nil {
-				p.onResize()
-			}
-			w32.InvalidateRect(window, nil, true)
 			return 0
 		default:
 			return w32.DefSubclassProc(window, msg, wParam, lParam)
@@ -168,12 +161,4 @@ func (p *Panel) SetFont(f *Font) {
 	for _, c := range p.controls {
 		c.parentFontChanged()
 	}
-}
-
-func (p *Panel) OnResize() func() {
-	return p.onResize
-}
-
-func (p *Panel) SetOnResize(f func()) {
-	p.onResize = f
 }
