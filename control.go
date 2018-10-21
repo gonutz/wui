@@ -191,3 +191,7 @@ func (c *textControl) Focus() {
 		w32.SetFocus(c.handle)
 	}
 }
+
+func (c *textControl) HasFocus() bool {
+	return c.handle != 0 && w32.GetFocus() == c.handle
+}
