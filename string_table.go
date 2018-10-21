@@ -42,6 +42,7 @@ func (c *StringTable) create(id int) {
 			maxW = size.CX
 		}
 	}
+	w32.ReleaseDC(c.handle, hdc)
 	for i := range c.headers {
 		header, _ := syscall.UTF16PtrFromString(c.headers[i])
 		w32.SendMessage(c.handle, w32.LVM_INSERTCOLUMN, uintptr(i), uintptr(unsafe.Pointer(
@@ -114,7 +115,17 @@ func (c *StringTable) DeleteRow(row int) {
 				if row > c.createdRows-1 {
 					row = c.createdRows - 1
 				}
-				w32.SendMessage(c.handle, w32.LVM_SETSELECTIONMARK, 0, uintptr(row))
+				if c.HasFocus() {
+					// make sure the selection is still active
+					w32.SendMessage(c.handle, w32.WM_KEYDOWN, w32.VK_UP, 0)
+					w32.SendMessage(c.handle, w32.WM_KEYUP, w32.VK_UP, 0)
+					w32.SendMessage(c.handle, w32.WM_KEYDOWN, w32.VK_DOWN, 0)
+					w32.SendMessage(c.handle, w32.WM_KEYUP, w32.VK_DOWN, 0)
+					if row == 0 {
+						w32.SendMessage(c.handle, w32.WM_KEYDOWN, w32.VK_UP, 0)
+						w32.SendMessage(c.handle, w32.WM_KEYUP, w32.VK_UP, 0)
+					}
+				}
 			}
 		}
 	}
