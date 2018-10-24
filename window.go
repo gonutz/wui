@@ -537,6 +537,10 @@ func (w *Window) SetOnKeyUp(f func(key int)) {
 	w.onKeyUp = f
 }
 
+func (w *Window) OnResize() func() {
+	return w.onResize
+}
+
 func (w *Window) SetOnResize(f func()) {
 	w.onResize = f
 }

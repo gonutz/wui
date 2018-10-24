@@ -13,6 +13,10 @@ type Button struct {
 	onClick func()
 }
 
+func (b *Button) OnClick() func() {
+	return b.onClick
+}
+
 func (b *Button) SetOnClick(f func()) {
 	b.onClick = f
 }
