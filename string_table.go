@@ -35,6 +35,7 @@ func (c *StringTable) create(id int) {
 		w32.LVS_EX_FULLROWSELECT|w32.LVS_EX_DOUBLEBUFFER|w32.LVS_EX_GRIDLINES)
 
 	hdc := w32.GetDC(c.handle)
+	defer w32.ReleaseDC(c.handle, hdc)
 	var maxW int32
 	for i := range c.headers {
 		size, ok := w32.GetTextExtentPoint32(hdc, c.headers[i])
@@ -42,14 +43,18 @@ func (c *StringTable) create(id int) {
 			maxW = size.CX
 		}
 	}
-	w32.ReleaseDC(c.handle, hdc)
 	for i := range c.headers {
 		header, _ := syscall.UTF16PtrFromString(c.headers[i])
+		var w int32 = 5
+		size, ok := w32.GetTextExtentPoint32(hdc, c.headers[i])
+		if ok {
+			w = size.CX
+		}
 		w32.SendMessage(c.handle, w32.LVM_INSERTCOLUMN, uintptr(i), uintptr(unsafe.Pointer(
 			&w32.LVCOLUMN{
 				Mask:     w32.LVCF_FMT | w32.LVCF_WIDTH | w32.LVCF_TEXT | w32.LVCF_SUBITEM,
 				Fmt:      w32.LVCFMT_CENTER,
-				Cx:       maxW + 5,
+				Cx:       w + 12, // we need a margin or the headers will not be fully displayed
 				PszText:  header,
 				ISubItem: int32(i + 1),
 			})))
