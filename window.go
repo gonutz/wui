@@ -1154,3 +1154,9 @@ func (w *Window) Scroll(dx, dy int) {
 		w32.ScrollWindow(w.handle, dx, dy, nil, nil)
 	}
 }
+
+func (w *Window) Repaint() {
+	if w.handle != 0 {
+		w32.InvalidateRect(w.handle, nil, true)
+	}
+}
