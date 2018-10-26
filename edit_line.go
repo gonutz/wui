@@ -13,5 +13,10 @@ type EditLine struct {
 }
 
 func (e *EditLine) create(id int) {
-	e.textControl.create(id, w32.WS_EX_CLIENTEDGE, "EDIT", w32.WS_TABSTOP)
+	e.textControl.create(
+		id,
+		w32.WS_EX_CLIENTEDGE,
+		"EDIT",
+		w32.WS_TABSTOP|w32.ES_AUTOHSCROLL,
+	)
 }
