@@ -67,6 +67,7 @@ func (dlg *FileOpenDialog) AddFilter(text, ext1 string, exts ...string) {
 	dlg.filterCount++
 }
 
+// SetFilterIndex sets the active filter, 0-indexed.
 func (dlg *FileOpenDialog) SetFilterIndex(i int) {
 	dlg.filterIndex = i
 }
@@ -119,8 +120,11 @@ func (dlg *FileOpenDialog) getOpenFileName(bufLen int, flags uint32) (bool, []ui
 	}
 
 	dlg.filters = append(dlg.filters, 0)
-	if dlg.filterIndex < 0 || dlg.filterIndex >= dlg.filterCount {
+	if dlg.filterIndex < 0 {
 		dlg.filterIndex = 0
+	}
+	if dlg.filterIndex >= dlg.filterCount {
+		dlg.filterIndex = dlg.filterCount - 1
 	}
 
 	var initDir *uint16

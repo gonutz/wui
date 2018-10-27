@@ -79,6 +79,7 @@ func (dlg *FileSaveDialog) AddFilter(text, ext1 string, exts ...string) {
 	}
 }
 
+// SetFilterIndex sets the active filter, 0-indexed.
 func (dlg *FileSaveDialog) SetFilterIndex(i int) {
 	dlg.filterIndex = i
 }
@@ -105,8 +106,11 @@ func (dlg *FileSaveDialog) getSaveFileName(bufLen int) (bool, []uint16, int) {
 	}
 
 	dlg.filters = append(dlg.filters, 0)
-	if dlg.filterIndex < 0 || dlg.filterIndex >= dlg.filterCount {
+	if dlg.filterIndex < 0 {
 		dlg.filterIndex = 0
+	}
+	if dlg.filterIndex >= dlg.filterCount {
+		dlg.filterIndex = dlg.filterCount - 1
 	}
 
 	var initDir *uint16
