@@ -11,16 +11,19 @@ import (
 
 func NewStringTable(header1 string, headers ...string) *StringTable {
 	return &StringTable{
-		headers: append([]string{header1}, headers...),
-		items:   make([]string, 0, 1),
+		headers:  append([]string{header1}, headers...),
+		items:    make([]string, 0, 1),
+		selected: -1,
 	}
 }
 
 type StringTable struct {
 	textControl
-	headers     []string
-	items       []string
-	createdRows int
+	headers           []string
+	items             []string
+	createdRows       int
+	onSelectionChange func()
+	selected          int
 }
 
 func (c *StringTable) create(id int) {
@@ -113,6 +116,9 @@ func (c *StringTable) indexToRow(i int) int {
 func (c *StringTable) DeleteRow(row int) {
 	rows := c.RowCount()
 	if 0 <= row && row < rows {
+		if c.selected == rows-1 {
+			c.newItemSelected(c.selected - 1)
+		}
 		if c.handle != 0 {
 			w32.SendMessage(c.handle, w32.LVM_DELETEITEM, uintptr(row), 0)
 			c.createdRows--
@@ -149,16 +155,39 @@ func (c *StringTable) ColCount() int {
 }
 
 func (c *StringTable) SelectedRow() int {
-	if c.handle == 0 {
-		return -1
-	} else {
-		return int(w32.SendMessage(c.handle, w32.LVM_GETSELECTIONMARK, 0, 0))
+	return c.selected
+}
+
+func (c *StringTable) newItemSelected(i int) {
+	if i != c.selected {
+		c.selected = i
+		if c.onSelectionChange != nil {
+			c.onSelectionChange()
+		}
 	}
 }
 
+func (c *StringTable) itemDeselected() {
+	c.newItemSelected(-1)
+}
+
 func (c *StringTable) Clear() {
+	// do not notify the observer in the process of clearing
+	lock := c.onSelectionChange
+	c.onSelectionChange = nil
+
 	for i := c.RowCount() - 1; i >= 0; i-- {
 		w32.SendMessage(c.handle, w32.LVM_DELETEITEM, uintptr(i), 0)
 	}
 	c.createdRows = 0
+	c.onSelectionChange = lock
+	c.itemDeselected() // now inform the listener that nothing is selected
+}
+
+func (c *StringTable) SetOnSelectionChange(f func()) {
+	c.onSelectionChange = f
+}
+
+func (c *StringTable) OnSelectionChange() func() {
+	return c.onSelectionChange
 }
