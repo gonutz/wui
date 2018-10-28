@@ -96,6 +96,7 @@ type container interface {
 	registerControl(c Control)
 	onWM_COMMAND(w, l uintptr)
 	onWM_DRAWITEM(w, l uintptr)
+	onWM_NOTIFY(w, l uintptr)
 	controlCount() int
 }
 
@@ -592,30 +593,7 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 		}
 		return w32.DefWindowProc(window, msg, wParam, lParam)
 	case w32.WM_NOTIFY:
-		header := *((*w32.NMHDR)(unsafe.Pointer(lParam)))
-		if header.Code == uint32(w32.UDN_DELTAPOS) {
-			i := int(wParam) - controlIDOffset
-			if 0 <= i && i < len(w.controls) {
-				if f, ok := w.controls[i].(*FloatUpDown); ok {
-					updown := *((*w32.NMUPDOWN)(unsafe.Pointer(lParam)))
-					f.SetValue(f.value - float64(updown.Delta))
-				}
-			}
-		} else if header.Code == w32.LVN_ITEMCHANGED&0xFFFFFFFF {
-			i := int(wParam) - controlIDOffset
-			if 0 <= i && i < len(w.controls) {
-				if t, ok := w.controls[i].(*StringTable); ok {
-					change := *((*w32.NMLISTVIEW)(unsafe.Pointer(lParam)))
-					if change.UChanged == w32.LVIF_STATE {
-						if change.UNewState&(w32.LVIS_FOCUSED|w32.LVIS_SELECTED) != 0 {
-							t.newItemSelected(int(change.IItem))
-						} else {
-							t.itemDeselected()
-						}
-					}
-				}
-			}
-		}
+		w.onWM_NOTIFY(wParam, lParam)
 		return 0
 	case w32.WM_SIZE:
 		if w.onResize != nil {
@@ -871,6 +849,33 @@ func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 				}
 			}
 			return
+		}
+	}
+}
+
+func (w *Window) onWM_NOTIFY(wParam, lParam uintptr) {
+	header := *((*w32.NMHDR)(unsafe.Pointer(lParam)))
+	if header.Code == uint32(w32.UDN_DELTAPOS) {
+		i := int(wParam) - controlIDOffset
+		if 0 <= i && i < len(w.controls) {
+			if f, ok := w.controls[i].(*FloatUpDown); ok {
+				updown := *((*w32.NMUPDOWN)(unsafe.Pointer(lParam)))
+				f.SetValue(f.value - float64(updown.Delta))
+			}
+		}
+	} else if header.Code == w32.LVN_ITEMCHANGED&0xFFFFFFFF {
+		i := int(wParam) - controlIDOffset
+		if 0 <= i && i < len(w.controls) {
+			if t, ok := w.controls[i].(*StringTable); ok {
+				change := *((*w32.NMLISTVIEW)(unsafe.Pointer(lParam)))
+				if change.UChanged == w32.LVIF_STATE {
+					if change.UNewState&(w32.LVIS_FOCUSED|w32.LVIS_SELECTED) != 0 {
+						t.newItemSelected(int(change.IItem))
+					} else {
+						t.itemDeselected()
+					}
+				}
+			}
 		}
 	}
 }

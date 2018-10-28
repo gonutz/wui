@@ -67,6 +67,9 @@ func (p *Panel) create(id int) {
 		case w32.WM_DRAWITEM:
 			p.onWM_DRAWITEM(wParam, lParam)
 			return 0
+		case w32.WM_NOTIFY:
+			p.onWM_NOTIFY(wParam, lParam)
+			return 0
 		default:
 			return w32.DefSubclassProc(window, msg, wParam, lParam)
 		}
@@ -137,6 +140,10 @@ func (p *Panel) onWM_COMMAND(w, l uintptr) {
 
 func (p *Panel) onWM_DRAWITEM(w, l uintptr) {
 	p.parent.onWM_DRAWITEM(w, l)
+}
+
+func (p *Panel) onWM_NOTIFY(w, l uintptr) {
+	p.parent.onWM_NOTIFY(w, l)
 }
 
 func (p *Panel) controlCount() int {
