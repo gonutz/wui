@@ -155,3 +155,10 @@ func (c *StringTable) SelectedRow() int {
 		return int(w32.SendMessage(c.handle, w32.LVM_GETSELECTIONMARK, 0, 0))
 	}
 }
+
+func (c *StringTable) Clear() {
+	for i := c.RowCount() - 1; i >= 0; i-- {
+		w32.SendMessage(c.handle, w32.LVM_DELETEITEM, uintptr(i), 0)
+	}
+	c.createdRows = 0
+}
