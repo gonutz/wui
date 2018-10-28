@@ -68,6 +68,9 @@ func (c *StringTable) create(id int) {
 }
 
 func (c *StringTable) SetCell(col, row int, s string) {
+	if col < 0 || col >= len(c.headers) {
+		return
+	}
 	if c.handle == 0 {
 		// add the item to our internal item list
 		i := c.toItemIndex(col, row)
@@ -113,29 +116,47 @@ func (c *StringTable) indexToRow(i int) int {
 	return i / len(c.headers)
 }
 
+func (c *StringTable) lockOnSelectionChange() (unlock func()) {
+	lock := c.onSelectionChange
+	c.onSelectionChange = nil
+	return func() {
+		c.onSelectionChange = lock
+	}
+}
+
 func (c *StringTable) DeleteRow(row int) {
 	rows := c.RowCount()
 	if 0 <= row && row < rows {
-		if c.selected == rows-1 {
-			c.newItemSelected(c.selected - 1)
+		curSel := c.selected
+		if curSel >= row {
+			println(curSel, row)
+			defer func() {
+				c.selected = -1
+				if curSel == rows-1 {
+					c.newItemSelected(curSel - 1)
+				} else {
+					c.newItemSelected(curSel)
+				}
+			}()
 		}
+		defer c.lockOnSelectionChange()()
 		if c.handle != 0 {
 			w32.SendMessage(c.handle, w32.LVM_DELETEITEM, uintptr(row), 0)
 			c.createdRows--
-			if c.createdRows > 0 {
-				if row > c.createdRows-1 {
-					row = c.createdRows - 1
+			if c.createdRows > 0 && c.HasFocus() {
+				// make sure the selection is still active
+				press := func(key uintptr) {
+					w32.SendMessage(c.handle, w32.WM_KEYDOWN, key, 0)
+					w32.SendMessage(c.handle, w32.WM_KEYUP, key, 0)
 				}
-				if c.HasFocus() {
-					// make sure the selection is still active
-					w32.SendMessage(c.handle, w32.WM_KEYDOWN, w32.VK_UP, 0)
-					w32.SendMessage(c.handle, w32.WM_KEYUP, w32.VK_UP, 0)
-					w32.SendMessage(c.handle, w32.WM_KEYDOWN, w32.VK_DOWN, 0)
-					w32.SendMessage(c.handle, w32.WM_KEYUP, w32.VK_DOWN, 0)
-					if row == 0 {
-						w32.SendMessage(c.handle, w32.WM_KEYDOWN, w32.VK_UP, 0)
-						w32.SendMessage(c.handle, w32.WM_KEYUP, w32.VK_UP, 0)
-					}
+				if c.createdRows == 1 {
+					press(w32.VK_UP)
+				} else if row == 0 {
+					press(w32.VK_DOWN)
+					press(w32.VK_UP)
+				} else {
+					press(w32.VK_UP)
+					press(w32.VK_DOWN)
 				}
 			}
 		}
@@ -172,16 +193,13 @@ func (c *StringTable) itemDeselected() {
 }
 
 func (c *StringTable) Clear() {
-	// do not notify the observer in the process of clearing
-	lock := c.onSelectionChange
-	c.onSelectionChange = nil
+	defer c.itemDeselected()
+	defer c.lockOnSelectionChange()()
 
 	for i := c.RowCount() - 1; i >= 0; i-- {
 		w32.SendMessage(c.handle, w32.LVM_DELETEITEM, uintptr(i), 0)
 	}
 	c.createdRows = 0
-	c.onSelectionChange = lock
-	c.itemDeselected() // now inform the listener that nothing is selected
 }
 
 func (c *StringTable) SetOnSelectionChange(f func()) {
