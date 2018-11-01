@@ -1002,6 +1002,10 @@ func (w *Window) adjustClientRect() {
 }
 
 func (w *Window) ShowModal(parent *Window) {
+	if parent == nil {
+		return
+	}
+
 	w.parent = parent
 	if w.icon == 0 {
 		w.icon = w.parent.icon
