@@ -129,7 +129,6 @@ func (c *StringTable) DeleteRow(row int) {
 	if 0 <= row && row < rows {
 		curSel := c.selected
 		if curSel >= row {
-			println(curSel, row)
 			defer func() {
 				c.selected = -1
 				if curSel == rows-1 {
