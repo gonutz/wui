@@ -50,6 +50,7 @@ type Window struct {
 	classStyle    uint32
 	title         string
 	style         uint
+	exStyle       uint
 	x             int
 	y             int
 	width         int
@@ -147,6 +148,18 @@ func (w *Window) SetStyle(ws uint) {
 		w32.SetWindowLongPtr(w.handle, w32.GWL_STYLE, uintptr(w.style))
 		w32.ShowWindow(w.handle, w.state) // for the new style to take effect
 		w.style = uint(w32.GetWindowLongPtr(w.handle, w32.GWL_STYLE))
+		w.readBounds()
+	}
+}
+
+func (w *Window) ExtendedStyle() uint { return w.exStyle }
+
+func (w *Window) SetExtendedStyle(x uint) {
+	w.exStyle = x
+	if w.handle != 0 {
+		w32.SetWindowLongPtr(w.handle, w32.GWL_EXSTYLE, uintptr(w.exStyle))
+		w32.ShowWindow(w.handle, w.state) // for the new style to take effect
+		w.exStyle = uint(w32.GetWindowLongPtr(w.handle, w32.GWL_EXSTYLE))
 		w.readBounds()
 	}
 }
@@ -687,7 +700,7 @@ func (w *Window) Show() error {
 
 	w.adjustClientRect()
 	window := w32.CreateWindowEx(
-		0,
+		w.exStyle,
 		syscall.StringToUTF16Ptr(w.className),
 		syscall.StringToUTF16Ptr(w.title),
 		w.style,
