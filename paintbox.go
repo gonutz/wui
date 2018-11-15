@@ -253,6 +253,14 @@ func (c *Canvas) DrawImage(img *Image, src Rectangle, destX, destY int) {
 	w32.DeleteDC(hdcMem)
 }
 
+func NewImageFromHBITMAP(bitmap w32.HBITMAP, width, height int) *Image {
+	return &Image{
+		bitmap: bitmap,
+		width:  width,
+		height: height,
+	}
+}
+
 func NewImage(img image.Image) *Image {
 	var bmp w32.BITMAPINFO
 	bmp.BmiHeader.BiSize = uint32(unsafe.Sizeof(bmp.BmiHeader))
@@ -309,6 +317,10 @@ func (img *Image) Height() int {
 
 func (img *Image) Size() (w, h int) {
 	return img.width, img.height
+}
+
+func (img *Image) Bounds() Rectangle {
+	return Rect(0, 0, img.width, img.height)
 }
 
 func Rect(x, y, width, height int) Rectangle {
