@@ -11,7 +11,6 @@ import (
 )
 
 type FileSaveDialog struct {
-	parent      *Window
 	appendExt   bool
 	filters     []uint16
 	filterCount int
@@ -23,10 +22,6 @@ type FileSaveDialog struct {
 
 func NewFileSaveDialog() *FileSaveDialog {
 	return &FileSaveDialog{appendExt: true}
-}
-
-func (dlg *FileSaveDialog) SetParent(w *Window) {
-	dlg.parent = w
 }
 
 func (dlg *FileSaveDialog) SetAppendExt(ext bool) {
@@ -84,8 +79,8 @@ func (dlg *FileSaveDialog) SetFilterIndex(i int) {
 	dlg.filterIndex = i
 }
 
-func (dlg *FileSaveDialog) Execute() (bool, string) {
-	ok, buf, filterIndex := dlg.getSaveFileName(w32.MAX_PATH + 2)
+func (dlg *FileSaveDialog) Execute(parent *Window) (bool, string) {
+	ok, buf, filterIndex := dlg.getSaveFileName(parent, w32.MAX_PATH+2)
 	if ok {
 		path := syscall.UTF16ToString(buf)
 		if dlg.appendExt && 0 <= filterIndex && filterIndex < len(dlg.exts) {
@@ -99,10 +94,10 @@ func (dlg *FileSaveDialog) Execute() (bool, string) {
 	return false, ""
 }
 
-func (dlg *FileSaveDialog) getSaveFileName(bufLen int) (bool, []uint16, int) {
+func (dlg *FileSaveDialog) getSaveFileName(parent *Window, bufLen int) (bool, []uint16, int) {
 	var owner w32.HWND
-	if dlg.parent != nil {
-		owner = dlg.parent.handle
+	if parent != nil {
+		owner = parent.handle
 	}
 
 	dlg.filters = append(dlg.filters, 0)

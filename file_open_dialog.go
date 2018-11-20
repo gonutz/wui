@@ -12,7 +12,6 @@ import (
 )
 
 type FileOpenDialog struct {
-	parent      *Window
 	filters     []uint16
 	filterCount int
 	filterIndex int
@@ -23,10 +22,6 @@ type FileOpenDialog struct {
 
 func NewFileOpenDialog() *FileOpenDialog {
 	return &FileOpenDialog{}
-}
-
-func (dlg *FileOpenDialog) SetParent(w *Window) {
-	dlg.parent = w
 }
 
 func (dlg *FileOpenDialog) SetTitle(title string) {
@@ -72,16 +67,16 @@ func (dlg *FileOpenDialog) SetFilterIndex(i int) {
 	dlg.filterIndex = i
 }
 
-func (dlg *FileOpenDialog) ExecuteSingleSelection() (bool, string) {
-	ok, buf := dlg.getOpenFileName(w32.MAX_PATH+2, 0)
+func (dlg *FileOpenDialog) ExecuteSingleSelection(parent *Window) (bool, string) {
+	ok, buf := dlg.getOpenFileName(parent, w32.MAX_PATH+2, 0)
 	if ok {
 		return true, syscall.UTF16ToString(buf)
 	}
 	return false, ""
 }
 
-func (dlg *FileOpenDialog) ExecuteMultiSelection() (bool, []string) {
-	ok, buf := dlg.getOpenFileName(65535, w32.OFN_ALLOWMULTISELECT)
+func (dlg *FileOpenDialog) ExecuteMultiSelection(parent *Window) (bool, []string) {
+	ok, buf := dlg.getOpenFileName(parent, 65535, w32.OFN_ALLOWMULTISELECT)
 	if ok {
 		// parse mutliple files, the format is 0-separated UTF-16 strings, first
 		// comes the directory, then the file names, after the last file name
@@ -113,10 +108,12 @@ func (dlg *FileOpenDialog) ExecuteMultiSelection() (bool, []string) {
 	return false, nil
 }
 
-func (dlg *FileOpenDialog) getOpenFileName(bufLen int, flags uint32) (bool, []uint16) {
+func (dlg *FileOpenDialog) getOpenFileName(
+	parent *Window, bufLen int, flags uint32,
+) (bool, []uint16) {
 	var owner w32.HWND
-	if dlg.parent != nil {
-		owner = dlg.parent.handle
+	if parent != nil {
+		owner = parent.handle
 	}
 
 	dlg.filters = append(dlg.filters, 0)
