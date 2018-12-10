@@ -20,6 +20,10 @@ func MessageBoxYesNo(parent *Window, caption, text string) bool {
 	return msgBox(parent, caption, text, w32.MB_YESNO) == w32.IDYES
 }
 
+func MessageBoxCustom(parent *Window, caption, text string, flags uint) int {
+	return msgBox(parent, caption, text, flags)
+}
+
 func msgBox(parent *Window, caption, text string, flags uint) int {
 	var handle w32.HWND
 	if parent != nil {
