@@ -40,7 +40,6 @@ func (e *TextEdit) create(id int) {
 				var all uintptr
 				all--
 				if w32.GetKeyState(w32.VK_CONTROL)&0x8000 != 0 {
-					println("Ctrl+A")
 					w32.SendMessage(e.handle, w32.EM_SETSEL, 0, all)
 					return 0
 				}
