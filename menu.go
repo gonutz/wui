@@ -42,6 +42,10 @@ func (m *MenuString) SetOnClick(f func()) *MenuString {
 	return m
 }
 
+func (m *MenuString) OnClick() func() {
+	return m.OnClick()
+}
+
 func NewMenuSeparator() MenuItem {
 	return separator
 }
