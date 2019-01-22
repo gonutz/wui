@@ -1196,3 +1196,10 @@ func (w *Window) Repaint() {
 		w32.InvalidateRect(w.handle, nil, true)
 	}
 }
+
+func (w *Window) Monitor() w32.HMONITOR {
+	if w.handle == 0 {
+		return 0
+	}
+	return w32.MonitorFromWindow(w.handle, w32.MONITOR_DEFAULTTONULL)
+}
