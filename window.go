@@ -748,12 +748,15 @@ func (w *Window) createContents() {
 						menuItem.name)
 					addItems(menu, menuItem.items)
 				case *MenuString:
+					id := uintptr(len(w.menuStrings))
 					w32.AppendMenu(
 						m,
 						w32.MF_STRING,
-						uintptr(len(w.menuStrings)),
+						id,
 						menuItem.name,
 					)
+					menuItem.menu = m
+					menuItem.id = uint(id)
 					w.menuStrings = append(w.menuStrings, menuItem)
 				case menuSeparator:
 					w32.AppendMenu(m, w32.MF_SEPARATOR, 0, "")
@@ -763,6 +766,11 @@ func (w *Window) createContents() {
 		menuBar := w32.CreateMenu()
 		addItems(menuBar, w.menu.items)
 		w32.SetMenu(w.handle, menuBar)
+		for _, m := range w.menuStrings {
+			if m.Checked() {
+				m.SetChecked(true)
+			}
+		}
 	}
 
 	for i, c := range w.controls {
