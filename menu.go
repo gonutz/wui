@@ -2,7 +2,12 @@
 
 package wui
 
-import "github.com/gonutz/w32"
+import (
+	"syscall"
+	"unsafe"
+
+	"github.com/gonutz/w32"
+)
 
 func NewMenu(name string) *Menu {
 	return &Menu{name: name}
@@ -30,16 +35,17 @@ func (m *Menu) Add(item MenuItem) *Menu {
 	return m
 }
 
-func NewMenuString(name string) *MenuString {
-	return &MenuString{name: name}
-}
-
 // menu string
 
+func NewMenuString(text string) *MenuString {
+	return &MenuString{text: text}
+}
+
 type MenuString struct {
+	window  w32.HWND
 	menu    w32.HMENU
 	id      uint
-	name    string
+	text    string
 	checked bool
 	onClick func()
 }
@@ -64,13 +70,27 @@ func (m *MenuString) SetChecked(c bool) {
 	if m.menu != 0 {
 		var info w32.MENUITEMINFO
 		info.Mask = w32.MIIM_STATE
-		w32.GetMenuItemInfo(m.menu, m.id, false, &info)
 		if c {
 			info.State = w32.MFS_CHECKED
 		} else {
 			info.State = w32.MFS_UNCHECKED
 		}
 		w32.SetMenuItemInfo(m.menu, m.id, false, &info)
+	}
+}
+
+func (m *MenuString) Text() string {
+	return m.text
+}
+
+func (m *MenuString) SetText(s string) {
+	m.text = s
+	if m.menu != 0 {
+		var info w32.MENUITEMINFO
+		info.Mask = w32.MIIM_STRING
+		info.TypeData = uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(s)))
+		w32.SetMenuItemInfo(m.menu, m.id, false, &info)
+		w32.DrawMenuBar(m.window)
 	}
 }
 

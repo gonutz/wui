@@ -744,8 +744,7 @@ func (w *Window) createContents() {
 				switch menuItem := item.(type) {
 				case *Menu:
 					menu := w32.CreateMenu()
-					w32.AppendMenu(m, w32.MF_POPUP, uintptr(menu),
-						menuItem.name)
+					w32.AppendMenu(m, w32.MF_POPUP, uintptr(menu), menuItem.name)
 					addItems(menu, menuItem.items)
 				case *MenuString:
 					id := uintptr(len(w.menuStrings))
@@ -753,8 +752,9 @@ func (w *Window) createContents() {
 						m,
 						w32.MF_STRING,
 						id,
-						menuItem.name,
+						menuItem.text,
 					)
+					menuItem.window = w.handle
 					menuItem.menu = m
 					menuItem.id = uint(id)
 					w.menuStrings = append(w.menuStrings, menuItem)
