@@ -12,6 +12,18 @@ func MessageBoxError(parent *Window, caption, text string) {
 	msgBox(parent, caption, text, w32.MB_OK|w32.MB_ICONERROR)
 }
 
+func MessageBoxWarning(parent *Window, caption, text string) {
+	msgBox(parent, caption, text, w32.MB_OK|w32.MB_ICONWARNING)
+}
+
+func MessageBoxInfo(parent *Window, caption, text string) {
+	msgBox(parent, caption, text, w32.MB_OK|w32.MB_ICONINFORMATION)
+}
+
+func MessageBoxQuestion(parent *Window, caption, text string) {
+	msgBox(parent, caption, text, w32.MB_OK|w32.MB_ICONQUESTION)
+}
+
 func MessageBoxOKCancel(parent *Window, caption, text string) bool {
 	return msgBox(parent, caption, text, w32.MB_OKCANCEL) == w32.IDOK
 }
