@@ -29,7 +29,7 @@ func MessageBoxOKCancel(parent *Window, caption, text string) bool {
 }
 
 func MessageBoxYesNo(parent *Window, caption, text string) bool {
-	return msgBox(parent, caption, text, w32.MB_YESNO) == w32.IDYES
+	return msgBox(parent, caption, text, w32.MB_YESNO|w32.MB_ICONQUESTION) == w32.IDYES
 }
 
 func MessageBoxCustom(parent *Window, caption, text string, flags uint) int {
