@@ -214,6 +214,17 @@ func (c *Canvas) TextRect(x, y, w, h int, s string, color Color) {
 	c.TextRectFormat(x, y, w, h, s, FormatTopLeft, color)
 }
 
+// TextRectExtent returns the size of the text when drawn in a rectangle of the
+// given width. The given width is necessary because text rects use word breaks
+// and thus given a smaller width might produce a higher text height.
+func (c *Canvas) TextRectExtent(s string, givenWidth int) (width, height int) {
+	var flags uint = w32.DT_WORDBREAK | w32.DT_NOFULLWIDTHCHARBREAK | w32.DT_EXPANDTABS
+	var r w32.RECT
+	r.Right = int32(givenWidth)
+	w32.DrawText(c.hdc, s, &r, flags|w32.DT_CALCRECT)
+	return int(r.Width()), int(r.Height())
+}
+
 type Format int
 
 const (
