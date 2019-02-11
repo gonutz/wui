@@ -211,6 +211,24 @@ func (c *Canvas) TextOut(x, y int, s string, color Color) {
 }
 
 func (c *Canvas) TextRect(x, y, w, h int, s string, color Color) {
+	c.TextRectFormat(x, y, w, h, s, FormatTopLeft, color)
+}
+
+type Format int
+
+const (
+	FormatTopLeft Format = iota
+	FormatCenterLeft
+	FormatBottomLeft
+	FormatTopCenter
+	FormatCenter
+	FormatBottomCenter
+	FormatTopRight
+	FormatCenterRight
+	FormatBottomRight
+)
+
+func (c *Canvas) TextRectFormat(x, y, w, h int, s string, format Format, color Color) {
 	w32.SetBkMode(c.hdc, w32.TRANSPARENT)
 	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
 	w32.SetTextColor(c.hdc, w32.COLORREF(color))
@@ -220,7 +238,37 @@ func (c *Canvas) TextRect(x, y, w, h int, s string, color Color) {
 		Right:  int32(x + w),
 		Bottom: int32(y + h),
 	}
-	w32.DrawText(c.hdc, s, &r, w32.DT_LEFT|w32.DT_WORDBREAK)
+	var flags uint = w32.DT_WORDBREAK | w32.DT_NOFULLWIDTHCHARBREAK | w32.DT_EXPANDTABS
+	// add the appropriate horizontal positioning flag
+	switch format {
+	default:
+		flags |= w32.DT_LEFT
+	case FormatTopCenter, FormatCenter, FormatBottomCenter:
+		flags |= w32.DT_CENTER
+	case FormatTopRight, FormatCenterRight, FormatBottomRight:
+		flags |= w32.DT_RIGHT
+	}
+	// w32.DrawText will only respect w32.DT_VCENTER and w32.DT_BOTTOM if the
+	// single-line option is also set, this means that we actually have to do
+	// the work of positioning the text vertically ourselves
+	switch format {
+	default:
+		w32.DrawText(c.hdc, s, &r, flags)
+	case FormatCenterLeft, FormatCenter, FormatCenterRight:
+		calc := r
+		w32.DrawText(c.hdc, s, &calc, flags|w32.DT_CALCRECT)
+		if calc.Height() < r.Height() {
+			r.Top += (r.Height() - calc.Height()) / 2
+		}
+		w32.DrawText(c.hdc, s, &r, flags)
+	case FormatBottomLeft, FormatBottomCenter, FormatBottomRight:
+		calc := r
+		w32.DrawText(c.hdc, s, &calc, flags|w32.DT_CALCRECT)
+		if calc.Height() < r.Height() {
+			r.Top += r.Height() - calc.Height()
+		}
+		w32.DrawText(c.hdc, s, &r, flags)
+	}
 	w32.SetBkMode(c.hdc, w32.OPAQUE)
 }
 
