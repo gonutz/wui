@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
+	"sync"
 	"syscall"
 	"unicode"
 	"unicode/utf16"
@@ -14,6 +15,36 @@ import (
 
 	"github.com/gonutz/w32"
 )
+
+var windows windowStack
+
+type windowStack struct {
+	windows []*Window
+	mu      sync.Mutex
+}
+
+func (s *windowStack) top() *Window {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.windows) == 0 {
+		return nil
+	}
+	return s.windows[len(s.windows)-1]
+}
+
+func (s *windowStack) push(w *Window) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.windows = append(s.windows, w)
+}
+
+func (s *windowStack) pop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.windows) > 0 {
+		s.windows = s.windows[:len(s.windows)-1]
+	}
+}
 
 func NewWindow() *Window {
 	return &Window{
@@ -674,6 +705,12 @@ func (w *Window) Show() error {
 		return errors.New("wui.Window.Show: window already visible")
 	}
 
+	if windows.top() != nil {
+		return errors.New("wui.Window.Show: another window is already visible")
+	}
+	windows.push(w)
+	defer windows.pop()
+
 	runtime.LockOSThread()
 	if !w.showConsole {
 		hideConsoleWindow()
@@ -708,7 +745,7 @@ func (w *Window) Show() error {
 		0, 0, 0, nil,
 	)
 	if window == 0 {
-		return errors.New("win.NewWindow: CreateWindowEx failed")
+		return errors.New("win.Window.Show: CreateWindowEx failed")
 	}
 	w.handle = window
 
@@ -1022,31 +1059,37 @@ func (w *Window) adjustClientRect() {
 	}
 }
 
-func (w *Window) ShowModal(parent *Window) {
-	if parent == nil {
-		return
+func (w *Window) ShowModal() error {
+	if w.handle != 0 {
+		return errors.New("wui.Window.ShowModal: window already visible")
 	}
 
-	w.parent = parent
+	w.parent = windows.top()
+	if w.parent == nil {
+		return w.Show()
+	}
+	windows.push(w)
+	defer windows.pop()
+
 	if w.icon == 0 {
 		w.icon = w.parent.icon
 	}
 	if w.font == nil {
-		w.font = parent.font
+		w.font = w.parent.font
 	}
 
 	w.adjustClientRect()
 	window := w32.CreateWindowEx(
 		0,
-		syscall.StringToUTF16Ptr(parent.className),
+		syscall.StringToUTF16Ptr(w.parent.className),
 		syscall.StringToUTF16Ptr(w.title),
 		w.style,
 		w.x, w.y, w.width, w.height,
-		parent.handle,
+		w.parent.handle,
 		0, 0, nil,
 	)
 	if window == 0 {
-		return
+		return errors.New("win.Window.ShowModal: CreateWindowEx failed")
 	}
 	w.handle = window
 
@@ -1064,7 +1107,7 @@ func (w *Window) ShowModal(parent *Window) {
 	w.createContents()
 	w.applyIcon()
 	w32.ShowWindow(w.handle, w32.SW_SHOWNORMAL)
-	w32.EnableWindow(parent.handle, false)
+	w32.EnableWindow(w.parent.handle, false)
 	w.readBounds()
 	if w.onShow != nil {
 		w.onShow()
@@ -1082,6 +1125,7 @@ func (w *Window) ShowModal(parent *Window) {
 			}
 		}
 	}
+	return nil
 }
 
 func (w *Window) ShowConsoleOnStart() {
@@ -1210,4 +1254,8 @@ func (w *Window) Monitor() w32.HMONITOR {
 		return 0
 	}
 	return w32.MonitorFromWindow(w.handle, w32.MONITOR_DEFAULTTONULL)
+}
+
+func (w *Window) Parent() *Window {
+	return w.parent
 }
