@@ -905,6 +905,12 @@ func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 						c.onChange(c.SelectedIndex())
 					}
 				}
+			case *EditLine:
+				if cmd == w32.EN_CHANGE {
+					if c.onTextChange != nil {
+						c.onTextChange()
+					}
+				}
 			}
 			return
 		}

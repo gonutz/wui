@@ -10,9 +10,10 @@ func NewEditLine() *EditLine {
 
 type EditLine struct {
 	textControl
-	isPass   bool
-	passChar uintptr
-	limit    int
+	isPass       bool
+	passChar     uintptr
+	limit        int
+	onTextChange func()
 }
 
 func (e *EditLine) create(id int) {
@@ -57,4 +58,12 @@ func (e *EditLine) CharacterLimit() int {
 		e.limit = int(w32.SendMessage(e.handle, w32.EM_GETLIMITTEXT, 0, 0))
 	}
 	return e.limit
+}
+
+func (e *EditLine) SetOnTextChange(f func()) {
+	e.onTextChange = f
+}
+
+func (e *EditLine) OnTextChange() func() {
+	return e.onTextChange
 }
