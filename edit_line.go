@@ -12,6 +12,7 @@ type EditLine struct {
 	textControl
 	isPass   bool
 	passChar uintptr
+	limit    int
 }
 
 func (e *EditLine) create(id int) {
@@ -23,6 +24,9 @@ func (e *EditLine) create(id int) {
 	)
 	e.passChar = w32.SendMessage(e.handle, w32.EM_GETPASSWORDCHAR, 0, 0)
 	e.SetPassword(e.isPass)
+	if e.limit != 0 {
+		e.SetCharacterLimit(e.limit)
+	}
 }
 
 func (e *EditLine) SetPassword(isPass bool) {
@@ -39,4 +43,18 @@ func (e *EditLine) SetPassword(isPass bool) {
 
 func (e *EditLine) IsPassword() bool {
 	return e.isPass
+}
+
+func (e *EditLine) SetCharacterLimit(count int) {
+	e.limit = count
+	if e.handle != 0 {
+		w32.SendMessage(e.handle, w32.EM_SETLIMITTEXT, uintptr(e.limit), 0)
+	}
+}
+
+func (e *EditLine) CharacterLimit() int {
+	if e.handle != 0 {
+		e.limit = int(w32.SendMessage(e.handle, w32.EM_GETLIMITTEXT, 0, 0))
+	}
+	return e.limit
 }
