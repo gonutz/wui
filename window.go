@@ -1028,11 +1028,11 @@ func (w *Window) SetIconFromMem(mem []byte) {
 	}
 	w.icon = uintptr(w32.CreateIconFromResourceEx(
 		unsafe.Pointer(&mem[offset]),
-		0,
-		true,
+		uint32(len(mem[offset:])),
+		true, // create icon, not cursor
 		0x30000,
 		0, 0,
-		w32.LR_DEFAULTCOLOR,
+		w32.LR_DEFAULTCOLOR|w32.LR_DEFAULTSIZE,
 	))
 	w.applyIcon()
 }
