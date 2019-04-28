@@ -300,12 +300,17 @@ func (c *Canvas) DrawImage(img *Image, src Rectangle, destX, destY int) {
 	hdcMem := w32.CreateCompatibleDC(c.hdc)
 	old := w32.SelectObject(hdcMem, w32.HGDIOBJ(img.bitmap))
 
-	w32.BitBlt(
+	w32.AlphaBlend(
 		c.hdc,
 		destX, destY, src.Width, src.Height,
 		hdcMem,
-		src.X, src.Y,
-		w32.SRCCOPY,
+		src.X, src.Y, src.Width, src.Height,
+		w32.BLENDFUNC{
+			BlendOp:             w32.AC_SRC_OVER,
+			BlendFlags:          0,
+			SourceConstantAlpha: 255,
+			AlphaFormat:         w32.AC_SRC_ALPHA,
+		},
 	)
 
 	w32.SelectObject(hdcMem, old)
@@ -343,6 +348,7 @@ func NewImage(img image.Image) *Image {
 		dest[i+0] = pixels[i+2]
 		dest[i+1] = pixels[i+1]
 		dest[i+2] = pixels[i+0]
+		dest[i+3] = pixels[i+3]
 	}
 	return &Image{
 		bitmap: bitmap,
