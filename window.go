@@ -562,6 +562,9 @@ func (w *Window) SetOnClose(f func()) {
 	w.onClose = f
 }
 
+// SetOnCanClose is passed a function that is called when the window is about to
+// be closed, e.g. when the user hits Alt+F4. If f returns true the window is
+// closed, if f returns false, the window stays open.
 func (w *Window) SetOnCanClose(f func() bool) {
 	w.onCanClose = f
 }
