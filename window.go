@@ -103,9 +103,31 @@ type Window struct {
 	onCanClose    func() bool
 	onMouseMove   func(x, y int)
 	onMouseWheel  func(x, y int, delta float64)
+	onMouseDown   func(button MouseButton, x, y int)
+	onMouseUp     func(button MouseButton, x, y int)
 	onKeyDown     func(key int)
 	onKeyUp       func(key int)
 	onResize      func()
+}
+
+type MouseButton int
+
+const (
+	MouseButtonLeft MouseButton = iota
+	MouseButtonMiddle
+	MouseButtonRight
+)
+
+func (b MouseButton) String() string {
+	switch b {
+	case MouseButtonLeft:
+		return "left mouse button"
+	case MouseButtonMiddle:
+		return "middle mouse button"
+	case MouseButtonRight:
+		return "right mouse button"
+	}
+	return "unknown mouse button"
 }
 
 type Control interface {
@@ -577,6 +599,14 @@ func (w *Window) SetOnMouseWheel(f func(x, y int, delta float64)) {
 	w.onMouseWheel = f
 }
 
+func (w *Window) SetOnMouseDown(f func(button MouseButton, x, y int)) {
+	w.onMouseDown = f
+}
+
+func (w *Window) SetOnMouseUp(f func(button MouseButton, x, y int)) {
+	w.onMouseUp = f
+}
+
 func (w *Window) SetOnKeyDown(f func(key int)) {
 	w.onKeyDown = f
 }
@@ -615,6 +645,38 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 				int(lParam&0xFFFF),
 				int(lParam&0xFFFF0000)>>16,
 				float64(int16(int32(wParam&0xFFFF0000)>>16))/120,
+			)
+		}
+		return 0
+	case w32.WM_LBUTTONDOWN, w32.WM_MBUTTONDOWN, w32.WM_RBUTTONDOWN:
+		if w.onMouseDown != nil {
+			b := MouseButtonLeft
+			if msg == w32.WM_MBUTTONDOWN {
+				b = MouseButtonMiddle
+			}
+			if msg == w32.WM_RBUTTONDOWN {
+				b = MouseButtonRight
+			}
+			w.onMouseDown(
+				b,
+				int(lParam&0xFFFF),
+				int(lParam&0xFFFF0000)>>16,
+			)
+		}
+		return 0
+	case w32.WM_LBUTTONUP, w32.WM_MBUTTONUP, w32.WM_RBUTTONUP:
+		if w.onMouseUp != nil {
+			b := MouseButtonLeft
+			if msg == w32.WM_MBUTTONUP {
+				b = MouseButtonMiddle
+			}
+			if msg == w32.WM_RBUTTONUP {
+				b = MouseButtonRight
+			}
+			w.onMouseUp(
+				b,
+				int(lParam&0xFFFF),
+				int(lParam&0xFFFF0000)>>16,
 			)
 		}
 		return 0
@@ -1031,11 +1093,11 @@ func (w *Window) SetIconFromMem(mem []byte) {
 	}
 	w.icon = uintptr(w32.CreateIconFromResourceEx(
 		unsafe.Pointer(&mem[offset]),
-		0,
-		true,
+		uint32(len(mem[offset:])),
+		true, // create icon, not cursor
 		0x30000,
 		0, 0,
-		w32.LR_DEFAULTCOLOR,
+		w32.LR_DEFAULTCOLOR|w32.LR_DEFAULTSIZE,
 	))
 	w.applyIcon()
 }
