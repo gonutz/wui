@@ -1082,24 +1082,18 @@ func (w *Window) SetIconFromExeResource(resourceID uint16) {
 }
 
 func (w *Window) SetIconFromMem(mem []byte) {
-	offset := w32.LookupIconIdFromDirectoryEx(
-		unsafe.Pointer(&mem[0]),
-		true,
-		0, 0,
-		w32.LR_DEFAULTCOLOR,
-	)
-	if offset <= 0 {
+	// For some reason CreateIconFromResource does not work for multi-resolution
+	// icons. It will only ever use the first of the icons.
+	// Instead create a temporary icon file, load it, then delete it.
+	f, err := ioutil.TempFile("", "icon_")
+	if err != nil {
 		return
 	}
-	w.icon = uintptr(w32.CreateIconFromResourceEx(
-		unsafe.Pointer(&mem[offset]),
-		uint32(len(mem[offset:])),
-		true, // create icon, not cursor
-		0x30000,
-		0, 0,
-		w32.LR_DEFAULTCOLOR|w32.LR_DEFAULTSIZE,
-	))
-	w.applyIcon()
+	iconPath := f.Name()
+	defer os.Remove(iconPath)
+	f.Write(mem)
+	f.Close()
+	w.SetIconFromFile(iconPath)
 }
 
 func (w *Window) SetIconFromFile(path string) {
@@ -1112,7 +1106,7 @@ func (w *Window) SetIconFromFile(path string) {
 		p,
 		w32.IMAGE_ICON,
 		0, 0,
-		w32.LR_LOADFROMFILE,
+		w32.LR_LOADFROMFILE|w32.LR_DEFAULTSIZE,
 	))
 	w.applyIcon()
 }
