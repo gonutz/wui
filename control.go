@@ -2,7 +2,12 @@
 
 package wui
 
-import "github.com/gonutz/w32"
+import (
+	"unicode/utf8"
+	"unsafe"
+
+	"github.com/gonutz/w32"
+)
 
 type control struct {
 	handle   w32.HWND
@@ -149,14 +154,19 @@ func (c *control) SetVisible(v bool) {
 
 type textControl struct {
 	control
-	text string
-	font *Font
+	text        string
+	font        *Font
+	cursorStart int
+	cursorEnd   int
 }
 
 func (c *textControl) create(id int, exStyle uint, className string, style uint) {
 	c.control.create(id, exStyle, className, style)
 	w32.SetWindowText(c.handle, c.text)
 	c.SetFont(c.font)
+	if c.cursorStart != 0 || c.cursorEnd != 0 {
+		c.setCursor(c.cursorStart, c.cursorEnd)
+	}
 }
 
 func (c *textControl) Text() string {
@@ -210,4 +220,74 @@ func (c *textControl) Focus() {
 
 func (c *textControl) HasFocus() bool {
 	return c.handle != 0 && w32.GetFocus() == c.handle
+}
+
+// CursorPosition returns the current cursor position, respectively the current
+// selection.
+//
+// If no selection is active, the returned start and end values are the same.
+// They then indicate the index of the UTF-8 character in this EditLine's Text()
+// before which the caret is currently set.
+
+// If a selection is active, start is the index of the first selected UTF-8
+// character in Text() and end is the position one character after the end of
+// the selection. The selected text is thus
+//     c.Text()[start:end]
+func (c *textControl) CursorPosition() (start, end int) {
+	if c.handle != 0 {
+		w32.SendMessage(
+			c.handle,
+			w32.EM_GETSEL,
+			uintptr(unsafe.Pointer(&c.cursorStart)),
+			uintptr(unsafe.Pointer(&c.cursorEnd)),
+		)
+	}
+	return c.cursorStart, c.cursorEnd
+}
+
+func (c *textControl) SetCursorPosition(pos int) {
+	c.setCursor(pos, pos)
+}
+
+func (c *textControl) SetSelection(start, end int) {
+	c.setCursor(start, end)
+}
+
+func (c *textControl) setCursor(start, end int) {
+	c.cursorStart = start
+	c.cursorEnd = end
+
+	if c.handle != 0 {
+		w32.SendMessage(
+			c.handle,
+			w32.EM_SETSEL,
+			uintptr(c.cursorStart),
+			uintptr(c.cursorEnd),
+		)
+	} else {
+		c.clampCursorToText()
+	}
+}
+
+func (c *textControl) clampCursorToText() {
+	// If called before we have a window, we have to handle clamping of the
+	// positions ourselves.
+	n := utf8.RuneCountInString(c.Text())
+	if c.cursorStart < 0 {
+		c.cursorStart = 0
+	}
+	if c.cursorStart > n {
+		c.cursorStart = n
+	}
+
+	if c.cursorEnd < 0 {
+		c.cursorEnd = 0
+	}
+	if c.cursorEnd > n {
+		c.cursorEnd = n
+	}
+
+	if c.cursorEnd < c.cursorStart {
+		c.cursorStart, c.cursorEnd = c.cursorEnd, c.cursorStart
+	}
 }
