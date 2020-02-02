@@ -2,7 +2,11 @@
 
 package wui
 
-import "github.com/gonutz/w32"
+import (
+	"unsafe"
+
+	"github.com/gonutz/w32"
+)
 
 func NewEditLine() *EditLine {
 	return &EditLine{}
@@ -13,6 +17,8 @@ type EditLine struct {
 	isPass       bool
 	passChar     uintptr
 	limit        int
+	cursorStart  uint32
+	cursorEnd    uint32
 	onTextChange func()
 }
 
@@ -58,6 +64,50 @@ func (e *EditLine) CharacterLimit() int {
 		e.limit = int(w32.SendMessage(e.handle, w32.EM_GETLIMITTEXT, 0, 0))
 	}
 	return e.limit
+}
+
+// CursorPosition returns the current cursor position, respectively the current
+// selection.
+//
+// If no selection is active, the returned start and end values are the same.
+// They then indicate the index of the UTF-8 character in this EditLine's Text()
+// before which the caret is currently set.
+
+// If a selection is active, start is the index of the first selected UTF-8
+// character in Text() and end is the position one character after the end of
+// the selection. The selected text is thus
+//     e.Text()[start:end]
+func (e *EditLine) CursorPosition() (start, end int) {
+	if e.handle != 0 {
+		w32.SendMessage(
+			e.handle,
+			w32.EM_GETSEL,
+			uintptr(unsafe.Pointer(&e.cursorStart)),
+			uintptr(unsafe.Pointer(&e.cursorEnd)),
+		)
+	}
+	return int(e.cursorStart), int(e.cursorEnd)
+}
+
+func (e *EditLine) SetCursorPosition(pos int) {
+	e.setCursor(pos, pos)
+}
+
+func (e *EditLine) SetSelection(start, end int) {
+	e.setCursor(start, end)
+}
+
+func (e *EditLine) setCursor(start, end int) {
+	e.cursorStart = uint32(start)
+	e.cursorEnd = uint32(end)
+	if e.handle != 0 {
+		w32.SendMessage(
+			e.handle,
+			w32.EM_SETSEL,
+			uintptr(e.cursorStart),
+			uintptr(e.cursorEnd),
+		)
+	}
 }
 
 func (e *EditLine) SetOnTextChange(f func()) {
