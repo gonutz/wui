@@ -3,6 +3,7 @@
 package wui
 
 import (
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/gonutz/w32"
@@ -17,8 +18,8 @@ type EditLine struct {
 	isPass       bool
 	passChar     uintptr
 	limit        int
-	cursorStart  uint32
-	cursorEnd    uint32
+	cursorStart  int
+	cursorEnd    int
 	onTextChange func()
 }
 
@@ -33,6 +34,9 @@ func (e *EditLine) create(id int) {
 	e.SetPassword(e.isPass)
 	if e.limit != 0 {
 		e.SetCharacterLimit(e.limit)
+	}
+	if e.cursorStart != 0 || e.cursorEnd != 0 {
+		e.setCursor(e.cursorStart, e.cursorEnd)
 	}
 }
 
@@ -86,7 +90,7 @@ func (e *EditLine) CursorPosition() (start, end int) {
 			uintptr(unsafe.Pointer(&e.cursorEnd)),
 		)
 	}
-	return int(e.cursorStart), int(e.cursorEnd)
+	return e.cursorStart, e.cursorEnd
 }
 
 func (e *EditLine) SetCursorPosition(pos int) {
@@ -98,8 +102,9 @@ func (e *EditLine) SetSelection(start, end int) {
 }
 
 func (e *EditLine) setCursor(start, end int) {
-	e.cursorStart = uint32(start)
-	e.cursorEnd = uint32(end)
+	e.cursorStart = start
+	e.cursorEnd = end
+
 	if e.handle != 0 {
 		w32.SendMessage(
 			e.handle,
@@ -107,6 +112,31 @@ func (e *EditLine) setCursor(start, end int) {
 			uintptr(e.cursorStart),
 			uintptr(e.cursorEnd),
 		)
+	} else {
+		e.clampCursorToText()
+	}
+}
+
+func (e *EditLine) clampCursorToText() {
+	// If called before we have a window, we have to handle clamping of the
+	// positions ourselves.
+	n := utf8.RuneCountInString(e.Text())
+	if e.cursorStart < 0 {
+		e.cursorStart = 0
+	}
+	if e.cursorStart > n {
+		e.cursorStart = n
+	}
+
+	if e.cursorEnd < 0 {
+		e.cursorEnd = 0
+	}
+	if e.cursorEnd > n {
+		e.cursorEnd = n
+	}
+
+	if e.cursorEnd < e.cursorStart {
+		e.cursorStart, e.cursorEnd = e.cursorEnd, e.cursorStart
 	}
 }
 
