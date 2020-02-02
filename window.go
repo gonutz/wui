@@ -98,6 +98,7 @@ type Window struct {
 	altF4disabled bool
 	shortcuts     []shortcut
 	accelTable    w32.HACCEL
+	lastFocus     w32.HWND
 	onShow        func()
 	onClose       func()
 	onCanClose    func() bool
@@ -709,6 +710,16 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 			w.onResize()
 		}
 		w32.InvalidateRect(window, nil, true)
+		return 0
+	case w32.WM_ACTIVATE:
+		active := wParam != 0
+		if active {
+			if w.lastFocus != 0 {
+				w32.SetFocus(w.lastFocus)
+			}
+		} else {
+			w.lastFocus = w32.GetFocus()
+		}
 		return 0
 	case w32.WM_DESTROY:
 		w32.PostQuitMessage(0)
