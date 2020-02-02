@@ -253,6 +253,10 @@ func (c *textControl) SetSelection(start, end int) {
 	c.setCursor(start, end)
 }
 
+func (c *textControl) SelectAll() {
+	c.setCursor(0, -1)
+}
+
 func (c *textControl) setCursor(start, end int) {
 	c.cursorStart = start
 	c.cursorEnd = end
@@ -273,6 +277,11 @@ func (c *textControl) clampCursorToText() {
 	// If called before we have a window, we have to handle clamping of the
 	// positions ourselves.
 	n := utf8.RuneCountInString(c.Text())
+
+	if c.cursorEnd == -1 {
+		c.cursorEnd = n
+	}
+
 	if c.cursorStart < 0 {
 		c.cursorStart = 0
 	}
