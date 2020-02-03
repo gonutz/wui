@@ -3,6 +3,8 @@
 package wui
 
 import (
+	"syscall"
+	"unicode"
 	"unicode/utf8"
 	"unsafe"
 
@@ -167,6 +169,69 @@ func (c *textControl) create(id int, exStyle uint, className string, style uint)
 	if c.cursorStart != 0 || c.cursorEnd != 0 {
 		c.setCursor(c.cursorStart, c.cursorEnd)
 	}
+	w32.SetWindowSubclass(c.handle, syscall.NewCallback(func(
+		window w32.HWND,
+		msg uint32,
+		wParam, lParam uintptr,
+		subclassID uintptr,
+		refData uintptr,
+	) uintptr {
+		switch msg {
+		case w32.WM_CHAR:
+			if wParam == 1 && w32.GetKeyState(w32.VK_CONTROL)&0x8000 != 0 {
+				// Ctrl+A was pressed - select all text.
+				c.SelectAll()
+				return 0
+			}
+			if wParam == 127 {
+				// Ctrl+Backspace was pressed, if there is currently a selected
+				// active, delete it. If there is just the cursor, delete the
+				// last word before the cursor.
+				text := []rune(c.Text())
+				start, end := c.CursorPosition()
+				if start != end {
+					// There is a selection, delete it.
+					c.SetText(string(append(text[:start], text[end:]...)))
+					c.SetCursorPosition(start)
+				} else {
+					// No selection, delete the last word before the cursor.
+					newText, newCursor := deleteWordBeforeCursor(text, start)
+					c.SetText(newText)
+					c.SetCursorPosition(newCursor)
+				}
+				return 0
+			}
+			return w32.DefSubclassProc(window, msg, wParam, lParam)
+		default:
+			return w32.DefSubclassProc(window, msg, wParam, lParam)
+		}
+	}), 0, 0)
+}
+
+func deleteWordBeforeCursor(text []rune, cursor int) (newText string, newCursor int) {
+	prefix := text[:cursor]
+	n := len(prefix)
+
+	if n >= 2 && prefix[n-2] == '\r' && prefix[n-1] == '\n' {
+		prefix = prefix[:n-2]
+	} else if n <= 1 {
+		prefix = nil
+	} else {
+		if unicode.IsSpace(prefix[n-1]) {
+			for n > 0 && unicode.IsSpace(prefix[n-1]) {
+				prefix = prefix[:n-1]
+				n--
+			}
+		}
+		for n > 0 && !unicode.IsSpace(prefix[n-1]) {
+			prefix = prefix[:n-1]
+			n--
+		}
+	}
+
+	newText = string(append(prefix, text[cursor:]...))
+	newCursor = len(prefix)
+	return
 }
 
 func (c *textControl) Text() string {
