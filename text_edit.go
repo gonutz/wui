@@ -4,6 +4,7 @@ package wui
 
 import (
 	"syscall"
+	"unicode"
 
 	"github.com/gonutz/w32"
 )
@@ -41,19 +42,60 @@ func (e *TextEdit) create(id int) {
 	) uintptr {
 		switch msg {
 		case w32.WM_CHAR:
-			if wParam == 1 {
-				var all uintptr
-				all--
-				if w32.GetKeyState(w32.VK_CONTROL)&0x8000 != 0 {
-					w32.SendMessage(e.handle, w32.EM_SETSEL, 0, all)
-					return 0
+			if wParam == 1 && w32.GetKeyState(w32.VK_CONTROL)&0x8000 != 0 {
+				// Ctrl+A was pressed - select all text.
+				e.SelectAll()
+				return 0
+			}
+			if wParam == 127 {
+				// Ctrl+Backspace was pressed, if there is currently a selected
+				// active, delete it. If there is just the cursor, delete the
+				// last word before the cursor.
+				text := []rune(e.Text())
+				start, end := e.CursorPosition()
+				if start != end {
+					// There is a selection, delete it.
+					e.SetText(string(append(text[:start], text[end:]...)))
+					e.SetCursorPosition(start)
+				} else {
+					// No selection, delete the last word before the cursor.
+					newText, newCursor := deleteWordBeforeCursor(text, start)
+					e.SetText(newText)
+					e.SetCursorPosition(newCursor)
 				}
+				return 0
 			}
 			return w32.DefSubclassProc(window, msg, wParam, lParam)
 		default:
 			return w32.DefSubclassProc(window, msg, wParam, lParam)
 		}
 	}), 0, 0)
+}
+
+func deleteWordBeforeCursor(text []rune, cursor int) (newText string, newCursor int) {
+	prefix := text[:cursor]
+	n := len(prefix)
+
+	if n >= 2 && prefix[n-2] == '\r' && prefix[n-1] == '\n' {
+		prefix = prefix[:n-2]
+	} else if n <= 1 {
+		prefix = nil
+	} else {
+		if unicode.IsSpace(prefix[n-1]) {
+			for n > 0 && unicode.IsSpace(prefix[n-1]) {
+				prefix = prefix[:n-1]
+				n--
+			}
+		}
+		for n > 0 && !unicode.IsSpace(prefix[n-1]) {
+			prefix = prefix[:n-1]
+			n--
+		}
+	}
+
+	newText = string(append(prefix, text[cursor:]...))
+	newCursor = len(prefix)
+	return
 }
 
 func (e *TextEdit) SetCharacterLimit(count int) {

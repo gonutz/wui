@@ -235,12 +235,14 @@ func (c *textControl) HasFocus() bool {
 //     c.Text()[start:end]
 func (c *textControl) CursorPosition() (start, end int) {
 	if c.handle != 0 {
+		var start, end uint32
 		w32.SendMessage(
 			c.handle,
 			w32.EM_GETSEL,
-			uintptr(unsafe.Pointer(&c.cursorStart)),
-			uintptr(unsafe.Pointer(&c.cursorEnd)),
+			uintptr(unsafe.Pointer(&start)),
+			uintptr(unsafe.Pointer(&end)),
 		)
+		c.cursorStart, c.cursorEnd = int(start), int(end)
 	}
 	return c.cursorStart, c.cursorEnd
 }
@@ -265,8 +267,8 @@ func (c *textControl) setCursor(start, end int) {
 		w32.SendMessage(
 			c.handle,
 			w32.EM_SETSEL,
-			uintptr(c.cursorStart),
-			uintptr(c.cursorEnd),
+			uintptr(uint32(c.cursorStart)),
+			uintptr(uint32(c.cursorEnd)),
 		)
 	} else {
 		c.clampCursorToText()
