@@ -335,6 +335,7 @@ func (c *textControl) setCursor(start, end int) {
 			uintptr(uint32(c.cursorStart)),
 			uintptr(uint32(c.cursorEnd)),
 		)
+		w32.SendMessage(c.handle, w32.EM_SCROLLCARET, 0, 0)
 	} else {
 		c.clampCursorToText()
 	}
