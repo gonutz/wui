@@ -1,0 +1,9 @@
+*.bak
+*.exe
+*.log
+*.log.*
+*.sublime-project
+*.sublime-workspace
+*.vscode
+.idea/
+go.sum
