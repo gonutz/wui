@@ -810,6 +810,7 @@ func (w *Window) Show() error {
 	if atom == 0 {
 		return errors.New("win.NewWindow: RegisterClassEx failed")
 	}
+	defer w32.UnregisterClassAtom(atom, w32.GetModuleHandle(""))
 
 	w.adjustClientRect()
 	window := w32.CreateWindowEx(
