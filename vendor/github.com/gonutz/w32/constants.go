@@ -2668,6 +2668,12 @@ const (
 	DWMWA_LAST
 )
 
+const (
+	DWM_CLOAKED_APP       = 1
+	DWM_CLOAKED_SHELL     = 2
+	DWM_CLOAKED_INHERITED = 4
+)
+
 // enum-lite implementation for the following constant structure
 type GESTURE_TYPE int32
 
@@ -3738,4 +3744,55 @@ const (
 	CSIDL_COMMON_PICTURES         = 0x0036 // All Users\My Pictures
 	CSIDL_COMMON_VIDEO            = 0x0037 // All Users\My Video
 	CSIDL_RESOURCES               = 0x0038 // Resource Direcotry
+)
+
+// Drive types to use with GetDriveType.
+const (
+	DRIVE_UNKNOWN     = 0
+	DRIVE_NO_ROOT_DIR = 1
+	DRIVE_REMOVABLE   = 2
+	DRIVE_FIXED       = 3
+	DRIVE_REMOTE      = 4
+	DRIVE_CDROM       = 5
+	DRIVE_RAMDISK     = 6
+)
+
+// https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-osversioninfoexw
+const (
+	VER_PLATFORM_WIN32_NT = 2
+)
+
+// https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-osversioninfoexw
+const (
+	VER_NT_SERVER            = 0x0000003
+	VER_NT_DOMAIN_CONTROLLER = 0x0000002
+	VER_NT_WORKSTATION       = 0x0000001
+)
+
+// https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-osversioninfoexw
+const (
+	VER_SUITE_BACKOFFICE               = 0x00000004
+	VER_SUITE_BLADE                    = 0x00000400
+	VER_SUITE_COMPUTE_SERVER           = 0x00004000
+	VER_SUITE_DATACENTER               = 0x00000080
+	VER_SUITE_ENTERPRISE               = 0x00000002
+	VER_SUITE_EMBEDDEDNT               = 0x00000040
+	VER_SUITE_PERSONAL                 = 0x00000200
+	VER_SUITE_SINGLEUSERTS             = 0x00000100
+	VER_SUITE_SMALLBUSINESS            = 0x00000001
+	VER_SUITE_SMALLBUSINESS_RESTRICTED = 0x00000020
+	VER_SUITE_STORAGE_SERVER           = 0x00002000
+	VER_SUITE_TERMINAL                 = 0x00000010
+	VER_SUITE_WH_SERVER                = 0x00008000
+	VER_SUITE_MULTIUSERTS              = 0x00020000
+)
+
+// https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
+const (
+	PROCESSOR_ARCHITECTURE_AMD64   = 9
+	PROCESSOR_ARCHITECTURE_ARM     = 5
+	PROCESSOR_ARCHITECTURE_ARM64   = 12
+	PROCESSOR_ARCHITECTURE_IA64    = 6
+	PROCESSOR_ARCHITECTURE_INTEL   = 0
+	PROCESSOR_ARCHITECTURE_UNKNOWN = 0xffff
 )

@@ -27,6 +27,7 @@ var (
 	msimg32  = syscall.NewLazyDLL("msimg32.dll")
 	mpr      = syscall.NewLazyDLL("mpr.dll")
 	ntoskrnl = syscall.NewLazyDLL("ntoskrnl.exe")
+	ntdll    = syscall.NewLazyDLL("ntdll.dll")
 
 	registerClassEx                  = user32.NewProc("RegisterClassExW")
 	unregisterClass                  = user32.NewProc("UnregisterClassW")
@@ -275,12 +276,14 @@ var (
 	createFontIndirect        = gdi32.NewProc("CreateFontIndirectW")
 	abortDoc                  = gdi32.NewProc("AbortDoc")
 	bitBlt                    = gdi32.NewProc("BitBlt")
+	maskBlt                   = gdi32.NewProc("MaskBlt")
 	patBlt                    = gdi32.NewProc("PatBlt")
 	closeEnhMetaFile          = gdi32.NewProc("CloseEnhMetaFile")
 	copyEnhMetaFile           = gdi32.NewProc("CopyEnhMetaFileW")
 	createBrushIndirect       = gdi32.NewProc("CreateBrushIndirect")
 	createCompatibleDC        = gdi32.NewProc("CreateCompatibleDC")
 	createCompatibleBitmap    = gdi32.NewProc("CreateCompatibleBitmap")
+	createBitmap              = gdi32.NewProc("CreateBitmap")
 	createDC                  = gdi32.NewProc("CreateDCW")
 	createDIBSection          = gdi32.NewProc("CreateDIBSection")
 	createEnhMetaFile         = gdi32.NewProc("CreateEnhMetaFileW")
@@ -340,6 +343,7 @@ var (
 	getConsoleWindow           = kernel32.NewProc("GetConsoleWindow")
 	getCurrentThread           = kernel32.NewProc("GetCurrentThread")
 	getLogicalDrives           = kernel32.NewProc("GetLogicalDrives")
+	getDriveType               = kernel32.NewProc("GetDriveTypeW")
 	getUserDefaultLCID         = kernel32.NewProc("GetUserDefaultLCID")
 	lstrlen                    = kernel32.NewProc("lstrlenW")
 	lstrcpy                    = kernel32.NewProc("lstrcpyW")
@@ -384,6 +388,7 @@ var (
 	findClose                  = kernel32.NewProc("FindClose")
 	openMutex                  = kernel32.NewProc("OpenMutexW")
 	createMutex                = kernel32.NewProc("CreateMutexW")
+	getNativeSystemInfo        = kernel32.NewProc("GetNativeSystemInfo")
 
 	coInitializeEx        = ole32.NewProc("CoInitializeEx")
 	coInitialize          = ole32.NewProc("CoInitialize")
@@ -442,7 +447,7 @@ var (
 	wNetAddConnection3    = mpr.NewProc("WNetAddConnection3W")
 	wNetCancelConnection2 = mpr.NewProc("WNetCancelConnection2W")
 
-	rtlGetVersion = ntoskrnl.NewProc("RtlGetVersion")
+	rtlGetVersion = ntdll.NewProc("RtlGetVersion")
 )
 
 // RegisterClassEx sets the Size of the WNDCLASSEX automatically.
@@ -1450,7 +1455,7 @@ func SetWindowPlacement(hwnd HWND, placement *WINDOWPLACEMENT) bool {
 
 func ShowCursor(show bool) int {
 	ret, _, _ := showCursor.Call(uintptr(BoolToBOOL(show)))
-	return int(ret)
+	return int(int32(ret))
 }
 
 func LoadImage(
@@ -2363,14 +2368,11 @@ func StartService(hService HANDLE, lpServiceArgVectors []string) error {
 	return nil
 }
 
-func ControlService(hService HANDLE, dwControl uint32, lpServiceStatus *SERVICE_STATUS) bool {
-	if lpServiceStatus == nil {
-		panic("ControlService: lpServiceStatus cannot be nil")
-	}
+func ControlService(service HANDLE, control uint32, serviceStatus *SERVICE_STATUS) bool {
 	ret, _, _ := controlService.Call(
-		uintptr(hService),
-		uintptr(dwControl),
-		uintptr(unsafe.Pointer(lpServiceStatus)),
+		uintptr(service),
+		uintptr(control),
+		uintptr(unsafe.Pointer(serviceStatus)),
 	)
 	return ret != 0
 }
@@ -2557,33 +2559,50 @@ func DwmGetTransportAttributes(pfIsRemoting *BOOL, pfIsConnected *BOOL, pDwGener
 	return HRESULT(ret)
 }
 
-// TODO: verify handling of variable arguments
-func DwmGetWindowAttribute(hWnd HWND, dwAttribute uint32) (pAttribute interface{}, result HRESULT) {
-	var pvAttribute, pvAttrSize uintptr
-	switch dwAttribute {
-	case DWMWA_NCRENDERING_ENABLED:
-		v := new(BOOL)
-		pAttribute = v
-		pvAttribute = uintptr(unsafe.Pointer(v))
-		pvAttrSize = unsafe.Sizeof(*v)
-	case DWMWA_CAPTION_BUTTON_BOUNDS, DWMWA_EXTENDED_FRAME_BOUNDS:
-		v := new(RECT)
-		pAttribute = v
-		pvAttribute = uintptr(unsafe.Pointer(v))
-		pvAttrSize = unsafe.Sizeof(*v)
-	case DWMWA_CLOAKED:
-		panic(fmt.Sprintf("DwmGetWindowAttribute(%d) is not currently supported.", dwAttribute))
-	default:
-		panic(fmt.Sprintf("DwmGetWindowAttribute(%d) is not valid.", dwAttribute))
-	}
-
+func DwmGetWindowAttributeNCRENDERING_ENABLED(window HWND) (ok, enabled bool) {
+	var b uint32
 	ret, _, _ := dwmGetWindowAttribute.Call(
-		uintptr(hWnd),
-		uintptr(dwAttribute),
-		pvAttribute,
-		pvAttrSize,
+		uintptr(window),
+		uintptr(DWMWA_NCRENDERING_ENABLED),
+		uintptr(unsafe.Pointer(&b)),
+		4, // size of uint32
 	)
-	result = HRESULT(ret)
+	ok = ret == S_OK
+	enabled = b != 0
+	return
+}
+
+func DwmGetWindowAttributeCAPTION_BUTTON_BOUNDS(window HWND) (ok bool, r RECT) {
+	ret, _, _ := dwmGetWindowAttribute.Call(
+		uintptr(window),
+		uintptr(DWMWA_CAPTION_BUTTON_BOUNDS),
+		uintptr(unsafe.Pointer(&r)),
+		16, // size of RECT
+	)
+	ok = ret == S_OK
+	return
+}
+
+func DwmGetWindowAttributeEXTENDED_FRAME_BOUNDS(window HWND) (ok bool, r RECT) {
+	ret, _, _ := dwmGetWindowAttribute.Call(
+		uintptr(window),
+		uintptr(DWMWA_EXTENDED_FRAME_BOUNDS),
+		uintptr(unsafe.Pointer(&r)),
+		16, // size of RECT
+	)
+	ok = ret == S_OK
+	return
+}
+
+// DwmGetWindowAttributeCLOAKED returns one of the DWM_... constants.
+func DwmGetWindowAttributeCLOAKED(window HWND) (ok bool, cloaked uint32) {
+	ret, _, _ := dwmGetWindowAttribute.Call(
+		uintptr(window),
+		uintptr(DWMWA_CLOAKED),
+		uintptr(unsafe.Pointer(&cloaked)),
+		16, // size of uint32
+	)
+	ok = ret == S_OK
 	return
 }
 
@@ -2754,6 +2773,29 @@ func BitBlt(hdcDest HDC, nXDest, nYDest, nWidth, nHeight int, hdcSrc HDC, nXSrc,
 	return ret != 0
 }
 
+func MaskBlt(
+	dest HDC, destX, destY, destWidth, destHeight int,
+	source HDC, sourceX, sourceY int,
+	mask HBITMAP, maskX, maskY int,
+	operation uint,
+) bool {
+	ret, _, _ := maskBlt.Call(
+		uintptr(dest),
+		uintptr(destX),
+		uintptr(destY),
+		uintptr(destWidth),
+		uintptr(destHeight),
+		uintptr(source),
+		uintptr(sourceX),
+		uintptr(sourceY),
+		uintptr(mask),
+		uintptr(maskX),
+		uintptr(maskX),
+		uintptr(operation),
+	)
+	return ret != 0
+}
+
 func PatBlt(hdc HDC, nXLeft, nYLeft, nWidth, nHeight int, dwRop uint) bool {
 	ret, _, _ := patBlt.Call(
 		uintptr(hdc),
@@ -2794,6 +2836,17 @@ func CreateCompatibleBitmap(hdc HDC, width, height int) HBITMAP {
 		uintptr(hdc),
 		uintptr(width),
 		uintptr(height),
+	)
+	return HBITMAP(ret)
+}
+
+func CreateBitmap(width, height int, planes, bitCount uint, bits unsafe.Pointer) HBITMAP {
+	ret, _, _ := createBitmap.Call(
+		uintptr(width),
+		uintptr(height),
+		uintptr(planes),
+		uintptr(bitCount),
+		uintptr(bits),
 	)
 	return HBITMAP(ret)
 }
@@ -3330,6 +3383,11 @@ func GetLogicalDrives() uint32 {
 	return uint32(ret)
 }
 
+func GetDriveType(drive string) uint {
+	ret, _, _ := getDriveType.Call(uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(drive))))
+	return uint(ret)
+}
+
 func GetUserDefaultLCID() uint32 {
 	ret, _, _ := getUserDefaultLCID.Call()
 	return uint32(ret)
@@ -3696,20 +3754,8 @@ func CreateMutex(attributes *SECURITY_ATTRIBUTES, initialOwner bool, name string
 	return HANDLE(ret)
 }
 
-func CoInitializeEx(coInit uintptr) HRESULT {
-	ret, _, _ := coInitializeEx.Call(
-		0,
-		coInit)
-
-	switch uint32(ret) {
-	case E_INVALIDARG:
-		panic("CoInitializeEx failed with E_INVALIDARG")
-	case E_OUTOFMEMORY:
-		panic("CoInitializeEx failed with E_OUTOFMEMORY")
-	case E_UNEXPECTED:
-		panic("CoInitializeEx failed with E_UNEXPECTED")
-	}
-
+func CoInitializeEx(coInit uint32) HRESULT {
+	ret, _, _ := coInitializeEx.Call(0, uintptr(coInit))
 	return HRESULT(ret)
 }
 
@@ -3721,32 +3767,19 @@ func CoUninitialize() {
 	coUninitialize.Call()
 }
 
-func CreateStreamOnHGlobal(hGlobal HGLOBAL, fDeleteOnRelease bool) *IStream {
+func CreateStreamOnHGlobal(global HGLOBAL, deleteOnRelease bool) (*IStream, HRESULT) {
 	stream := new(IStream)
 	ret, _, _ := createStreamOnHGlobal.Call(
-		uintptr(hGlobal),
-		uintptr(BoolToBOOL(fDeleteOnRelease)),
+		uintptr(global),
+		uintptr(BoolToBOOL(deleteOnRelease)),
 		uintptr(unsafe.Pointer(&stream)),
 	)
 
-	switch uint32(ret) {
-	case E_INVALIDARG:
-		panic("CreateStreamOnHGlobal failed with E_INVALIDARG")
-	case E_OUTOFMEMORY:
-		panic("CreateStreamOnHGlobal failed with E_OUTOFMEMORY")
-	case E_UNEXPECTED:
-		panic("CreateStreamOnHGlobal failed with E_UNEXPECTED")
-	}
-
-	return stream
+	return stream, HRESULT(ret)
 }
 
 func VariantInit(v *VARIANT) {
-	hr, _, _ := variantInit.Call(uintptr(unsafe.Pointer(v)))
-	if hr != 0 {
-		panic("Invoke VariantInit error.")
-	}
-	return
+	variantInit.Call(uintptr(unsafe.Pointer(v)))
 }
 
 func SysAllocString(v string) (ss *int16) {
@@ -3758,11 +3791,7 @@ func SysAllocString(v string) (ss *int16) {
 }
 
 func SysFreeString(v *int16) {
-	hr, _, _ := sysFreeString.Call(uintptr(unsafe.Pointer(v)))
-	if hr != 0 {
-		panic("Invoke SysFreeString error.")
-	}
-	return
+	sysFreeString.Call(uintptr(unsafe.Pointer(v)))
 }
 
 func SysStringLen(v *int16) uint {
@@ -3855,33 +3884,32 @@ func DragAcceptFiles(hwnd HWND, accept bool) {
 	)
 }
 
-func DragQueryFile(hDrop HDROP, iFile uint) (fileName string, fileCount uint) {
+func DragQueryFile(drop HDROP, file uint) string {
 	ret, _, _ := dragQueryFile.Call(
-		uintptr(hDrop),
-		uintptr(iFile),
+		uintptr(drop),
+		uintptr(file),
 		0,
 		0,
 	)
 
-	fileCount = uint(ret)
+	stringSize := uint(ret)
+	var fileName string
 
-	if iFile != 0xFFFFFFFF {
-		buf := make([]uint16, fileCount+1)
+	if file != 0xFFFFFFFF {
+		buf := make([]uint16, stringSize+1)
 
 		ret, _, _ := dragQueryFile.Call(
-			uintptr(hDrop),
-			uintptr(iFile),
+			uintptr(drop),
+			uintptr(file),
 			uintptr(unsafe.Pointer(&buf[0])),
-			uintptr(fileCount+1))
-
-		if ret == 0 {
-			panic("Invoke DragQueryFile error.")
+			uintptr(len(buf)),
+		)
+		if ret != 0 {
+			fileName = syscall.UTF16ToString(buf)
 		}
-
-		fileName = syscall.UTF16ToString(buf)
 	}
 
-	return
+	return fileName
 }
 
 func DragQueryPoint(hDrop HDROP) (x, y int, isClientArea bool) {
@@ -4083,17 +4111,14 @@ func GdiplusShutdown(token uintptr) {
 	gdiplusShutdown.Call(token)
 }
 
-func GdiplusStartup(input *GdiplusStartupInput, output *GdiplusStartupOutput) uintptr {
-	var token uintptr
+func GdiplusStartup(input *GdiplusStartupInput, output *GdiplusStartupOutput) (token uintptr, status uint32) {
 	ret, _, _ := gdiplusStartup.Call(
 		uintptr(unsafe.Pointer(&token)),
 		uintptr(unsafe.Pointer(input)),
-		uintptr(unsafe.Pointer(output)))
-
-	if ret != Ok {
-		panic("GdiplusStartup failed with status " + GetGpStatus(int32(ret)))
-	}
-	return token
+		uintptr(unsafe.Pointer(output)),
+	)
+	status = uint32(ret)
+	return
 }
 
 func MakeIntResource(id uint16) *uint16 {
@@ -4356,9 +4381,17 @@ func WNetCancelConnection2(name string, flags uint32, force bool) uint32 {
 	return uint32(ret)
 }
 
+// https://docs.microsoft.com/en-us/windows/win32/devnotes/rtlgetversion
 func RtlGetVersion() RTL_OSVERSIONINFOEXW {
 	var info RTL_OSVERSIONINFOEXW
 	info.OSVersionInfoSize = 5*4 + 128*2 + 3*2 + 2*1
 	rtlGetVersion.Call(uintptr(unsafe.Pointer(&info)))
+	return info
+}
+
+// https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getnativesysteminfo
+func GetNativeSystemInfo() SYSTEM_INFO {
+	var info SYSTEM_INFO
+	getNativeSystemInfo.Call(uintptr(unsafe.Pointer(&info)))
 	return info
 }
