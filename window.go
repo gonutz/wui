@@ -57,6 +57,7 @@ func NewWindow() *Window {
 		state:      w32.SW_SHOWNORMAL,
 		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
 		cursor:     w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_ARROW)),
+		alpha:      255,
 	}
 }
 
@@ -99,6 +100,7 @@ type Window struct {
 	shortcuts     []shortcut
 	accelTable    w32.HACCEL
 	lastFocus     w32.HWND
+	alpha         uint8
 	onShow        func()
 	onClose       func()
 	onCanClose    func() bool
@@ -1224,6 +1226,44 @@ func (w *Window) EnableAltF4() {
 func (w *Window) Destroy() {
 	if w.handle != 0 {
 		w32.DestroyWindow(w.handle)
+	}
+}
+
+func (w *Window) Alpha() uint8 {
+	return w.alpha
+}
+
+func (w *Window) SetAlpha(a uint8) {
+	w.alpha = a
+	if w.handle != 0 {
+		style := w32.GetWindowLong(w.handle, w32.GWL_EXSTYLE)
+		if w.alpha != 255 {
+			if style&w32.WS_EX_LAYERED == 0 {
+				w32.SetWindowLong(
+					w.handle,
+					w32.GWL_EXSTYLE,
+					uint32(style|w32.WS_EX_LAYERED),
+				)
+			}
+			w32.SetLayeredWindowAttributes(
+				w.handle,
+				0,
+				w.alpha,
+				w32.LWA_ALPHA,
+			)
+		} else {
+			w32.SetWindowLong(
+				w.handle,
+				w32.GWL_EXSTYLE,
+				uint32(style & ^w32.WS_EX_LAYERED),
+			)
+			w32.RedrawWindow(
+				w.handle,
+				nil,
+				0,
+				w32.RDW_ERASE|w32.RDW_INVALIDATE|w32.RDW_FRAME|w32.RDW_ALLCHILDREN,
+			)
+		}
 	}
 }
 
