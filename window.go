@@ -1242,7 +1242,7 @@ func (w *Window) SetAlpha(a uint8) {
 				w32.SetWindowLong(
 					w.handle,
 					w32.GWL_EXSTYLE,
-					uint32(style|w32.WS_EX_LAYERED),
+					style|w32.WS_EX_LAYERED,
 				)
 			}
 			w32.SetLayeredWindowAttributes(
@@ -1255,7 +1255,7 @@ func (w *Window) SetAlpha(a uint8) {
 			w32.SetWindowLong(
 				w.handle,
 				w32.GWL_EXSTYLE,
-				uint32(style & ^w32.WS_EX_LAYERED),
+				style & ^w32.WS_EX_LAYERED,
 			)
 			w32.RedrawWindow(
 				w.handle,
