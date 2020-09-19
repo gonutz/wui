@@ -101,6 +101,9 @@ type Window struct {
 	accelTable    w32.HACCEL
 	lastFocus     w32.HWND
 	alpha         uint8
+	clientWidth   int
+	clientHeight  int
+	shown         bool
 	onShow        func()
 	onClose       func()
 	onCanClose    func() bool
@@ -354,6 +357,9 @@ func (w *Window) Bounds() (x, y, width, height int) {
 	}
 	return w.x, w.y, w.width, w.height
 }
+
+// TODO Only calling SetClientWidth does not adjust the client height, making
+// it 0.
 
 func (w *Window) SetBounds(x, y, width, height int) {
 	if width <= 0 || height <= 0 {
@@ -711,6 +717,45 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 		if w.onResize != nil {
 			w.onResize()
 		}
+
+		if w.shown {
+			oldClientW, oldClientH := w.clientWidth, w.clientHeight
+			newClientW, newClientH := w.ClientSize()
+			w.clientWidth, w.clientHeight = newClientW, newClientH
+			dw := newClientW - oldClientW
+			dh := newClientH - oldClientH
+			for _, c := range w.controls {
+				if button, ok := c.(*Button); ok {
+					if button.hAnchor == anchorLeftAndRight {
+						button.SetWidth(button.Width() + dw)
+					} else if button.hAnchor == anchorRight {
+						button.SetX(button.X() + dw)
+					} else if button.hAnchor == anchorCenter {
+						oldCenterX := oldClientW / 2
+						newCenterX := newClientW / 2
+						oldX := button.X()
+						dx := oldCenterX - oldX
+						button.SetX(newCenterX - dx)
+					} else if button.hAnchor == anchorLeftAndCenter {
+						oldCenterX := oldClientW / 2
+						newCenterX := newClientW / 2
+						button.SetWidth(button.Width() - oldCenterX + newCenterX)
+					} else if button.hAnchor == anchorRightAndCenter {
+						oldCenterX := oldClientW / 2
+						newCenterX := newClientW / 2
+						button.SetX(button.X() - oldCenterX + newCenterX)
+						button.SetWidth(button.Width() + dw - (newCenterX - oldCenterX))
+					}
+
+					if button.vAnchor == anchorTopAndBottom {
+						button.SetHeight(button.Height() + dh)
+					} else if button.vAnchor == anchorBottom {
+						button.SetY(button.Y() + dh)
+					}
+				}
+			}
+		}
+
 		w32.InvalidateRect(window, nil, true)
 		return 0
 	case w32.WM_ACTIVATE:
@@ -836,6 +881,8 @@ func (w *Window) Show() error {
 	if w.onShow != nil {
 		w.onShow()
 	}
+	w.clientWidth, w.clientHeight = w.ClientSize()
+	w.shown = true
 
 	var msg w32.MSG
 	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
