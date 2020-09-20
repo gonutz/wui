@@ -101,6 +101,9 @@ type Window struct {
 	accelTable    w32.HACCEL
 	lastFocus     w32.HWND
 	alpha         uint8
+	clientWidth   int
+	clientHeight  int
+	shown         bool
 	onShow        func()
 	onClose       func()
 	onCanClose    func() bool
@@ -138,6 +141,9 @@ type Control interface {
 	setParent(parent container)
 	create(id int)
 	parentFontChanged()
+	SetBounds(x, y, width, height int)
+	Bounds() (x, y, width, height int)
+	anchors() (hAnchor, vAnchor anchor)
 }
 
 type Container interface {
@@ -355,6 +361,9 @@ func (w *Window) Bounds() (x, y, width, height int) {
 	return w.x, w.y, w.width, w.height
 }
 
+// TODO Only calling SetClientWidth does not adjust the client height, making
+// it 0.
+
 func (w *Window) SetBounds(x, y, width, height int) {
 	if width <= 0 || height <= 0 {
 		return
@@ -401,12 +410,10 @@ func (w *Window) ClientHeight() int {
 
 func (w *Window) ClientSize() (width, height int) {
 	if w.handle == 0 {
-		if w.width < 0 {
-			width = -w.width
-		}
-		if w.height < 0 {
-			height = -w.height
-		}
+		var r w32.RECT
+		w32.AdjustWindowRect(&r, w.style, w.menu != nil)
+		width = w.width - int(r.Width())
+		height = w.height - int(r.Height())
 	} else {
 		r := w32.GetClientRect(w.handle)
 		width = int(r.Width())
@@ -463,20 +470,16 @@ func (w *Window) SetClientSize(width, height int) {
 	if width <= 0 || height <= 0 {
 		return
 	}
+	var r w32.RECT
+	w32.AdjustWindowRect(&r, w.style, w.menu != nil)
+	w.width = width + int(r.Width())
+	w.height = height + int(r.Height())
 	if w.handle != 0 {
-		var r w32.RECT
-		w32.AdjustWindowRect(&r, w.style, w.menu != nil)
-		w.width = width + int(r.Width())
-		w.height = height + int(r.Height())
 		w32.SetWindowPos(
 			w.handle, 0,
 			w.x, w.y, w.width, w.height,
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
-	} else {
-		// save negative size for Show to indicate client size
-		w.width = -width
-		w.height = -height
 	}
 }
 
@@ -708,9 +711,56 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 		w.onWM_NOTIFY(wParam, lParam)
 		return 0
 	case w32.WM_SIZE:
+		if w.shown {
+			oldClientW, oldClientH := w.clientWidth, w.clientHeight
+			newClientW, newClientH := w.ClientSize()
+			w.clientWidth, w.clientHeight = newClientW, newClientH
+			dw := newClientW - oldClientW
+			dh := newClientH - oldClientH
+			oldCenterX := oldClientW / 2
+			newCenterX := newClientW / 2
+			oldCenterY := oldClientH / 2
+			newCenterY := newClientH / 2
+			for _, c := range w.controls {
+				x, y, w, h := c.Bounds()
+				hAnchor, vAnchor := c.anchors()
+
+				if hAnchor == anchorLeftAndRight {
+					w += dw
+				} else if hAnchor == anchorRight {
+					x += dw
+				} else if hAnchor == anchorCenter {
+					dx := oldCenterX - x
+					x = newCenterX - dx
+				} else if hAnchor == anchorLeftAndCenter {
+					w += newCenterX - oldCenterX
+				} else if hAnchor == anchorRightAndCenter {
+					x += newCenterX - oldCenterX
+					w += dw - (newCenterX - oldCenterX)
+				}
+
+				if vAnchor == anchorTopAndBottom {
+					h += dh
+				} else if vAnchor == anchorBottom {
+					y += dh
+				} else if vAnchor == anchorCenter {
+					dy := oldCenterY - y
+					y = newCenterY - dy
+				} else if vAnchor == anchorTopAndCenter {
+					h += newCenterY - oldCenterY
+				} else if vAnchor == anchorBottomAndCenter {
+					y += newCenterY - oldCenterY
+					h += dh - (newCenterY - oldCenterY)
+				}
+
+				c.SetBounds(x, y, w, h)
+			}
+		}
+
 		if w.onResize != nil {
 			w.onResize()
 		}
+
 		w32.InvalidateRect(window, nil, true)
 		return 0
 	case w32.WM_ACTIVATE:
@@ -836,6 +886,8 @@ func (w *Window) Show() error {
 	if w.onShow != nil {
 		w.onShow()
 	}
+	w.clientWidth, w.clientHeight = w.ClientSize()
+	w.shown = true
 
 	var msg w32.MSG
 	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
