@@ -11,12 +11,29 @@ import (
 	"github.com/gonutz/w32"
 )
 
+type anchor int
+
+const (
+	anchorNone anchor = iota
+	anchorRight
+	anchorLeftAndRight
+	anchorLeftAndCenter
+	anchorRightAndCenter
+	anchorCenter
+	anchorBottom
+	anchorTopAndBottom
+	anchorTopAndCenter
+	anchorBottomAndCenter
+)
+
 type control struct {
 	handle   w32.HWND
 	x        int
 	y        int
 	width    int
 	height   int
+	hAnchor  anchor
+	vAnchor  anchor
 	parent   container
 	disabled bool
 	hidden   bool
@@ -125,6 +142,58 @@ func (c *control) SetBounds(x, y, width, height int) {
 	if resize && c.onResize != nil {
 		c.onResize()
 	}
+}
+
+func (c *control) anchors() (hAnchor, vAnchor anchor) {
+	return c.hAnchor, c.vAnchor
+}
+
+func (c *control) AnchorLeft() {
+	c.hAnchor = anchorNone
+}
+
+func (c *control) AnchorRight() {
+	c.hAnchor = anchorRight
+}
+
+func (c *control) AnchorLeftAndRight() {
+	c.hAnchor = anchorLeftAndRight
+}
+
+func (c *control) AnchorHorizontalCenter() {
+	c.hAnchor = anchorCenter
+}
+
+func (c *control) AnchorLeftAndCenter() {
+	c.hAnchor = anchorLeftAndCenter
+}
+
+func (c *control) AnchorRightAndCenter() {
+	c.hAnchor = anchorRightAndCenter
+}
+
+func (c *control) AnchorTop() {
+	c.vAnchor = anchorNone
+}
+
+func (c *control) AnchorBottom() {
+	c.vAnchor = anchorBottom
+}
+
+func (c *control) AnchorTopAndBottom() {
+	c.vAnchor = anchorTopAndBottom
+}
+
+func (c *control) AnchorVerticalCenter() {
+	c.vAnchor = anchorCenter
+}
+
+func (c *control) AnchorTopAndCenter() {
+	c.vAnchor = anchorTopAndCenter
+}
+
+func (c *control) AnchorBottomAndCenter() {
+	c.vAnchor = anchorBottomAndCenter
 }
 
 func (c *control) Enabled() bool {
