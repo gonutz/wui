@@ -40,7 +40,7 @@ func NewFont(desc FontDesc) (*Font, error) {
 	if handle == 0 {
 		return nil, errors.New("wui.NewFont: unable to create font, please check your description")
 	}
-	return &Font{handle: handle}, nil
+	return &Font{Desc: desc, handle: handle}, nil
 }
 
 type FontDesc struct {
@@ -53,5 +53,6 @@ type FontDesc struct {
 }
 
 type Font struct {
+	Desc   FontDesc
 	handle w32.HFONT
 }

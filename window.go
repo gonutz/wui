@@ -103,7 +103,6 @@ type Window struct {
 	alpha         uint8
 	clientWidth   int
 	clientHeight  int
-	shown         bool
 	onShow        func()
 	onClose       func()
 	onCanClose    func() bool
@@ -114,6 +113,10 @@ type Window struct {
 	onKeyDown     func(key int)
 	onKeyUp       func(key int)
 	onResize      func()
+}
+
+func (w *Window) Children() []Control {
+	return w.controls
 }
 
 type MouseButton int
@@ -298,6 +301,7 @@ func (w *Window) Width() int {
 
 func (w *Window) SetWidth(width int) {
 	if width <= 0 {
+		// TODO Instead clamp to 0 and set that.
 		return
 	}
 	w.width = width
@@ -366,18 +370,70 @@ func (w *Window) Bounds() (x, y, width, height int) {
 
 func (w *Window) SetBounds(x, y, width, height int) {
 	if width <= 0 || height <= 0 {
+		// TODO Clamp to 0 or 1? Anyway, set it in all cases.
 		return
 	}
-	w.x = x
-	w.y = y
-	w.width = width
-	w.height = height
 	if w.handle != 0 {
+		// The window will receive a WM_SIZE which will handle anchoring child
+		// controls.
 		w32.SetWindowPos(
 			w.handle, 0,
-			w.x, w.y, w.width, w.height,
+			x, y, width, height,
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
+	} else {
+		w.clientWidth, w.clientHeight = w.ClientSize()
+		w.x = x
+		w.y = y
+		w.width = width
+		w.height = height
+		w.repositionChidrenByAnchors()
+	}
+}
+
+func (w *Window) repositionChidrenByAnchors() {
+	oldClientW, oldClientH := w.clientWidth, w.clientHeight
+	newClientW, newClientH := w.ClientSize()
+	w.clientWidth, w.clientHeight = newClientW, newClientH
+	dw := newClientW - oldClientW
+	dh := newClientH - oldClientH
+	oldCenterX := oldClientW / 2
+	newCenterX := newClientW / 2
+	oldCenterY := oldClientH / 2
+	newCenterY := newClientH / 2
+	for _, c := range w.controls {
+		x, y, w, h := c.Bounds()
+		hAnchor, vAnchor := c.anchors()
+
+		if hAnchor == anchorLeftAndRight {
+			w += dw
+		} else if hAnchor == anchorRight {
+			x += dw
+		} else if hAnchor == anchorCenter {
+			dx := oldCenterX - x
+			x = newCenterX - dx
+		} else if hAnchor == anchorLeftAndCenter {
+			w += newCenterX - oldCenterX
+		} else if hAnchor == anchorRightAndCenter {
+			x += newCenterX - oldCenterX
+			w += dw - (newCenterX - oldCenterX)
+		}
+
+		if vAnchor == anchorTopAndBottom {
+			h += dh
+		} else if vAnchor == anchorBottom {
+			y += dh
+		} else if vAnchor == anchorCenter {
+			dy := oldCenterY - y
+			y = newCenterY - dy
+		} else if vAnchor == anchorTopAndCenter {
+			h += newCenterY - oldCenterY
+		} else if vAnchor == anchorBottomAndCenter {
+			y += newCenterY - oldCenterY
+			h += dh - (newCenterY - oldCenterY)
+		}
+
+		c.SetBounds(x, y, w, h)
 	}
 }
 
@@ -711,51 +767,7 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 		w.onWM_NOTIFY(wParam, lParam)
 		return 0
 	case w32.WM_SIZE:
-		if w.shown {
-			oldClientW, oldClientH := w.clientWidth, w.clientHeight
-			newClientW, newClientH := w.ClientSize()
-			w.clientWidth, w.clientHeight = newClientW, newClientH
-			dw := newClientW - oldClientW
-			dh := newClientH - oldClientH
-			oldCenterX := oldClientW / 2
-			newCenterX := newClientW / 2
-			oldCenterY := oldClientH / 2
-			newCenterY := newClientH / 2
-			for _, c := range w.controls {
-				x, y, w, h := c.Bounds()
-				hAnchor, vAnchor := c.anchors()
-
-				if hAnchor == anchorLeftAndRight {
-					w += dw
-				} else if hAnchor == anchorRight {
-					x += dw
-				} else if hAnchor == anchorCenter {
-					dx := oldCenterX - x
-					x = newCenterX - dx
-				} else if hAnchor == anchorLeftAndCenter {
-					w += newCenterX - oldCenterX
-				} else if hAnchor == anchorRightAndCenter {
-					x += newCenterX - oldCenterX
-					w += dw - (newCenterX - oldCenterX)
-				}
-
-				if vAnchor == anchorTopAndBottom {
-					h += dh
-				} else if vAnchor == anchorBottom {
-					y += dh
-				} else if vAnchor == anchorCenter {
-					dy := oldCenterY - y
-					y = newCenterY - dy
-				} else if vAnchor == anchorTopAndCenter {
-					h += newCenterY - oldCenterY
-				} else if vAnchor == anchorBottomAndCenter {
-					y += newCenterY - oldCenterY
-					h += dh - (newCenterY - oldCenterY)
-				}
-
-				c.SetBounds(x, y, w, h)
-			}
-		}
+		w.repositionChidrenByAnchors()
 
 		if w.onResize != nil {
 			w.onResize()
@@ -865,6 +877,7 @@ func (w *Window) Show() error {
 	defer w32.UnregisterClassAtom(atom, w32.GetModuleHandle(""))
 
 	w.adjustClientRect()
+	w.clientWidth, w.clientHeight = w.ClientSize()
 	window := w32.CreateWindowEx(
 		w.exStyle,
 		syscall.StringToUTF16Ptr(w.className),
@@ -887,7 +900,6 @@ func (w *Window) Show() error {
 		w.onShow()
 	}
 	w.clientWidth, w.clientHeight = w.ClientSize()
-	w.shown = true
 
 	var msg w32.MSG
 	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
@@ -1322,7 +1334,7 @@ func (w *Window) SetAlpha(a uint8) {
 type ShortcutKeys struct {
 	// Mod is a bit field combining any of ModControl, ModShift, ModAlt
 	Mod KeyMod
-	// Rune is the characters to be pressed for the accelerator. Either Rune or
+	// Rune is the character to be pressed for the accelerator. Either Rune or
 	// Key must be set, if both are set, Rune takes preference.
 	Rune rune
 	// Key is the virtual key to be pressed, it must be a w32.VK_... constant.
