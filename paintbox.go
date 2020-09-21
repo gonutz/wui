@@ -72,6 +72,10 @@ type Canvas struct {
 	height int
 }
 
+func (c *Canvas) Handle() w32.HDC {
+	return c.hdc
+}
+
 func (c *Canvas) Size() (width, height int) {
 	width, height = c.width, c.height
 	return
