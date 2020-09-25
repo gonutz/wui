@@ -56,6 +56,49 @@ func main() {
 	alpha.SetMinMaxValues(0, 255)
 	w.Add(alpha)
 
+	anchorToIndex := map[wui.Anchor]int{
+		wui.AnchorMin:          0,
+		wui.AnchorMax:          1,
+		wui.AnchorCenter:       2,
+		wui.AnchorMinAndMax:    3,
+		wui.AnchorMinAndCenter: 4,
+		wui.AnchorMaxAndCenter: 5,
+	}
+	indexToAnchor := make(map[int]wui.Anchor)
+	for a, i := range anchorToIndex {
+		indexToAnchor[i] = a
+	}
+
+	hAnchorText := wui.NewLabel()
+	hAnchorText.SetText("Horizontal Anchor")
+	hAnchorText.SetRightAlign()
+	hAnchorText.SetBounds(10, 10, 85, 25)
+	w.Add(hAnchorText)
+	hAnchor := wui.NewCombobox()
+	hAnchor.Add("Left")
+	hAnchor.Add("Right")
+	hAnchor.Add("Center")
+	hAnchor.Add("Left+Right")
+	hAnchor.Add("Left+Center")
+	hAnchor.Add("Right+Center")
+	hAnchor.SetBounds(105, 10, 85, 25)
+	w.Add(hAnchor)
+
+	vAnchorText := wui.NewLabel()
+	vAnchorText.SetText("Vertical Anchor")
+	vAnchorText.SetRightAlign()
+	vAnchorText.SetBounds(10, 40, 85, 25)
+	w.Add(vAnchorText)
+	vAnchor := wui.NewCombobox()
+	vAnchor.Add("Top")
+	vAnchor.Add("Bottom")
+	vAnchor.Add("Center")
+	vAnchor.Add("Top+Bottom")
+	vAnchor.Add("Top+Center")
+	vAnchor.Add("Bottom+Center")
+	vAnchor.SetBounds(105, 40, 85, 25)
+	w.Add(vAnchor)
+
 	preview := wui.NewPaintbox()
 	preview.SetBounds(200, 0, 400, 600)
 	preview.SetHorizontalAnchor(wui.AnchorMinAndMax)
@@ -83,6 +126,20 @@ func main() {
 			panic("alpha value changed for non-Window")
 		}
 	})
+	hAnchor.SetOnChange(func(i int) {
+		if c, ok := active.(wui.Control); ok {
+			c.SetHorizontalAnchor(indexToAnchor[i])
+		} else {
+			panic("anchor set on non-Control")
+		}
+	})
+	vAnchor.SetOnChange(func(i int) {
+		if c, ok := active.(wui.Control); ok {
+			c.SetVerticalAnchor(indexToAnchor[i])
+		} else {
+			panic("anchor set on non-Control")
+		}
+	})
 
 	activate := func(newActive node) {
 		active = newActive
@@ -92,9 +149,20 @@ func main() {
 			alphaText.SetVisible(true)
 			alpha.SetVisible(true)
 			alpha.SetValue(int(x.Alpha()))
-		default:
+			hAnchorText.SetVisible(false)
+			hAnchor.SetVisible(false)
+			vAnchorText.SetVisible(false)
+			vAnchor.SetVisible(false)
+		case wui.Control:
 			alphaText.SetVisible(false)
 			alpha.SetVisible(false)
+			hAnchorText.SetVisible(true)
+			hAnchor.SetVisible(true)
+			vAnchorText.SetVisible(true)
+			vAnchor.SetVisible(true)
+			h, v := x.Anchors()
+			hAnchor.SetSelectedIndex(anchorToIndex[h])
+			vAnchor.SetSelectedIndex(anchorToIndex[v])
 		}
 	}
 	activate(theWindow)

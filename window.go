@@ -147,6 +147,8 @@ type Control interface {
 	SetBounds(x, y, width, height int)
 	Bounds() (x, y, width, height int)
 	Anchors() (horizontal, vertical Anchor)
+	SetHorizontalAnchor(a Anchor)
+	SetVerticalAnchor(a Anchor)
 	Parent() Container
 }
 

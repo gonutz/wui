@@ -86,10 +86,10 @@ func (n *FloatUpDown) create(id int) {
 		case w32.WM_CHAR:
 			// these are the codes sent for the respective edit operations
 			const (
-				selectAll = 1
-				copy      = 3
-				cut       = 24
-				paste     = 22
+				selectAll = 1  // for Ctrl+A
+				copy      = 3  // Ctrl+C
+				paste     = 22 // Ctrl+V
+				cut       = 24 // Ctrl+X
 			)
 			if '0' <= wParam && wParam <= '9' ||
 				wParam == '-' ||
