@@ -486,6 +486,25 @@ func drawContainer(container wui.Container, d drawer) {
 	}
 }
 
+func anchorToString(a wui.Anchor) string {
+	switch a {
+	case wui.AnchorMin:
+		return "AnchorMin"
+	case wui.AnchorMax:
+		return "AnchorMax"
+	case wui.AnchorCenter:
+		return "AnchorCenter"
+	case wui.AnchorMinAndMax:
+		return "AnchorMinAndMax"
+	case wui.AnchorMinAndCenter:
+		return "AnchorMinAndCenter"
+	case wui.AnchorMaxAndCenter:
+		return "AnchorMaxAndCenter"
+	default:
+		panic("unhandled anchor type")
+	}
+}
+
 func writeContainer(c wui.Container, parent string, line func(format string, a ...interface{})) {
 	for i, child := range c.Children() {
 		name := fmt.Sprintf("%s_child%d", parent, i)
@@ -495,6 +514,13 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 		if button, ok := child.(*wui.Button); ok {
 			do(" := wui.NewButton()")
 			do(".SetBounds(%d, %d, %d, %d)", button.X(), button.Y(), button.Width(), button.Height())
+			h, v := button.Anchors()
+			if h != wui.Anchor(0) {
+				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
+			}
+			if v != wui.Anchor(0) {
+				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
+			}
 			do(".SetText(%q)", button.Text())
 			if !button.Enabled() {
 				do(".SetEnabled(false)")
@@ -512,6 +538,13 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 			//do(".SetSunkenBorder()")
 			do(".SetSunkenThickBorder()")
 			do(".SetBounds(%d, %d, %d, %d)", panel.X(), panel.Y(), panel.Width(), panel.Height())
+			h, v := panel.Anchors()
+			if h != wui.Anchor(0) {
+				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
+			}
+			if v != wui.Anchor(0) {
+				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
+			}
 			if !panel.Enabled() {
 				do(".SetEnabled(false)")
 			}
