@@ -14,12 +14,11 @@ func NewPanel() *Panel {
 
 type Panel struct {
 	control
+	children []Control
 	border   panelBorder
 	controls []Control
 	font     *Font
 }
-
-func (*Panel) isContainer() {}
 
 type panelBorder int
 
@@ -132,6 +131,11 @@ func (p *Panel) Add(c Control) {
 		c.create(p.parent.controlCount() + controlIDOffset)
 	}
 	p.registerControl(c)
+	p.children = append(p.children, c)
+}
+
+func (p *Panel) Children() []Control {
+	return p.children
 }
 
 func (p *Panel) onWM_COMMAND(w, l uintptr) {

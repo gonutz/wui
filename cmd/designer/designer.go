@@ -65,7 +65,18 @@ func main() {
 	white := wui.RGB(255, 255, 255)
 	black := wui.RGB(0, 0, 0)
 
-	var xResizeArea, yResizeArea, xyResizeArea square
+	var (
+		// The ResizeAreas are the size drag points of the window.
+		xResizeArea, yResizeArea, xyResizeArea square
+		// clientX and Y is the top-left corner where the client area of the
+		// window is drawn. The coordinates are relative to the application
+		// window so we can use it in mouse events to find the relative mouse
+		// position inside the window. TODO Say this with fewer "window"s.
+		clientX, clientY int
+		// active is the highlighted control whose properties are shown in the
+		// tool bar.
+		active node = theWindow
+	)
 
 	preview.SetOnPaint(func(c *wui.Canvas) {
 		const xOffset, yOffset = 5, 5
@@ -73,8 +84,9 @@ func main() {
 		clientWidth, clientHeight := theWindow.ClientSize()
 		borderSize := (width - clientWidth) / 2
 		topBorderSize := height - borderSize - clientHeight
-		clientX := xOffset + borderSize
-		clientY := yOffset + topBorderSize
+		clientX = xOffset + borderSize
+		clientY = yOffset + topBorderSize
+		client := makeOffsetDrawer(c, clientX, clientY)
 
 		// Clear client area.
 		c.FillRect(
@@ -101,15 +113,20 @@ func main() {
 			size: 12,
 		}
 
-		for _, child := range theWindow.Children() {
-			if button, ok := child.(*wui.Button); ok {
-				x, y, w, h := button.Bounds()
-				c.FillRect(clientX+x+1, clientY+y+1, w-2, h-2, wui.RGB(173, 173, 173))
-				c.FillRect(clientX+x+2, clientY+y+2, w-4, h-4, wui.RGB(225, 225, 225))
-				c.TextRectFormat(clientX+x, clientY+y, w, h, button.Text(), wui.FormatCenter, black)
-			} else {
-				panic("unhandled child control")
+		drawContainer(theWindow, client)
+
+		// Highlight the currently selected child control.
+		if active != theWindow {
+			x, y, w, h := active.Bounds()
+			parent := active.Parent()
+			for parent != theWindow {
+				dx, dy, _, _ := parent.Bounds()
+				x += dx
+				y += dy
+				parent = parent.Parent()
 			}
+			client.DrawRect(x-1, y-1, w+2, h+2, wui.RGB(255, 0, 255))
+			client.DrawRect(x-2, y-2, w+4, h+4, wui.RGB(255, 0, 255))
 		}
 
 		// Draw the window border, icon and title.
@@ -190,27 +207,42 @@ func main() {
 			if dragMode == dragY || dragMode == dragXY {
 				newH += dy
 			}
-			// TODO Refactor this, we want to go through SetBounds for now.
+			// TODO Refactor this, we want to go through SetBounds for now since
+			// only it does updating children by anchor at the moment.
 			theWindow.SetBounds(theWindow.X(), theWindow.Y(), newW, newH)
 			preview.Paint()
 		}
 	})
+
+	activate := func(newActive node) {
+		active = newActive
+		preview.Paint()
+	}
+
 	w.SetOnMouseDown(func(button wui.MouseButton, x, y int) {
 		if button == wui.MouseButtonLeft {
 			dragStartX = x
 			dragStartY = y
 			dragStartWidth, dragStartHeight = theWindow.Size()
-			x -= preview.X()
-			y -= preview.Y()
-			if xResizeArea.contains(x, y) {
+			if xResizeArea.contains(x-preview.X(), y-preview.Y()) {
 				dragMode = dragX
-			} else if yResizeArea.contains(x, y) {
+			} else if yResizeArea.contains(x-preview.X(), y-preview.Y()) {
 				dragMode = dragY
-			} else if xyResizeArea.contains(x, y) {
+			} else if xyResizeArea.contains(x-preview.X(), y-preview.Y()) {
 				dragMode = dragXY
+			} else {
+				newActive := findControlAt(
+					theWindow,
+					x-(preview.X()+clientX),
+					y-(preview.Y()+clientY),
+				)
+				if newActive != active {
+					activate(newActive)
+				}
 			}
 		}
 	})
+
 	w.SetOnMouseUp(func(button wui.MouseButton, x, y int) {
 		if button == wui.MouseButtonLeft {
 			dragMode = dragNone
@@ -254,23 +286,7 @@ func main() {
 			line("})")
 			line("w.SetFont(font)")
 		}
-		for i, child := range theWindow.Children() {
-			name := fmt.Sprintf("child%d", i)
-			if button, ok := child.(*wui.Button); ok {
-				line("%s := wui.NewButton()", name)
-				line("%s.SetBounds(%d, %d, %d, %d)", name, button.X(), button.Y(), button.Width(), button.Height())
-				line("%s.SetText(%q)", name, button.Text())
-				if !button.Enabled() {
-					line("%s.SetEnabled(false)", name)
-				}
-				if !button.Visible() {
-					line("%s.SetVisible(false)", name)
-				}
-				line("w.Add(%s)", name)
-			} else {
-				panic("unhandled child control")
-			}
-		}
+		writeContainer(theWindow, "w", line)
 		line("w.Show()")
 
 		mainProgram := `//+build ignore
@@ -331,6 +347,168 @@ func defaultWindow() *wui.Window {
 	b.AnchorBottom()
 	b.SetText("BottomRight")
 	w.Add(b)
+
+	p := wui.NewPanel()
+	p.SetBounds(100, 100, 100, 100)
+	p.AnchorLeftAndRight()
+	p.AnchorTopAndBottom()
+	w.Add(p)
+
+	b = wui.NewButton()
+	b.SetBounds(10, 100-30, 80, 25)
+	b.AnchorBottom()
+	b.SetText("In here")
+	p.Add(b)
 	//
 	return w
+}
+
+func findControlAt(parent wui.Container, x, y int) node {
+	for _, child := range parent.Children() {
+		if contains(child, x, y) {
+			if container, ok := child.(wui.Container); ok {
+				dx, dy, _, _ := container.Bounds()
+				return findControlAt(container, x-dx, y-dy)
+			}
+			return child
+		}
+	}
+	return parent
+}
+
+func contains(b bounder, atX, atY int) bool {
+	x, y, w, h := b.Bounds()
+	return atX >= x && atY >= y && atX < x+w && atY < y+h
+}
+
+type bounder interface {
+	Bounds() (x, y, width, height int)
+}
+
+type drawer interface {
+	Line(x1, y1, x2, y2 int, color wui.Color)
+	DrawRect(x, y, w, h int, color wui.Color)
+	FillRect(x, y, w, h int, color wui.Color)
+	TextRectFormat(x, y, w, h int, s string, format wui.Format, color wui.Color)
+}
+
+func makeOffsetDrawer(base drawer, dx, dy int) drawer {
+	return &offsetDrawer{base: base, dx: dx, dy: dy}
+}
+
+type offsetDrawer struct {
+	base   drawer
+	dx, dy int
+}
+
+func (d *offsetDrawer) DrawRect(x, y, w, h int, color wui.Color) {
+	d.base.DrawRect(x+d.dx, y+d.dy, w, h, color)
+}
+
+func (d *offsetDrawer) FillRect(x, y, w, h int, color wui.Color) {
+	d.base.FillRect(x+d.dx, y+d.dy, w, h, color)
+}
+
+func (d *offsetDrawer) TextRectFormat(
+	x, y, w, h int, s string, format wui.Format, color wui.Color,
+) {
+	d.base.TextRectFormat(x+d.dx, y+d.dy, w, h, s, format, color)
+}
+
+func (d *offsetDrawer) Line(x1, y1, x2, y2 int, color wui.Color) {
+	d.base.Line(x1+d.dx, y1+d.dy, x2+d.dx, y2+d.dy, color)
+}
+
+func drawContainer(container wui.Container, d drawer) {
+	for _, child := range container.Children() {
+		if button, ok := child.(*wui.Button); ok {
+			x, y, w, h := button.Bounds()
+			d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(173, 173, 173))
+			d.FillRect(x+2, y+2, w-4, h-4, wui.RGB(225, 225, 225))
+			d.TextRectFormat(x, y, w, h, button.Text(), wui.FormatCenter, wui.RGB(0, 0, 0))
+		} else if panel, ok := child.(*wui.Panel); ok {
+			x, y, w, h := panel.Bounds()
+			border := "none"
+			switch border {
+			case "none":
+				d.DrawRect(x, y, w, h, wui.RGB(230, 230, 230))
+			case "single":
+				d.DrawRect(x, y, w, h, wui.RGB(100, 100, 100))
+			case "raised":
+				d.Line(x, y, x+w, y, wui.RGB(227, 227, 227))
+				d.Line(x, y, x, y+h, wui.RGB(227, 227, 227))
+				d.Line(x+w-1, y, x+w-1, y+h, wui.RGB(105, 105, 105))
+				d.Line(x, y+h-1, x+w, y+h-1, wui.RGB(105, 105, 105))
+				d.Line(x+1, y+1, x+w-1, y+1, wui.RGB(255, 255, 255))
+				d.Line(x+1, y+1, x+1, y+h-1, wui.RGB(255, 255, 255))
+				d.Line(x+w-2, y+1, x+w-2, y+h-1, wui.RGB(160, 160, 160))
+				d.Line(x+1, y+h-2, x+w-1, y+h-2, wui.RGB(160, 160, 160))
+			case "sunken":
+				d.Line(x, y, x+w, y, wui.RGB(160, 160, 160))
+				d.Line(x, y, x, y+h, wui.RGB(160, 160, 160))
+				d.Line(x+w-1, y, x+w-1, y+h, wui.RGB(255, 255, 255))
+				d.Line(x, y+h-1, x+w, y+h-1, wui.RGB(255, 255, 255))
+			case "sunken_thick":
+				d.Line(x, y, x+w, y, wui.RGB(160, 160, 160))
+				d.Line(x, y, x, y+h, wui.RGB(160, 160, 160))
+				d.Line(x+w-1, y, x+w-1, y+h, wui.RGB(255, 255, 255))
+				d.Line(x, y+h-1, x+w, y+h-1, wui.RGB(255, 255, 255))
+				d.Line(x+1, y+1, x+w-1, y+1, wui.RGB(105, 105, 105))
+				d.Line(x+1, y+1, x+1, y+h-1, wui.RGB(105, 105, 105))
+				d.Line(x+w-2, y+1, x+w-2, y+h-1, wui.RGB(227, 227, 227))
+				d.Line(x+1, y+h-2, x+w-1, y+h-2, wui.RGB(227, 227, 227))
+			}
+			drawContainer(panel, makeOffsetDrawer(d, panel.X(), panel.Y()))
+		} else {
+			panic("unhandled child control")
+		}
+	}
+}
+
+func writeContainer(c wui.Container, parent string, line func(format string, a ...interface{})) {
+	for i, child := range c.Children() {
+		name := fmt.Sprintf("%s_child%d", parent, i)
+		do := func(format string, a ...interface{}) {
+			line(name+format, a...)
+		}
+		if button, ok := child.(*wui.Button); ok {
+			do(" := wui.NewButton()")
+			do(".SetBounds(%d, %d, %d, %d)", button.X(), button.Y(), button.Width(), button.Height())
+			do(".SetText(%q)", button.Text())
+			if !button.Enabled() {
+				do(".SetEnabled(false)")
+			}
+			if !button.Visible() {
+				do(".SetVisible(false)")
+			}
+			line("%s.Add(%s)", parent, name)
+		} else if panel, ok := child.(*wui.Panel); ok {
+			do(" := wui.NewPanel()")
+			// TODO
+			//do(".SetNoBorder()")
+			//do(".SetRaisedBorder()")
+			//do(".SetSingleLineBorder()")
+			//do(".SetSunkenBorder()")
+			do(".SetSunkenThickBorder()")
+			do(".SetBounds(%d, %d, %d, %d)", panel.X(), panel.Y(), panel.Width(), panel.Height())
+			if !panel.Enabled() {
+				do(".SetEnabled(false)")
+			}
+			if !panel.Visible() {
+				do(".SetVisible(false)")
+			}
+			// TODO We would want to fill in the panel content here, before
+			// adding the panel to the parent, but there is a bug in Panel.Add,
+			// see the comment there.
+			line("%s.Add(%s)", parent, name)
+			writeContainer(panel, name, line)
+		} else {
+			panic("unhandled child control")
+		}
+	}
+}
+
+type node interface {
+	Parent() wui.Container
+	Bounds() (x, y, width, height int)
 }

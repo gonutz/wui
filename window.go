@@ -94,6 +94,7 @@ type Window struct {
 	menuStrings   []*MenuString
 	font          *Font
 	controls      []Control
+	children      []Control
 	icon          uintptr
 	showConsole   bool
 	altF4disabled bool
@@ -116,7 +117,7 @@ type Window struct {
 }
 
 func (w *Window) Children() []Control {
-	return w.controls
+	return w.children
 }
 
 type MouseButton int
@@ -140,21 +141,24 @@ func (b MouseButton) String() string {
 }
 
 type Control interface {
-	isControl()
 	setParent(parent container)
 	create(id int)
 	parentFontChanged()
 	SetBounds(x, y, width, height int)
 	Bounds() (x, y, width, height int)
-	anchors() (hAnchor, vAnchor anchor)
+	anchors() (horizontal, vertical anchor)
+	Parent() Container
 }
 
 type Container interface {
 	Add(Control)
+	Children() []Control
+	Parent() Container
+	Bounds() (x, y, width, height int)
 }
 
 type container interface {
-	isContainer()
+	Container
 	setParent(parent container)
 	getHandle() w32.HWND
 	getInstance() w32.HINSTANCE
@@ -165,8 +169,6 @@ type container interface {
 	onWM_NOTIFY(w, l uintptr)
 	controlCount() int
 }
-
-func (*Window) isContainer() {}
 
 func (*Window) setParent(parent container) {}
 
@@ -401,7 +403,7 @@ func (w *Window) repositionChidrenByAnchors() {
 	newCenterX := newClientW / 2
 	oldCenterY := oldClientH / 2
 	newCenterY := newClientH / 2
-	for _, c := range w.controls {
+	for _, c := range w.children {
 		x, y, w, h := c.Bounds()
 		hAnchor, vAnchor := c.anchors()
 
@@ -627,6 +629,7 @@ func (w *Window) Add(c Control) {
 	if w.handle != 0 {
 		c.create(len(w.controls) + controlIDOffset)
 	}
+	w.children = append(w.children, c)
 	w.registerControl(c)
 }
 
@@ -1437,6 +1440,6 @@ func (w *Window) Monitor() w32.HMONITOR {
 	return w32.MonitorFromWindow(w.handle, w32.MONITOR_DEFAULTTONULL)
 }
 
-func (w *Window) Parent() *Window {
+func (w *Window) Parent() Container {
 	return w.parent
 }

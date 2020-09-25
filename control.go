@@ -40,7 +40,9 @@ type control struct {
 	onResize func()
 }
 
-func (*control) isControl() {}
+func (c *control) Parent() Container {
+	return c.parent
+}
 
 func (c *control) setParent(parent container) {
 	c.parent = parent
@@ -144,7 +146,7 @@ func (c *control) SetBounds(x, y, width, height int) {
 	}
 }
 
-func (c *control) anchors() (hAnchor, vAnchor anchor) {
+func (c *control) anchors() (horizontal, vertical anchor) {
 	return c.hAnchor, c.vAnchor
 }
 
@@ -362,10 +364,11 @@ func (c *textControl) HasFocus() bool {
 // If no selection is active, the returned start and end values are the same.
 // They then indicate the index of the UTF-8 character in this EditLine's Text()
 // before which the caret is currently set.
-
+//
 // If a selection is active, start is the index of the first selected UTF-8
 // character in Text() and end is the position one character after the end of
 // the selection. The selected text is thus
+//
 //     c.Text()[start:end]
 func (c *textControl) CursorPosition() (start, end int) {
 	if c.handle != 0 {
