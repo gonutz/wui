@@ -881,6 +881,9 @@ func (w *Window) Show() error {
 
 	w.adjustClientRect()
 	w.clientWidth, w.clientHeight = w.ClientSize()
+	if w.alpha != 255 {
+		w.exStyle |= w32.WS_EX_LAYERED
+	}
 	window := w32.CreateWindowEx(
 		w.exStyle,
 		syscall.StringToUTF16Ptr(w.className),
@@ -893,6 +896,9 @@ func (w *Window) Show() error {
 		return errors.New("win.Window.Show: CreateWindowEx failed")
 	}
 	w.handle = window
+	if w.alpha != 255 {
+		w32.SetLayeredWindowAttributes(w.handle, 0, w.alpha, w32.LWA_ALPHA)
+	}
 
 	w.updateAccelerators()
 	w.createContents()
