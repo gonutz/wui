@@ -9,6 +9,9 @@ import (
 	"github.com/gonutz/w32"
 )
 
+// TODO Typing + or - into an IntUpDown shows an error. The same might be true
+// for FloatUpDowns.
+
 func NewIntUpDown() *IntUpDown {
 	return &IntUpDown{
 		minValue: math.MinInt32,
@@ -175,4 +178,15 @@ func (n *IntUpDown) SetMinMaxValues(min, max int) {
 
 func (n *IntUpDown) SetOnValueChange(f func(value int)) {
 	n.onValueChange = f
+}
+
+func (n *IntUpDown) SetVisible(v bool) {
+	n.textControl.SetVisible(v)
+	if n.upDownHandle != 0 {
+		if v {
+			w32.ShowWindow(n.upDownHandle, w32.SW_SHOW)
+		} else {
+			w32.ShowWindow(n.upDownHandle, w32.SW_HIDE)
+		}
+	}
 }
