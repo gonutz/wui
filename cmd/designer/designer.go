@@ -108,7 +108,7 @@ func main() {
 
 	var (
 		// The ResizeAreas are the size drag points of the window.
-		xResizeArea, yResizeArea, xyResizeArea square
+		xResizeArea, yResizeArea, xyResizeArea rectangle
 		// clientX and Y is the top-left corner where the client area of the
 		// window is drawn. The coordinates are relative to the application
 		// window so we can use it in mouse events to find the relative mouse
@@ -167,8 +167,8 @@ func main() {
 	}
 	activate(theWindow)
 
+	const xOffset, yOffset = 5, 5
 	preview.SetOnPaint(func(c *wui.Canvas) {
-		const xOffset, yOffset = 5, 5
 		width, height := theWindow.Size()
 		clientWidth, clientHeight := theWindow.ClientSize()
 		borderSize := (width - clientWidth) / 2
@@ -186,20 +186,23 @@ func main() {
 			wui.RGB(240, 240, 240),
 		)
 
-		xResizeArea = square{
-			x:    xOffset + width - 6,
-			y:    yOffset + height/2 - 6,
-			size: 12,
+		xResizeArea = rectangle{
+			x: xOffset + width - 6,
+			y: yOffset + height/2 - 12,
+			w: 12,
+			h: 24,
 		}
-		yResizeArea = square{
-			x:    xOffset + width/2 - 6,
-			y:    yOffset + height - 6,
-			size: 12,
+		yResizeArea = rectangle{
+			x: xOffset + width/2 - 12,
+			y: yOffset + height - 6,
+			w: 24,
+			h: 12,
 		}
-		xyResizeArea = square{
-			x:    xOffset + width - 6,
-			y:    yOffset + height - 6,
-			size: 12,
+		xyResizeArea = rectangle{
+			x: xOffset + width - 6,
+			y: yOffset + height - 6,
+			w: 12,
+			h: 12,
 		}
 
 		drawContainer(theWindow, client)
@@ -253,9 +256,9 @@ func main() {
 		c.FillRect(0, bottom, w, h-bottom, white)
 
 		// Add drag markers to resize window.
-		outlineSquare := func(s square) {
-			c.FillRect(s.x, s.y, s.size, s.size, white)
-			c.DrawRect(s.x, s.y, s.size, s.size, black)
+		outlineSquare := func(r rectangle) {
+			c.FillRect(r.x, r.y, r.w, r.h, white)
+			c.DrawRect(r.x, r.y, r.w, r.h, black)
 		}
 		outlineSquare(xResizeArea)
 		outlineSquare(yResizeArea)
@@ -308,13 +311,19 @@ func main() {
 			dragStartX = x
 			dragStartY = y
 			dragStartWidth, dragStartHeight = theWindow.Size()
+			windowArea := rectangle{
+				x: preview.X() + xOffset,
+				y: preview.Y() + yOffset,
+				w: theWindow.Width(),
+				h: theWindow.Height(),
+			}
 			if xResizeArea.contains(x-preview.X(), y-preview.Y()) {
 				dragMode = dragX
 			} else if yResizeArea.contains(x-preview.X(), y-preview.Y()) {
 				dragMode = dragY
 			} else if xyResizeArea.contains(x-preview.X(), y-preview.Y()) {
 				dragMode = dragXY
-			} else {
+			} else if windowArea.contains(x, y) {
 				newActive := findControlAt(
 					theWindow,
 					x-(preview.X()+clientX),
@@ -410,12 +419,12 @@ func main() {
 	w.Show()
 }
 
-type square struct {
-	x, y, size int
+type rectangle struct {
+	x, y, w, h int
 }
 
-func (s square) contains(x, y int) bool {
-	return x >= s.x && y >= s.y && x < s.x+s.size && y < s.y+s.size
+func (r rectangle) contains(x, y int) bool {
+	return x >= r.x && y >= r.y && x < r.x+r.w && y < r.y+r.h
 }
 
 func defaultWindow() *wui.Window {
