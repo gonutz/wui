@@ -146,7 +146,7 @@ type Control interface {
 	parentFontChanged()
 	SetBounds(x, y, width, height int)
 	Bounds() (x, y, width, height int)
-	anchors() (horizontal, vertical anchor)
+	Anchors() (horizontal, vertical Anchor)
 	Parent() Container
 }
 
@@ -405,32 +405,32 @@ func (w *Window) repositionChidrenByAnchors() {
 	newCenterY := newClientH / 2
 	for _, c := range w.children {
 		x, y, w, h := c.Bounds()
-		hAnchor, vAnchor := c.anchors()
+		hAnchor, vAnchor := c.Anchors()
 
-		if hAnchor == anchorLeftAndRight {
+		if hAnchor == AnchorMinAndMax {
 			w += dw
-		} else if hAnchor == anchorRight {
+		} else if hAnchor == AnchorMax {
 			x += dw
-		} else if hAnchor == anchorCenter {
+		} else if hAnchor == AnchorCenter {
 			dx := oldCenterX - x
 			x = newCenterX - dx
-		} else if hAnchor == anchorLeftAndCenter {
+		} else if hAnchor == AnchorMinAndCenter {
 			w += newCenterX - oldCenterX
-		} else if hAnchor == anchorRightAndCenter {
+		} else if hAnchor == AnchorMaxAndCenter {
 			x += newCenterX - oldCenterX
 			w += dw - (newCenterX - oldCenterX)
 		}
 
-		if vAnchor == anchorTopAndBottom {
+		if vAnchor == AnchorMinAndMax {
 			h += dh
-		} else if vAnchor == anchorBottom {
+		} else if vAnchor == AnchorMax {
 			y += dh
-		} else if vAnchor == anchorCenter {
+		} else if vAnchor == AnchorCenter {
 			dy := oldCenterY - y
 			y = newCenterY - dy
-		} else if vAnchor == anchorTopAndCenter {
+		} else if vAnchor == AnchorMinAndCenter {
 			h += newCenterY - oldCenterY
-		} else if vAnchor == anchorBottomAndCenter {
+		} else if vAnchor == AnchorMaxAndCenter {
 			y += newCenterY - oldCenterY
 			h += dh - (newCenterY - oldCenterY)
 		}

@@ -11,19 +11,34 @@ import (
 	"github.com/gonutz/w32"
 )
 
-type anchor int
+// Anchor defines how a child control is resized when its parent changes size.
+// Children can be anchored to min (left or top), center and max (right or
+// bottom) of their parents.
+type Anchor int
 
 const (
-	anchorNone anchor = iota
-	anchorRight
-	anchorLeftAndRight
-	anchorLeftAndCenter
-	anchorRightAndCenter
-	anchorCenter
-	anchorBottom
-	anchorTopAndBottom
-	anchorTopAndCenter
-	anchorBottomAndCenter
+	// AnchorMin makes a control stick to the left/top side of its parent. The
+	// control's size is not changed.
+	AnchorMin Anchor = iota
+	// AnchorMin makes a control stick to the right/bottom side of its parent.
+	// The control's size is not changed.
+	AnchorMax
+	// AnchorCenter keeps a control fixed at the horizontal/vertical center of
+	// its parent, e.g. if it is placed 10 pixels left of the center, it will
+	// stay 10 pixels left of its parent's center. Its size is not changed.
+	AnchorCenter
+	// AnchorMinAndMax makes a control's borders stick to its parent's borders.
+	// The size changes propertionally to its parent's size, keeping the
+	// original distances to its parents borders.
+	AnchorMinAndMax
+	// AnchorMinAndCenter makes the left/top side of a control stick to its
+	// parent's left/top side while the right/bottom side sticks to the parent's
+	// center.
+	AnchorMinAndCenter
+	// AnchorMaxAndCenter makes the right/bottom side of a control stick to its
+	// parent's right/bottom side while the left/top side sticks to the parent's
+	// center.
+	AnchorMaxAndCenter
 )
 
 type control struct {
@@ -32,8 +47,8 @@ type control struct {
 	y        int
 	width    int
 	height   int
-	hAnchor  anchor
-	vAnchor  anchor
+	hAnchor  Anchor
+	vAnchor  Anchor
 	parent   container
 	disabled bool
 	hidden   bool
@@ -146,56 +161,16 @@ func (c *control) SetBounds(x, y, width, height int) {
 	}
 }
 
-func (c *control) anchors() (horizontal, vertical anchor) {
+func (c *control) Anchors() (horizontal, vertical Anchor) {
 	return c.hAnchor, c.vAnchor
 }
 
-func (c *control) AnchorLeft() {
-	c.hAnchor = anchorNone
+func (c *control) SetHorizontalAnchor(a Anchor) {
+	c.hAnchor = a
 }
 
-func (c *control) AnchorRight() {
-	c.hAnchor = anchorRight
-}
-
-func (c *control) AnchorLeftAndRight() {
-	c.hAnchor = anchorLeftAndRight
-}
-
-func (c *control) AnchorHorizontalCenter() {
-	c.hAnchor = anchorCenter
-}
-
-func (c *control) AnchorLeftAndCenter() {
-	c.hAnchor = anchorLeftAndCenter
-}
-
-func (c *control) AnchorRightAndCenter() {
-	c.hAnchor = anchorRightAndCenter
-}
-
-func (c *control) AnchorTop() {
-	c.vAnchor = anchorNone
-}
-
-func (c *control) AnchorBottom() {
-	c.vAnchor = anchorBottom
-}
-
-func (c *control) AnchorTopAndBottom() {
-	c.vAnchor = anchorTopAndBottom
-}
-
-func (c *control) AnchorVerticalCenter() {
-	c.vAnchor = anchorCenter
-}
-
-func (c *control) AnchorTopAndCenter() {
-	c.vAnchor = anchorTopAndCenter
-}
-
-func (c *control) AnchorBottomAndCenter() {
-	c.vAnchor = anchorBottomAndCenter
+func (c *control) SetVerticalAnchor(a Anchor) {
+	c.vAnchor = a
 }
 
 func (c *control) Enabled() bool {

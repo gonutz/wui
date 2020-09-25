@@ -36,14 +36,14 @@ func main() {
 	leftSlider := wui.NewPanel()
 	leftSlider.SetBounds(195, -1, 5, 602)
 	leftSlider.SetSingleLineBorder()
-	leftSlider.AnchorTopAndBottom()
+	leftSlider.SetVerticalAnchor(wui.AnchorMinAndMax)
 	w.Add(leftSlider)
 
 	rightSlider := wui.NewPanel()
 	rightSlider.SetBounds(600, -1, 5, 602)
 	rightSlider.SetSingleLineBorder()
-	rightSlider.AnchorTopAndBottom()
-	rightSlider.AnchorRight()
+	leftSlider.SetVerticalAnchor(wui.AnchorMinAndMax)
+	rightSlider.SetHorizontalAnchor(wui.AnchorMax)
 	w.Add(rightSlider)
 
 	alphaText := wui.NewLabel()
@@ -58,8 +58,8 @@ func main() {
 
 	preview := wui.NewPaintbox()
 	preview.SetBounds(200, 0, 400, 600)
-	preview.AnchorTopAndBottom()
-	preview.AnchorLeftAndRight()
+	preview.SetHorizontalAnchor(wui.AnchorMinAndMax)
+	preview.SetVerticalAnchor(wui.AnchorMinAndMax)
 	white := wui.RGB(255, 255, 255)
 	black := wui.RGB(0, 0, 0)
 
@@ -364,20 +364,20 @@ func defaultWindow() *wui.Window {
 
 	b = wui.NewButton()
 	b.SetBounds(215, 265, 75, 25)
-	b.AnchorRight()
-	b.AnchorBottom()
+	b.SetHorizontalAnchor(wui.AnchorMax)
+	b.SetVerticalAnchor(wui.AnchorMax)
 	b.SetText("BottomRight")
 	w.Add(b)
 
 	p := wui.NewPanel()
 	p.SetBounds(100, 100, 100, 100)
-	p.AnchorLeftAndRight()
-	p.AnchorTopAndBottom()
+	p.SetHorizontalAnchor(wui.AnchorMinAndMax)
+	p.SetVerticalAnchor(wui.AnchorMinAndMax)
 	w.Add(p)
 
 	b = wui.NewButton()
 	b.SetBounds(10, 100-30, 80, 25)
-	b.AnchorBottom()
+	b.SetVerticalAnchor(wui.AnchorMax)
 	b.SetText("In here")
 	p.Add(b)
 	//
