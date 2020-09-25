@@ -10,6 +10,8 @@ import (
 	"github.com/gonutz/wui"
 )
 
+const deleteTempDesignerFile = false
+
 func main() {
 	theWindow := defaultWindow()
 
@@ -44,19 +46,15 @@ func main() {
 	rightSlider.AnchorRight()
 	w.Add(rightSlider)
 
-	l := wui.NewLabel()
-	l.SetText("Border Style")
-	l.SetRightAlign()
-	l.SetBounds(5, 0, 60, 30)
-	w.Add(l)
-	borderStyle := wui.NewCombobox()
-	borderStyle.SetBounds(70, 5, 120, 30)
-	borderStyle.Add("Sizeable")
-	borderStyle.Add("Dialog")
-	borderStyle.Add("Single")
-	borderStyle.Add("None")
-	borderStyle.SetSelectedIndex(0)
-	w.Add(borderStyle)
+	alphaText := wui.NewLabel()
+	alphaText.SetText("Alpha")
+	alphaText.SetRightAlign()
+	alphaText.SetBounds(10, 10, 85, 25)
+	w.Add(alphaText)
+	alpha := wui.NewIntUpDown()
+	alpha.SetBounds(105, 10, 85, 25)
+	alpha.SetMinMaxValues(0, 255)
+	w.Add(alpha)
 
 	preview := wui.NewPaintbox()
 	preview.SetBounds(200, 0, 400, 600)
@@ -75,8 +73,31 @@ func main() {
 		clientX, clientY int
 		// active is the highlighted control whose properties are shown in the
 		// tool bar.
-		active node = theWindow
+		active node
 	)
+
+	alpha.SetOnValueChange(func(n int) {
+		if w, ok := active.(*wui.Window); ok {
+			w.SetAlpha(uint8(n))
+		} else {
+			panic("alpha value changed for non-Window")
+		}
+	})
+
+	activate := func(newActive node) {
+		active = newActive
+		preview.Paint()
+		switch x := active.(type) {
+		case *wui.Window:
+			alphaText.SetVisible(true)
+			alpha.SetVisible(true)
+			alpha.SetValue(int(x.Alpha()))
+		default:
+			alphaText.SetVisible(false)
+			alpha.SetVisible(false)
+		}
+	}
+	activate(theWindow)
 
 	preview.SetOnPaint(func(c *wui.Canvas) {
 		const xOffset, yOffset = 5, 5
@@ -214,11 +235,6 @@ func main() {
 		}
 	})
 
-	activate := func(newActive node) {
-		active = newActive
-		preview.Paint()
-	}
-
 	w.SetOnMouseDown(func(button wui.MouseButton, x, y int) {
 		if button == wui.MouseButtonLeft {
 			dragStartX = x
@@ -262,6 +278,9 @@ func main() {
 		line("w := wui.NewWindow()")
 		line("w.SetTitle(%q)", theWindow.Title())
 		line("w.SetSize(%d, %d)", theWindow.Width(), theWindow.Height())
+		if theWindow.Alpha() != 255 {
+			line("w.SetAlpha(%d)", theWindow.Alpha())
+		}
 		font := theWindow.Font()
 		if font != nil {
 			line("font, _ := wui.NewFont(wui.FontDesc{")
@@ -305,7 +324,9 @@ func main() {
 			wui.MessageBoxError("Error", err.Error())
 			return
 		}
-		defer os.Remove(fileName)
+		if deleteTempDesignerFile {
+			defer os.Remove(fileName)
+		}
 		// TODO This blocks and freezes the designer:
 		output, err := exec.Command("go", "run", fileName).CombinedOutput()
 		if err != nil {
