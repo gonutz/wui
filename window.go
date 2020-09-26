@@ -369,7 +369,7 @@ func (w *Window) Bounds() (x, y, width, height int) {
 	return w.x, w.y, w.width, w.height
 }
 
-// TODO Only calling SetClientWidth does not adjust the client height, making
+// TODO Only calling SetInnerWidth does not adjust the inner height, making
 // it 0.
 
 func (w *Window) SetBounds(x, y, width, height int) {
@@ -386,7 +386,7 @@ func (w *Window) SetBounds(x, y, width, height int) {
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
 	} else {
-		w.clientWidth, w.clientHeight = w.ClientSize()
+		w.clientWidth, w.clientHeight = w.InnerSize()
 		w.x = x
 		w.y = y
 		w.width = width
@@ -397,7 +397,7 @@ func (w *Window) SetBounds(x, y, width, height int) {
 
 func (w *Window) repositionChidrenByAnchors() {
 	oldClientW, oldClientH := w.clientWidth, w.clientHeight
-	newClientW, newClientH := w.ClientSize()
+	newClientW, newClientH := w.InnerSize()
 	w.clientWidth, w.clientHeight = newClientW, newClientH
 	dw := newClientW - oldClientW
 	dh := newClientH - oldClientH
@@ -441,34 +441,34 @@ func (w *Window) repositionChidrenByAnchors() {
 	}
 }
 
-func (w *Window) ClientX() int {
-	x, _ := w.ClientPos()
+func (w *Window) InnerX() int {
+	x, _ := w.InnerPos()
 	return x
 }
 
-func (w *Window) ClientY() int {
-	_, y := w.ClientPos()
+func (w *Window) InnerY() int {
+	_, y := w.InnerPos()
 	return y
 }
 
-func (w *Window) ClientPos() (x, y int) {
+func (w *Window) InnerPos() (x, y int) {
 	if w.handle != 0 {
 		x, y = w32.ClientToScreen(w.handle, 0, 0)
 	}
 	return
 }
 
-func (w *Window) ClientWidth() int {
-	width, _ := w.ClientSize()
+func (w *Window) InnerWidth() int {
+	width, _ := w.InnerSize()
 	return width
 }
 
-func (w *Window) ClientHeight() int {
-	_, height := w.ClientSize()
+func (w *Window) InnerHeight() int {
+	_, height := w.InnerSize()
 	return height
 }
 
-func (w *Window) ClientSize() (width, height int) {
+func (w *Window) InnerSize() (width, height int) {
 	if w.handle == 0 {
 		var r w32.RECT
 		w32.AdjustWindowRect(&r, w.style, w.menu != nil)
@@ -482,13 +482,13 @@ func (w *Window) ClientSize() (width, height int) {
 	return
 }
 
-func (w *Window) ClientBounds() (x, y, width, height int) {
-	x, y = w.ClientPos()
-	width, height = w.ClientSize()
+func (w *Window) InnerBounds() (x, y, width, height int) {
+	x, y = w.InnerPos()
+	width, height = w.InnerSize()
 	return
 }
 
-func (w *Window) SetClientWidth(width int) {
+func (w *Window) SetInnerWidth(width int) {
 	if width <= 0 {
 		return
 	}
@@ -502,12 +502,12 @@ func (w *Window) SetClientWidth(width int) {
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
 	} else {
-		// save negative size for Show to indicate client size
+		// save negative size for Show to indicate inner size
 		w.width = -width
 	}
 }
 
-func (w *Window) SetClientHeight(height int) {
+func (w *Window) SetInnerHeight(height int) {
 	if height <= 0 {
 		return
 	}
@@ -521,12 +521,12 @@ func (w *Window) SetClientHeight(height int) {
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
 	} else {
-		// save negative size for Show to indicate client size
+		// save negative size for Show to indicate inner size
 		w.height = -height
 	}
 }
 
-func (w *Window) SetClientSize(width, height int) {
+func (w *Window) SetInnerSize(width, height int) {
 	if width <= 0 || height <= 0 {
 		return
 	}
@@ -882,7 +882,7 @@ func (w *Window) Show() error {
 	defer w32.UnregisterClassAtom(atom, w32.GetModuleHandle(""))
 
 	w.adjustClientRect()
-	w.clientWidth, w.clientHeight = w.ClientSize()
+	w.clientWidth, w.clientHeight = w.InnerSize()
 	if w.alpha != 255 {
 		w.exStyle |= w32.WS_EX_LAYERED
 	}
@@ -910,7 +910,7 @@ func (w *Window) Show() error {
 	if w.onShow != nil {
 		w.onShow()
 	}
-	w.clientWidth, w.clientHeight = w.ClientSize()
+	w.clientWidth, w.clientHeight = w.InnerSize()
 
 	var msg w32.MSG
 	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
@@ -1201,7 +1201,7 @@ func (w *Window) SetIconFromFile(path string) {
 }
 
 func (w *Window) adjustClientRect() {
-	// if the width or height are negative, this indicates it is the client
+	// if the width or height are negative, this indicates it is the inner
 	// rect's size
 	var r w32.RECT
 	w32.AdjustWindowRect(&r, w.style, w.menu != nil)

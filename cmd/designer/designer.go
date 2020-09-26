@@ -31,7 +31,7 @@ func main() {
 	w.SetFont(font)
 	w.SetTitle("wui Designer")
 	w.SetBackground(w32.GetSysColorBrush(w32.COLOR_BTNFACE))
-	w.SetClientSize(800, 600)
+	w.SetInnerSize(800, 600)
 
 	leftSlider := wui.NewPanel()
 	leftSlider.SetBounds(195, -1, 5, 602)
@@ -109,11 +109,11 @@ func main() {
 	var (
 		// The ResizeAreas are the size drag points of the window.
 		xResizeArea, yResizeArea, xyResizeArea rectangle
-		// clientX and Y is the top-left corner where the client area of the
+		// innerX and Y is the top-left corner where the inner area of the
 		// window is drawn. The coordinates are relative to the application
 		// window so we can use it in mouse events to find the relative mouse
 		// position inside the window. TODO Say this with fewer "window"s.
-		clientX, clientY int
+		innerX, innerY int
 		// active is the highlighted control whose properties are shown in the
 		// tool bar.
 		active node
@@ -170,21 +170,15 @@ func main() {
 	const xOffset, yOffset = 5, 5
 	preview.SetOnPaint(func(c *wui.Canvas) {
 		width, height := theWindow.Size()
-		clientWidth, clientHeight := theWindow.ClientSize()
-		borderSize := (width - clientWidth) / 2
-		topBorderSize := height - borderSize - clientHeight
-		clientX = xOffset + borderSize
-		clientY = yOffset + topBorderSize
-		client := makeOffsetDrawer(c, clientX, clientY)
+		innerWidth, innerHeight := theWindow.InnerSize()
+		borderSize := (width - innerWidth) / 2
+		topBorderSize := height - borderSize - innerHeight
+		innerX = xOffset + borderSize
+		innerY = yOffset + topBorderSize
+		inner := makeOffsetDrawer(c, innerX, innerY)
 
-		// Clear client area.
-		c.FillRect(
-			clientX,
-			clientY,
-			clientWidth,
-			clientHeight,
-			wui.RGB(240, 240, 240),
-		)
+		// Clear inner area.
+		c.FillRect(innerX, innerY, innerWidth, innerHeight, wui.RGB(240, 240, 240))
 
 		xResizeArea = rectangle{
 			x: xOffset + width - 6,
@@ -205,7 +199,7 @@ func main() {
 			h: 12,
 		}
 
-		drawContainer(theWindow, client)
+		drawContainer(theWindow, inner)
 
 		// Highlight the currently selected child control.
 		if active != theWindow {
@@ -217,8 +211,8 @@ func main() {
 				y += dy
 				parent = parent.Parent()
 			}
-			client.DrawRect(x-1, y-1, w+2, h+2, wui.RGB(255, 0, 255))
-			client.DrawRect(x-2, y-2, w+4, h+4, wui.RGB(255, 0, 255))
+			inner.DrawRect(x-1, y-1, w+2, h+2, wui.RGB(255, 0, 255))
+			inner.DrawRect(x-2, y-2, w+4, h+4, wui.RGB(255, 0, 255))
 		}
 
 		// Draw the window border, icon and title.
@@ -326,8 +320,8 @@ func main() {
 			} else if windowArea.contains(x, y) {
 				newActive := findControlAt(
 					theWindow,
-					x-(preview.X()+clientX),
-					y-(preview.Y()+clientY),
+					x-(preview.X()+innerX),
+					y-(preview.Y()+innerY),
 				)
 				if newActive != active {
 					activate(newActive)
@@ -432,7 +426,7 @@ func defaultWindow() *wui.Window {
 	w := wui.NewWindow()
 	w.SetFont(font)
 	w.SetTitle("Window")
-	w.SetClientSize(300, 300)
+	w.SetInnerSize(300, 300)
 	// TODO
 	b := wui.NewButton()
 	b.SetBounds(10, 10, 75, 25)
