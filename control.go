@@ -83,16 +83,16 @@ func (c *control) create(id int, exStyle uint, className string, style uint) {
 
 func (c *control) parentFontChanged() {}
 
-func (c *control) X() int {
-	return c.x
-}
-
 func (c *control) SetOnResize(f func()) {
 	c.onResize = f
 }
 
 func (c *control) OnResize() func() {
 	return c.onResize
+}
+
+func (c *control) X() int {
+	return c.x
 }
 
 func (c *control) SetX(x int) {
@@ -324,6 +324,7 @@ func (c *textControl) fontHandle() w32.HFONT {
 }
 
 func (c *textControl) Focus() {
+	// TODO Allow this before showing a window.
 	if c.handle != 0 {
 		w32.SetFocus(c.handle)
 	}

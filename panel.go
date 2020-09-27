@@ -16,7 +16,6 @@ type Panel struct {
 	control
 	children []Control
 	border   panelBorder
-	controls []Control
 	font     *Font
 }
 
@@ -73,7 +72,8 @@ func (p *Panel) create(id int) {
 			return w32.DefSubclassProc(window, msg, wParam, lParam)
 		}
 	}), 0, 0)
-	for i, c := range p.controls {
+	// TODO Why is this here:
+	for i, c := range p.children {
 		c.create(id + i + 1)
 		p.parent.registerControl(c)
 	}
@@ -169,7 +169,7 @@ func (p *Panel) Font() *Font {
 
 func (p *Panel) SetFont(f *Font) {
 	p.font = f
-	for _, c := range p.controls {
+	for _, c := range p.children {
 		c.parentFontChanged()
 	}
 }

@@ -72,6 +72,7 @@ func NewDialogWindow() *Window {
 		state:      w32.SW_SHOWNORMAL,
 		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
 		cursor:     w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_ARROW)),
+		alpha:      255,
 	}
 }
 
@@ -87,6 +88,8 @@ type Window struct {
 	y             int
 	width         int
 	height        int
+	clientWidth   int
+	clientHeight  int
 	state         int
 	background    w32.HBRUSH
 	cursor        w32.HCURSOR
@@ -102,8 +105,6 @@ type Window struct {
 	accelTable    w32.HACCEL
 	lastFocus     w32.HWND
 	alpha         uint8
-	clientWidth   int
-	clientHeight  int
 	onShow        func()
 	onClose       func()
 	onCanClose    func() bool
@@ -172,7 +173,9 @@ type container interface {
 	controlCount() int
 }
 
-func (*Window) setParent(parent container) {}
+func (*Window) setParent(parent container) {
+	// TODO This is just to implement the container interface.
+}
 
 func (w *Window) getHandle() w32.HWND {
 	return w.handle
@@ -773,11 +776,9 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 		return 0
 	case w32.WM_SIZE:
 		w.repositionChidrenByAnchors()
-
 		if w.onResize != nil {
 			w.onResize()
 		}
-
 		w32.InvalidateRect(window, nil, true)
 		return 0
 	case w32.WM_ACTIVATE:
@@ -806,7 +807,6 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 		if w.onClose != nil {
 			w.onClose()
 		}
-		return w32.DefWindowProc(window, msg, wParam, lParam)
 	}
 	return w32.DefWindowProc(window, msg, wParam, lParam)
 }
@@ -864,16 +864,10 @@ func (w *Window) Show() error {
 
 	class := w32.WNDCLASSEX{
 		Background: w.background,
-		WndProc: syscall.NewCallback(func(
-			window w32.HWND,
-			msg uint32,
-			wParam, lParam uintptr,
-		) uintptr {
-			return w.onMsg(window, msg, wParam, lParam)
-		}),
-		Cursor:    w.cursor,
-		ClassName: syscall.StringToUTF16Ptr(w.className),
-		Style:     w.classStyle,
+		WndProc:    syscall.NewCallback(w.onMsg),
+		Cursor:     w.cursor,
+		ClassName:  syscall.StringToUTF16Ptr(w.className),
+		Style:      w.classStyle,
 	}
 	atom := w32.RegisterClassEx(&class)
 	if atom == 0 {
