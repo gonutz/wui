@@ -12,8 +12,11 @@ import (
 
 const deleteTempDesignerFile = false
 
+var names = make(map[interface{}]string)
+
 func main() {
 	theWindow := defaultWindow()
+	names[theWindow] = "w"
 
 	font, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -11})
 	w := wui.NewWindow()
@@ -46,13 +49,22 @@ func main() {
 	rightSlider.SetHorizontalAnchor(wui.AnchorMax)
 	w.Add(rightSlider)
 
+	nameText := wui.NewLabel()
+	nameText.SetText("Variable Name")
+	nameText.SetRightAlign()
+	nameText.SetBounds(10, 10, 85, 25)
+	w.Add(nameText)
+	name := wui.NewEditLine()
+	name.SetBounds(105, 10, 85, 25)
+	w.Add(name)
+
 	alphaText := wui.NewLabel()
 	alphaText.SetText("Alpha")
 	alphaText.SetRightAlign()
-	alphaText.SetBounds(10, 10, 85, 25)
+	alphaText.SetBounds(10, 40, 85, 25)
 	w.Add(alphaText)
 	alpha := wui.NewIntUpDown()
-	alpha.SetBounds(105, 10, 85, 25)
+	alpha.SetBounds(105, 40, 85, 25)
 	alpha.SetMinMaxValues(0, 255)
 	w.Add(alpha)
 
@@ -72,7 +84,7 @@ func main() {
 	hAnchorText := wui.NewLabel()
 	hAnchorText.SetText("Horizontal Anchor")
 	hAnchorText.SetRightAlign()
-	hAnchorText.SetBounds(10, 10, 85, 25)
+	hAnchorText.SetBounds(10, 40, 85, 25)
 	w.Add(hAnchorText)
 	hAnchor := wui.NewCombobox()
 	hAnchor.Add("Left")
@@ -81,13 +93,13 @@ func main() {
 	hAnchor.Add("Left+Right")
 	hAnchor.Add("Left+Center")
 	hAnchor.Add("Right+Center")
-	hAnchor.SetBounds(105, 10, 85, 25)
+	hAnchor.SetBounds(105, 40, 85, 25)
 	w.Add(hAnchor)
 
 	vAnchorText := wui.NewLabel()
 	vAnchorText.SetText("Vertical Anchor")
 	vAnchorText.SetRightAlign()
-	vAnchorText.SetBounds(10, 40, 85, 25)
+	vAnchorText.SetBounds(10, 70, 85, 25)
 	w.Add(vAnchorText)
 	vAnchor := wui.NewCombobox()
 	vAnchor.Add("Top")
@@ -96,7 +108,7 @@ func main() {
 	vAnchor.Add("Top+Bottom")
 	vAnchor.Add("Top+Center")
 	vAnchor.Add("Bottom+Center")
-	vAnchor.SetBounds(105, 40, 85, 25)
+	vAnchor.SetBounds(105, 70, 85, 25)
 	w.Add(vAnchor)
 
 	preview := wui.NewPaintbox()
@@ -119,6 +131,9 @@ func main() {
 		active node
 	)
 
+	name.SetOnTextChange(func() {
+		names[active] = name.Text()
+	})
 	alpha.SetOnValueChange(func(n int) {
 		if w, ok := active.(*wui.Window); ok {
 			w.SetAlpha(uint8(n))
@@ -143,6 +158,7 @@ func main() {
 
 	activate := func(newActive node) {
 		active = newActive
+		name.SetText(names[active])
 		preview.Paint()
 		switch x := active.(type) {
 		case *wui.Window:
@@ -346,11 +362,15 @@ func main() {
 			wuiCode += fmt.Sprintf(format, a...)
 		}
 
-		line("w := wui.NewWindow()")
-		line("w.SetTitle(%q)", theWindow.Title())
-		line("w.SetSize(%d, %d)", theWindow.Width(), theWindow.Height())
+		name := names[theWindow]
+		if name == "" {
+			name = "w"
+		}
+		line(name + " := wui.NewWindow()")
+		line(name+".SetTitle(%q)", theWindow.Title())
+		line(name+".SetSize(%d, %d)", theWindow.Width(), theWindow.Height())
 		if theWindow.Alpha() != 255 {
-			line("w.SetAlpha(%d)", theWindow.Alpha())
+			line(name+".SetAlpha(%d)", theWindow.Alpha())
 		}
 		font := theWindow.Font()
 		if font != nil {
@@ -374,10 +394,10 @@ func main() {
 				line("StrikedOut: true,")
 			}
 			line("})")
-			line("w.SetFont(font)")
+			line(name + ".SetFont(font)")
 		}
-		writeContainer(theWindow, "w", line)
-		line("w.Show()")
+		writeContainer(theWindow, name, line)
+		line(name + ".Show()")
 
 		mainProgram := `//+build ignore
 
@@ -578,7 +598,10 @@ func anchorToString(a wui.Anchor) string {
 
 func writeContainer(c wui.Container, parent string, line func(format string, a ...interface{})) {
 	for i, child := range c.Children() {
-		name := fmt.Sprintf("%s_child%d", parent, i)
+		name := names[child]
+		if name == "" {
+			name = fmt.Sprintf("%s_child%d", parent, i)
+		}
 		do := func(format string, a ...interface{}) {
 			line(name+format, a...)
 		}
