@@ -280,14 +280,14 @@ func (w *Window) SetY(y int) {
 	}
 }
 
-func (w *Window) Pos() (x, y int) {
+func (w *Window) Position() (x, y int) {
 	if w.handle != 0 {
 		w.readBounds()
 	}
 	return w.x, w.y
 }
 
-func (w *Window) SetPos(x, y int) {
+func (w *Window) SetPosition(x, y int) {
 	w.x = x
 	w.y = y
 	if w.handle != 0 {
@@ -445,18 +445,24 @@ func (w *Window) repositionChidrenByAnchors() {
 }
 
 func (w *Window) InnerX() int {
-	x, _ := w.InnerPos()
+	x, _ := w.InnerPosition()
 	return x
 }
 
 func (w *Window) InnerY() int {
-	_, y := w.InnerPos()
+	_, y := w.InnerPosition()
 	return y
 }
 
-func (w *Window) InnerPos() (x, y int) {
+func (w *Window) InnerPosition() (x, y int) {
 	if w.handle != 0 {
 		x, y = w32.ClientToScreen(w.handle, 0, 0)
+	} else {
+		x, y = w.Position()
+		var r w32.RECT
+		w32.AdjustWindowRectEx(&r, w.style, w.menu != nil, w.exStyle)
+		x -= int(r.Left)
+		y -= int(r.Top)
 	}
 	return
 }
@@ -486,7 +492,7 @@ func (w *Window) InnerSize() (width, height int) {
 }
 
 func (w *Window) InnerBounds() (x, y, width, height int) {
-	x, y = w.InnerPos()
+	x, y = w.InnerPosition()
 	width, height = w.InnerSize()
 	return
 }
@@ -627,6 +633,13 @@ func (w *Window) SetFont(f *Font) {
 	}
 }
 
+// controlIDOffset is the first ID that is given to child controls of a window.
+// The WM_COMMAND message is handled for notifications from child controls, this
+// message go to their parent window. See
+// https://docs.microsoft.com/en-us/windows/win32/menurc/wm-command
+// where it says that 0 is reserved for the menu, 1 for accelerators and >= 2
+// for IDs of controls.
+// TODO This does not make sense, the WPARAM is the notification, not the ID!
 const controlIDOffset = 2
 
 func (w *Window) Add(c Control) {
@@ -871,7 +884,7 @@ func (w *Window) Show() error {
 	}
 	atom := w32.RegisterClassEx(&class)
 	if atom == 0 {
-		return errors.New("win.NewWindow: RegisterClassEx failed")
+		return errors.New("wui.Window.Show: RegisterClassEx failed")
 	}
 	defer w32.UnregisterClassAtom(atom, w32.GetModuleHandle(""))
 
@@ -889,7 +902,7 @@ func (w *Window) Show() error {
 		0, 0, 0, nil,
 	)
 	if window == 0 {
-		return errors.New("win.Window.Show: CreateWindowEx failed")
+		return errors.New("wui.Window.Show: CreateWindowEx failed")
 	}
 	w.handle = window
 	if w.alpha != 255 {
@@ -1237,7 +1250,7 @@ func (w *Window) ShowModal() error {
 		0, 0, nil,
 	)
 	if window == 0 {
-		return errors.New("win.Window.ShowModal: CreateWindowEx failed")
+		return errors.New("wui.Window.ShowModal: CreateWindowEx failed")
 	}
 	w.handle = window
 
