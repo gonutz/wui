@@ -173,3 +173,14 @@ func (p *Panel) SetFont(f *Font) {
 		c.parentFontChanged()
 	}
 }
+
+func (p *Panel) InnerBounds() (x, y, width, height int) {
+	x, y, width, height = p.Bounds()
+	var r w32.RECT
+	w32.AdjustWindowRectEx(&r, borderStyle(p.border), false, borderStyleEx(p.border))
+	x -= int(r.Left)
+	y -= int(r.Top)
+	width -= int(r.Width())
+	height -= int(r.Height())
+	return
+}
