@@ -128,7 +128,7 @@ func (p *Panel) SetRaisedBorder() {
 func (p *Panel) Add(c Control) {
 	c.setParent(p)
 	if p.handle != 0 {
-		c.create(p.parent.controlCount() + controlIDOffset)
+		c.create(p.parent.controlCount())
 	}
 	p.registerControl(c)
 	p.children = append(p.children, c)

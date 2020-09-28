@@ -633,19 +633,10 @@ func (w *Window) SetFont(f *Font) {
 	}
 }
 
-// controlIDOffset is the first ID that is given to child controls of a window.
-// The WM_COMMAND message is handled for notifications from child controls, this
-// message go to their parent window. See
-// https://docs.microsoft.com/en-us/windows/win32/menurc/wm-command
-// where it says that 0 is reserved for the menu, 1 for accelerators and >= 2
-// for IDs of controls.
-// TODO This does not make sense, the WPARAM is the notification, not the ID!
-const controlIDOffset = 2
-
 func (w *Window) Add(c Control) {
 	c.setParent(w)
 	if w.handle != 0 {
-		c.create(len(w.controls) + controlIDOffset)
+		c.create(len(w.controls))
 	}
 	w.children = append(w.children, c)
 	w.registerControl(c)
@@ -825,8 +816,7 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 }
 
 func (w *Window) onWM_DRAWITEM(wParam, lParam uintptr) {
-	id := wParam
-	index := id - controlIDOffset
+	index := wParam
 	if 0 <= index && index < uintptr(len(w.controls)) {
 		if p, ok := w.controls[index].(*Paintbox); ok {
 			if p.onPaint != nil {
@@ -972,7 +962,7 @@ func (w *Window) createContents() {
 	}
 
 	for i, c := range w.controls {
-		c.create(i + controlIDOffset)
+		c.create(i)
 	}
 }
 
@@ -996,9 +986,8 @@ func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 		}
 	} else if lParam != 0 {
 		// control clicked
-		id := wParam & 0xFFFF
+		index := wParam & 0xFFFF
 		cmd := (wParam & 0xFFFF0000) >> 16
-		index := id - controlIDOffset
 		if 0 <= index && index < uintptr(len(w.controls)) {
 			control := w.controls[index]
 			switch c := control.(type) {
@@ -1020,7 +1009,7 @@ func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 					}
 				}
 			case *Checkbox:
-				state := w32.IsDlgButtonChecked(c.parent.getHandle(), id)
+				state := w32.IsDlgButtonChecked(c.parent.getHandle(), index)
 				checked := state == w32.BST_CHECKED
 				if c.checked != checked {
 					c.checked = checked
@@ -1036,7 +1025,7 @@ func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 				var changedToTrue *RadioButton
 				for i, c := range w.controls {
 					if rb, ok := c.(*RadioButton); ok {
-						id := uintptr(i) + controlIDOffset
+						id := uintptr(i)
 						state := w32.IsDlgButtonChecked(
 							rb.parent.getHandle(),
 							id,
@@ -1081,7 +1070,7 @@ func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 func (w *Window) onWM_NOTIFY(wParam, lParam uintptr) {
 	header := *((*w32.NMHDR)(unsafe.Pointer(lParam)))
 	if header.Code == uint32(w32.UDN_DELTAPOS) {
-		i := int(wParam) - controlIDOffset
+		i := int(wParam)
 		if 0 <= i && i < len(w.controls) {
 			if f, ok := w.controls[i].(*FloatUpDown); ok {
 				updown := *((*w32.NMUPDOWN)(unsafe.Pointer(lParam)))
@@ -1089,7 +1078,7 @@ func (w *Window) onWM_NOTIFY(wParam, lParam uintptr) {
 			}
 		}
 	} else if header.Code == w32.LVN_ITEMCHANGED&0xFFFFFFFF {
-		i := int(wParam) - controlIDOffset
+		i := int(wParam)
 		if 0 <= i && i < len(w.controls) {
 			if t, ok := w.controls[i].(*StringTable); ok {
 				change := *((*w32.NMLISTVIEW)(unsafe.Pointer(lParam)))
