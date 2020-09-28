@@ -601,10 +601,12 @@ func main() {`)
 		line("})")
 		line(name + ".SetFont(font)")
 	}
-	writeContainer(w, name, line)
-	line(name + ".Show()")
 
+	writeContainer(w, name, line)
+
+	line(name + ".Show()")
 	code.WriteString("\n}")
+
 	formatted, err := format.Source(code.Bytes())
 	if err != nil {
 		panic("We generated wrong code: " + err.Error())
@@ -614,6 +616,7 @@ func main() {`)
 
 func writeContainer(c wui.Container, parent string, line func(format string, a ...interface{})) {
 	for i, child := range c.Children() {
+		line("")
 		name := names[child]
 		if name == "" {
 			name = fmt.Sprintf("%s_child%d", parent, i)
