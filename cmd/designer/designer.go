@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"go/format"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -10,7 +12,7 @@ import (
 	"github.com/gonutz/wui"
 )
 
-const deleteTempDesignerFile = false
+const deleteTempDesignerFile = false // TODO Debug switch.
 
 var names = make(map[interface{}]string)
 
@@ -353,78 +355,7 @@ func main() {
 	})
 
 	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'R'}, func() {
-		var wuiCode string
-		line := func(format string, a ...interface{}) {
-			format = "\t" + format
-			if wuiCode != "" {
-				format = "\n" + format
-			}
-			wuiCode += fmt.Sprintf(format, a...)
-		}
-
-		name := names[theWindow]
-		if name == "" {
-			name = "w"
-		}
-		line(name + " := wui.NewWindow()")
-		line(name+".SetTitle(%q)", theWindow.Title())
-		line(name+".SetSize(%d, %d)", theWindow.Width(), theWindow.Height())
-		if theWindow.Alpha() != 255 {
-			line(name+".SetAlpha(%d)", theWindow.Alpha())
-		}
-		font := theWindow.Font()
-		if font != nil {
-			line("font, _ := wui.NewFont(wui.FontDesc{")
-			if font.Desc.Name != "" {
-				line("Name: %q,", font.Desc.Name)
-			}
-			if font.Desc.Height != 0 {
-				line("Height: %d,", font.Desc.Height)
-			}
-			if font.Desc.Bold {
-				line("Bold: true,")
-			}
-			if font.Desc.Italic {
-				line("Italic: true,")
-			}
-			if font.Desc.Underlined {
-				line("Underlined: true,")
-			}
-			if font.Desc.StrikedOut {
-				line("StrikedOut: true,")
-			}
-			line("})")
-			line(name + ".SetFont(font)")
-		}
-		writeContainer(theWindow, name, line)
-		line(name + ".Show()")
-
-		mainProgram := `//+build ignore
-
-package main
-
-import "github.com/gonutz/wui"
-
-func main() {
-` + wuiCode + `
-}
-`
-		const fileName = "wui_designer_temp_file.go"
-		err := ioutil.WriteFile(fileName, []byte(mainProgram), 0666)
-		if err != nil {
-			wui.MessageBoxError("Error", err.Error())
-			return
-		}
-		if deleteTempDesignerFile {
-			defer os.Remove(fileName)
-		}
-		// TODO This blocks and freezes the designer:
-		output, err := exec.Command("go", "run", fileName).CombinedOutput()
-		if err != nil {
-			wui.MessageBoxError("Error", err.Error()+"\r\n"+string(output))
-		} else if len(output) > 0 {
-			wui.MessageBoxInfo("go output", string(output))
-		}
+		showPreview(theWindow)
 	})
 
 	w.SetShortcut(wui.ShortcutKeys{Rune: 27}, w.Close) // TODO for debugging
@@ -596,6 +527,91 @@ func anchorToString(a wui.Anchor) string {
 	}
 }
 
+type node interface {
+	Parent() wui.Container
+	Bounds() (x, y, width, height int)
+}
+
+func showPreview(w *wui.Window) {
+	code := generatePreviewCode(w)
+	const fileName = "wui_designer_temp_file.go"
+	err := ioutil.WriteFile(fileName, code, 0666)
+	if err != nil {
+		wui.MessageBoxError("Error", err.Error())
+		return
+	}
+	if deleteTempDesignerFile {
+		defer os.Remove(fileName)
+	}
+	// TODO This blocks and freezes the designer:
+	output, err := exec.Command("go", "run", fileName).CombinedOutput()
+	if err != nil {
+		wui.MessageBoxError("Error", err.Error()+"\r\n"+string(output))
+	} else if len(output) > 0 {
+		wui.MessageBoxInfo("go output", string(output))
+	}
+}
+
+func generatePreviewCode(w *wui.Window) []byte {
+	var code bytes.Buffer
+	code.WriteString(`//+build ignore
+
+package main
+
+import "github.com/gonutz/wui"
+
+func main() {`)
+
+	line := func(format string, a ...interface{}) {
+		fmt.Fprint(&code, "\n\t")
+		fmt.Fprintf(&code, format, a...)
+	}
+
+	name := names[w]
+	if name == "" {
+		name = "w"
+	}
+	line(name + " := wui.NewWindow()")
+	line(name+".SetTitle(%q)", w.Title())
+	line(name+".SetSize(%d, %d)", w.Width(), w.Height())
+	if w.Alpha() != 255 {
+		line(name+".SetAlpha(%d)", ^w.Alpha())
+	}
+	font := w.Font()
+	if font != nil {
+		line("font, _ := wui.NewFont(wui.FontDesc{")
+		if font.Desc.Name != "" {
+			line("Name: %q,", font.Desc.Name)
+		}
+		if font.Desc.Height != 0 {
+			line("Height: %d,", font.Desc.Height)
+		}
+		if font.Desc.Bold {
+			line("Bold: true,")
+		}
+		if font.Desc.Italic {
+			line("Italic: true,")
+		}
+		if font.Desc.Underlined {
+			line("Underlined: true,")
+		}
+		if font.Desc.StrikedOut {
+			line("StrikedOut: true,")
+		}
+		line("})")
+		line(name + ".SetFont(font)")
+	}
+	writeContainer(w, name, line)
+	line(name + ".Show()")
+
+	code.WriteString("\n}")
+	formatted, err := format.Source(code.Bytes())
+	if err != nil {
+		panic("We generated wrong code: " + err.Error())
+	}
+	return formatted
+}
+
 func writeContainer(c wui.Container, parent string, line func(format string, a ...interface{})) {
 	for i, child := range c.Children() {
 		name := names[child]
@@ -654,9 +670,4 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 			panic("unhandled child control")
 		}
 	}
-}
-
-type node interface {
-	Parent() wui.Container
-	Bounds() (x, y, width, height int)
 }
