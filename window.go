@@ -819,7 +819,7 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 func (w *Window) onWM_DRAWITEM(wParam, lParam uintptr) {
 	index := wParam
 	if 0 <= index && index < uintptr(len(w.controls)) {
-		if p, ok := w.controls[index].(*Paintbox); ok {
+		if p, ok := w.controls[index].(*PaintBox); ok {
 			if p.onPaint != nil {
 				drawItem := ((*w32.DRAWITEMSTRUCT)(unsafe.Pointer(lParam)))
 				// create a back buffer

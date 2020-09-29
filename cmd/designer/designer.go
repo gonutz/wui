@@ -123,7 +123,7 @@ func main() {
 	checked.SetBounds(30, 100, 100, 17)
 	w.Add(checked)
 
-	preview := wui.NewPaintbox()
+	preview := wui.NewPaintBox()
 	preview.SetBounds(200, 0, 400, 600)
 	preview.SetHorizontalAnchor(wui.AnchorMinAndMax)
 	preview.SetVerticalAnchor(wui.AnchorMinAndMax)
@@ -215,6 +215,8 @@ func main() {
 
 	const xOffset, yOffset = 5, 5
 	preview.SetOnPaint(func(c *wui.Canvas) {
+		// TODO Use Bounds and InnerBounds to determine the real borders, they
+		// do not necessarily have to be the same left/right and bottom.
 		width, height := theWindow.Size()
 		innerWidth, innerHeight := theWindow.InnerSize()
 		borderSize := (width - innerWidth) / 2

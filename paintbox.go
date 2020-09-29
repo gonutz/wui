@@ -12,11 +12,11 @@ import (
 	"github.com/gonutz/w32"
 )
 
-func NewPaintbox() *Paintbox {
-	return &Paintbox{}
+func NewPaintBox() *PaintBox {
+	return &PaintBox{}
 }
 
-type Paintbox struct {
+type PaintBox struct {
 	control
 	backBuffer backBuffer
 	onPaint    func(*Canvas)
@@ -42,15 +42,15 @@ func (b *backBuffer) setMinSize(hdc w32.HDC, w, h int) {
 	}
 }
 
-func (p *Paintbox) create(id int) {
+func (p *PaintBox) create(id int) {
 	p.control.create(id, 0, "STATIC", w32.SS_OWNERDRAW)
 }
 
-func (p *Paintbox) SetOnPaint(f func(*Canvas)) {
+func (p *PaintBox) SetOnPaint(f func(*Canvas)) {
 	p.onPaint = f
 }
 
-func (p *Paintbox) Paint() {
+func (p *PaintBox) Paint() {
 	if p.handle != 0 {
 		w32.InvalidateRect(p.handle, nil, true)
 	}
