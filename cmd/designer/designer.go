@@ -45,13 +45,13 @@ func main() {
 
 	leftSlider := wui.NewPanel()
 	leftSlider.SetBounds(195, -1, 5, 602)
-	leftSlider.SetSingleLineBorder()
+	leftSlider.SetBorderStyle(wui.PanelBorderSingleLine)
 	leftSlider.SetVerticalAnchor(wui.AnchorMinAndMax)
 	w.Add(leftSlider)
 
 	rightSlider := wui.NewPanel()
 	rightSlider.SetBounds(600, -1, 5, 602)
-	rightSlider.SetSingleLineBorder()
+	rightSlider.SetBorderStyle(wui.PanelBorderSingleLine)
 	rightSlider.SetVerticalAnchor(wui.AnchorMinAndMax)
 	rightSlider.SetHorizontalAnchor(wui.AnchorMax)
 	w.Add(rightSlider)
@@ -148,8 +148,34 @@ func main() {
 
 	checked := wui.NewCheckBox()
 	checked.SetText("Checked")
-	checked.SetBounds(30, 100, 100, 17)
+	checked.SetBounds(105, 100, 85, 17)
 	w.Add(checked)
+
+	panelBorderToIndex := map[wui.PanelBorderStyle]int{
+		wui.PanelBorderNone:        0,
+		wui.PanelBorderSingleLine:  1,
+		wui.PanelBorderRaised:      2,
+		wui.PanelBorderSunken:      3,
+		wui.PanelBorderSunkenThick: 4,
+	}
+	indexToPanelBorder := make(map[int]wui.PanelBorderStyle)
+	for a, i := range panelBorderToIndex {
+		indexToPanelBorder[i] = a
+	}
+
+	panelBorderStyleText := wui.NewLabel()
+	panelBorderStyleText.SetText("Border Style")
+	panelBorderStyleText.SetRightAlign()
+	panelBorderStyleText.SetBounds(10, 100, 85, 25)
+	w.Add(panelBorderStyleText)
+	panelBorderStyle := wui.NewCombobox()
+	panelBorderStyle.Add("None")
+	panelBorderStyle.Add("Single")
+	panelBorderStyle.Add("Raised")
+	panelBorderStyle.Add("Sunken")
+	panelBorderStyle.Add("Sunken Thick")
+	panelBorderStyle.SetBounds(105, 100, 85, 25)
+	w.Add(panelBorderStyle)
 
 	preview := wui.NewPaintBox()
 	preview.SetBounds(200, 0, 400, 600)
@@ -206,6 +232,14 @@ func main() {
 			panic("check is for radio buttons and check boxes only")
 		}
 	})
+	panelBorderStyle.SetOnChange(func(i int) {
+		if p, ok := active.(*wui.Panel); ok {
+			p.SetBorderStyle(indexToPanelBorder[i])
+			preview.Paint()
+		} else {
+			panic("panel border style only for panels")
+		}
+	})
 
 	activate := func(newActive node) {
 		active = newActive
@@ -214,6 +248,7 @@ func main() {
 		_, isWindow := active.(*wui.Window)
 		_, isCheckBox := active.(*wui.CheckBox)
 		_, isRadioButton := active.(*wui.RadioButton)
+		_, isPanel := active.(*wui.Panel)
 
 		alphaText.SetVisible(isWindow)
 		alpha.SetVisible(isWindow)
@@ -222,6 +257,8 @@ func main() {
 		vAnchorText.SetVisible(!isWindow)
 		vAnchor.SetVisible(!isWindow)
 		checked.SetVisible(isCheckBox || isRadioButton)
+		panelBorderStyleText.SetVisible(isPanel)
+		panelBorderStyle.SetVisible(isPanel)
 
 		if isWindow {
 			alpha.SetValue(int(active.(*wui.Window).Alpha()))
@@ -235,6 +272,10 @@ func main() {
 		}
 		if isRadioButton {
 			checked.SetChecked(active.(*wui.RadioButton).Checked())
+		}
+		if isPanel {
+			b := active.(*wui.Panel).BorderStyle()
+			panelBorderStyle.SetSelectedIndex(panelBorderToIndex[b])
 		}
 
 		preview.Paint()
@@ -481,6 +522,7 @@ func defaultWindow() *wui.Window {
 
 	p := wui.NewPanel()
 	p.SetBounds(100, 100, 100, 100)
+	p.SetBorderStyle(wui.PanelBorderSingleLine)
 	p.SetHorizontalAnchor(wui.AnchorMinAndMax)
 	p.SetVerticalAnchor(wui.AnchorMinAndMax)
 	w.Add(p)
@@ -606,13 +648,12 @@ func drawContainer(container wui.Container, d drawer) {
 			drawButton(c, d)
 		case *wui.Panel:
 			x, y, w, h := c.Bounds()
-			border := "sunken_thick" // TODO Get this from the panel.
-			switch border {
-			case "none":
+			switch c.BorderStyle() {
+			case wui.PanelBorderNone:
 				d.DrawRect(x, y, w, h, wui.RGB(230, 230, 230))
-			case "single":
+			case wui.PanelBorderSingleLine:
 				d.DrawRect(x, y, w, h, wui.RGB(100, 100, 100))
-			case "raised":
+			case wui.PanelBorderRaised:
 				d.Line(x, y, x+w, y, wui.RGB(227, 227, 227))
 				d.Line(x, y, x, y+h, wui.RGB(227, 227, 227))
 				d.Line(x+w-1, y, x+w-1, y+h, wui.RGB(105, 105, 105))
@@ -621,12 +662,12 @@ func drawContainer(container wui.Container, d drawer) {
 				d.Line(x+1, y+1, x+1, y+h-1, wui.RGB(255, 255, 255))
 				d.Line(x+w-2, y+1, x+w-2, y+h-1, wui.RGB(160, 160, 160))
 				d.Line(x+1, y+h-2, x+w-1, y+h-2, wui.RGB(160, 160, 160))
-			case "sunken":
+			case wui.PanelBorderSunken:
 				d.Line(x, y, x+w, y, wui.RGB(160, 160, 160))
 				d.Line(x, y, x, y+h, wui.RGB(160, 160, 160))
 				d.Line(x+w-1, y, x+w-1, y+h, wui.RGB(255, 255, 255))
 				d.Line(x, y+h-1, x+w, y+h-1, wui.RGB(255, 255, 255))
-			case "sunken_thick":
+			case wui.PanelBorderSunkenThick:
 				d.Line(x, y, x+w, y, wui.RGB(160, 160, 160))
 				d.Line(x, y, x, y+h, wui.RGB(160, 160, 160))
 				d.Line(x+w-1, y, x+w-1, y+h, wui.RGB(255, 255, 255))
@@ -696,6 +737,23 @@ func anchorToString(a wui.Anchor) string {
 		return "AnchorMaxAndCenter"
 	default:
 		panic("unhandled anchor type")
+	}
+}
+
+func panelBorderToString(s wui.PanelBorderStyle) string {
+	switch s {
+	case wui.PanelBorderNone:
+		return "PanelBorderNone"
+	case wui.PanelBorderSingleLine:
+		return "PanelBorderSingleLine"
+	case wui.PanelBorderSunken:
+		return "PanelBorderSunken"
+	case wui.PanelBorderSunkenThick:
+		return "PanelBorderSunkenThick"
+	case wui.PanelBorderRaised:
+		return "PanelBorderRaised"
+	default:
+		panic("unhandled panel border style")
 	}
 }
 
@@ -818,12 +876,10 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 			line("%s.Add(%s)", parent, name)
 		} else if panel, ok := child.(*wui.Panel); ok {
 			do(" := wui.NewPanel()")
-			// TODO
-			//do(".SetNoBorder()")
-			//do(".SetRaisedBorder()")
-			//do(".SetSingleLineBorder()")
-			//do(".SetSunkenBorder()")
-			do(".SetSunkenThickBorder()")
+			border := panel.BorderStyle()
+			if border != wui.PanelBorderNone {
+				do(".SetBorderStyle(wui.%s)", panelBorderToString(border))
+			}
 			do(".SetBounds(%d, %d, %d, %d)", panel.X(), panel.Y(), panel.Width(), panel.Height())
 			h, v := panel.Anchors()
 			if h != wui.Anchor(0) {

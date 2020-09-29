@@ -15,35 +15,35 @@ func NewPanel() *Panel {
 type Panel struct {
 	control
 	children []Control
-	border   panelBorder
+	border   PanelBorderStyle
 	font     *Font
 }
 
-type panelBorder int
+type PanelBorderStyle int
 
 const (
-	borderNone panelBorder = iota
-	borderSingleLine
-	borderSunken
-	borderSunkenThick
-	borderRaised
+	PanelBorderNone PanelBorderStyle = iota
+	PanelBorderSingleLine
+	PanelBorderSunken
+	PanelBorderSunkenThick
+	PanelBorderRaised
 )
 
-func borderStyleEx(b panelBorder) uint {
-	if b == borderSunken {
+func borderStyleEx(b PanelBorderStyle) uint {
+	if b == PanelBorderSunken {
 		return w32.WS_EX_STATICEDGE
 	}
-	if b == borderSunkenThick {
+	if b == PanelBorderSunkenThick {
 		return w32.WS_EX_CLIENTEDGE
 	}
 	return 0
 }
 
-func borderStyle(b panelBorder) uint {
-	if b == borderSingleLine {
+func borderStyle(b PanelBorderStyle) uint {
+	if b == PanelBorderSingleLine {
 		return w32.WS_BORDER
 	}
-	if b == borderRaised {
+	if b == PanelBorderRaised {
 		return w32.WS_DLGFRAME
 	}
 	return 0
@@ -87,41 +87,25 @@ func (p *Panel) getInstance() w32.HINSTANCE {
 	return p.parent.getInstance()
 }
 
-func (p *Panel) setBorder(b panelBorder) {
-	p.border = b
+func (p *Panel) SetBorderStyle(s PanelBorderStyle) {
+	p.border = s
 	if p.handle != 0 {
 		style := uint(w32.GetWindowLongPtr(p.handle, w32.GWL_STYLE))
 		style = style &^ w32.WS_BORDER &^ w32.WS_DLGFRAME
-		style |= borderStyle(b)
+		style |= borderStyle(s)
 		w32.SetWindowLongPtr(p.handle, w32.GWL_STYLE, uintptr(style))
 
 		exStyle := uint(w32.GetWindowLongPtr(p.handle, w32.GWL_EXSTYLE))
 		exStyle = exStyle &^ w32.WS_EX_STATICEDGE &^ w32.WS_EX_CLIENTEDGE
-		exStyle |= borderStyleEx(b)
+		exStyle |= borderStyleEx(s)
 		w32.SetWindowLongPtr(p.handle, w32.GWL_EXSTYLE, uintptr(exStyle))
 
 		w32.InvalidateRect(p.parent.getHandle(), nil, true)
 	}
 }
 
-func (p *Panel) SetNoBorder() {
-	p.setBorder(borderNone)
-}
-
-func (p *Panel) SetSingleLineBorder() {
-	p.setBorder(borderSingleLine)
-}
-
-func (p *Panel) SetSunkenBorder() {
-	p.setBorder(borderSunken)
-}
-
-func (p *Panel) SetSunkenThickBorder() {
-	p.setBorder(borderSunkenThick)
-}
-
-func (p *Panel) SetRaisedBorder() {
-	p.setBorder(borderRaised)
+func (p *Panel) BorderStyle() PanelBorderStyle {
+	return p.border
 }
 
 // TODO there is a bug in this when Adding control while parent is not set
