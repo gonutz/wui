@@ -70,6 +70,14 @@ func main() {
 	radioButtonTemplate.SetChecked(true)
 	radioButtonTemplate.SetBounds(10, 67, 100, 17)
 
+	allTemplates := []wui.Control{
+		buttonTemplate,
+		checkBoxTemplate,
+		radioButtonTemplate,
+	}
+
+	var highlightedTemplate wui.Control
+
 	palette := wui.NewPaintBox()
 	palette.SetBounds(605, 0, 195, 600)
 	palette.SetHorizontalAnchor(wui.AnchorMax)
@@ -81,6 +89,24 @@ func main() {
 		drawButton(buttonTemplate, c)
 		drawCheckBox(checkBoxTemplate, c)
 		drawRadioButton(radioButtonTemplate, c)
+		// Highlight what is under the mouse.
+		if highlightedTemplate != nil {
+			x, y, w, h := highlightedTemplate.Bounds()
+			c.DrawRect(x-1, y-1, w+2, h+2, wui.RGB(255, 0, 255))
+			c.DrawRect(x-2, y-2, w+4, h+4, wui.RGB(255, 0, 255))
+		}
+	})
+	palette.SetOnMouseMove(func(x, y int) {
+		oldHighlight := highlightedTemplate
+		highlightedTemplate = nil
+		for _, c := range allTemplates {
+			if contains(c, x, y) {
+				highlightedTemplate = c
+			}
+		}
+		if highlightedTemplate != oldHighlight {
+			palette.Paint()
+		}
 	})
 	w.Add(palette)
 

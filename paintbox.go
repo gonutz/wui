@@ -7,6 +7,7 @@ import (
 	"image/draw"
 	"math"
 	"reflect"
+	"syscall"
 	"unsafe"
 
 	"github.com/gonutz/w32"
@@ -18,8 +19,9 @@ func NewPaintBox() *PaintBox {
 
 type PaintBox struct {
 	control
-	backBuffer backBuffer
-	onPaint    func(*Canvas)
+	backBuffer  backBuffer
+	onPaint     func(*Canvas)
+	onMouseMove func(x, y int)
 }
 
 type backBuffer struct {
@@ -44,6 +46,32 @@ func (b *backBuffer) setMinSize(hdc w32.HDC, w, h int) {
 
 func (p *PaintBox) create(id int) {
 	p.control.create(id, 0, "STATIC", w32.SS_OWNERDRAW)
+	w32.SetWindowSubclass(p.handle, syscall.NewCallback(func(
+		window w32.HWND,
+		msg uint32,
+		wParam, lParam uintptr,
+		subclassID uintptr,
+		refData uintptr,
+	) uintptr {
+		switch msg {
+		case w32.WM_NCHITTEST:
+			if p.onMouseMove != nil {
+				x := int(int16(lParam & 0xFFFF))
+				y := int(int16((lParam & 0xFFFF0000) >> 16))
+				x, y, _ = w32.ScreenToClient(p.handle, x, y)
+				p.onMouseMove(x, y)
+			}
+		}
+		return w32.DefSubclassProc(window, msg, wParam, lParam)
+	}), 0, 0)
+}
+
+func (p *PaintBox) OnMouseMove() func(x, y int) {
+	return p.onMouseMove
+}
+
+func (p *PaintBox) SetOnMouseMove(f func(x, y int)) {
+	p.onMouseMove = f
 }
 
 func (p *PaintBox) SetOnPaint(f func(*Canvas)) {
