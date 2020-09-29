@@ -113,6 +113,11 @@ func main() {
 	vAnchor.SetBounds(105, 70, 85, 25)
 	w.Add(vAnchor)
 
+	checked := wui.NewCheckbox()
+	checked.SetText("Checked")
+	checked.SetBounds(30, 100, 100, 17)
+	w.Add(checked)
+
 	preview := wui.NewPaintbox()
 	preview.SetBounds(200, 0, 400, 600)
 	preview.SetHorizontalAnchor(wui.AnchorMinAndMax)
@@ -157,6 +162,17 @@ func main() {
 			panic("anchor set on non-Control")
 		}
 	})
+	checked.SetOnChange(func(check bool) {
+		if r, ok := active.(*wui.RadioButton); ok {
+			r.SetChecked(check)
+			preview.Paint()
+		} else if c, ok := active.(*wui.Checkbox); ok {
+			c.SetChecked(check)
+			preview.Paint()
+		} else {
+			panic("check is for radio buttons and check boxes only")
+		}
+	})
 
 	activate := func(newActive node) {
 		active = newActive
@@ -171,6 +187,31 @@ func main() {
 			hAnchor.SetVisible(false)
 			vAnchorText.SetVisible(false)
 			vAnchor.SetVisible(false)
+			checked.SetVisible(false)
+		case *wui.RadioButton:
+			alphaText.SetVisible(false)
+			alpha.SetVisible(false)
+			hAnchorText.SetVisible(true)
+			hAnchor.SetVisible(true)
+			vAnchorText.SetVisible(true)
+			vAnchor.SetVisible(true)
+			h, v := x.Anchors()
+			hAnchor.SetSelectedIndex(anchorToIndex[h])
+			vAnchor.SetSelectedIndex(anchorToIndex[v])
+			checked.SetVisible(true)
+			checked.SetChecked(x.Checked())
+		case *wui.Checkbox:
+			alphaText.SetVisible(false)
+			alpha.SetVisible(false)
+			hAnchorText.SetVisible(true)
+			hAnchor.SetVisible(true)
+			vAnchorText.SetVisible(true)
+			vAnchor.SetVisible(true)
+			h, v := x.Anchors()
+			hAnchor.SetSelectedIndex(anchorToIndex[h])
+			vAnchor.SetSelectedIndex(anchorToIndex[v])
+			checked.SetVisible(true)
+			checked.SetChecked(x.Checked())
 		case wui.Control:
 			alphaText.SetVisible(false)
 			alpha.SetVisible(false)
@@ -181,6 +222,7 @@ func main() {
 			h, v := x.Anchors()
 			hAnchor.SetSelectedIndex(anchorToIndex[h])
 			vAnchor.SetSelectedIndex(anchorToIndex[v])
+			checked.SetVisible(false)
 		}
 	}
 	activate(theWindow)
@@ -402,6 +444,44 @@ func defaultWindow() *wui.Window {
 	b.SetVerticalAnchor(wui.AnchorMax)
 	b.SetText("In here")
 	p.Add(b)
+
+	r1 := wui.NewRadioButton()
+	r1.SetBounds(100, 10, 100, 17)
+	r1.SetText("Radio Button 1")
+	w.Add(r1)
+
+	r2 := wui.NewRadioButton()
+	r2.SetBounds(100, 30, 100, 17)
+	r2.SetText("Radio Button 2")
+	r2.SetChecked(true)
+	w.Add(r2)
+
+	r3 := wui.NewRadioButton()
+	r3.SetBounds(100, 50, 100, 17)
+	r3.SetText("Radio Button 3")
+	w.Add(r3)
+
+	r4 := wui.NewRadioButton()
+	r4.SetBounds(0, 0, 100, 17)
+	r4.SetText("Inner 1")
+	p.Add(r4)
+
+	r5 := wui.NewRadioButton()
+	r5.SetBounds(0, 20, 100, 17)
+	r5.SetText("Inner 2")
+	p.Add(r5)
+
+	r6 := wui.NewRadioButton()
+	r6.SetBounds(0, 40, 100, 17)
+	r6.SetText("Inner 3")
+	r6.SetChecked(true)
+	p.Add(r6)
+
+	c := wui.NewCheckbox()
+	c.SetBounds(5, 50, 80, 17)
+	c.SetText("check")
+	c.SetChecked(true)
+	w.Add(c)
 	//
 	return w
 }
@@ -432,6 +512,8 @@ type drawer interface {
 	Line(x1, y1, x2, y2 int, color wui.Color)
 	DrawRect(x, y, w, h int, color wui.Color)
 	FillRect(x, y, w, h int, color wui.Color)
+	DrawEllipse(x, y, w, h int, color wui.Color)
+	FillEllipse(x, y, w, h int, color wui.Color)
 	TextRectFormat(x, y, w, h int, s string, format wui.Format, color wui.Color)
 }
 
@@ -452,6 +534,14 @@ func (d *offsetDrawer) FillRect(x, y, w, h int, color wui.Color) {
 	d.base.FillRect(x+d.dx, y+d.dy, w, h, color)
 }
 
+func (d *offsetDrawer) DrawEllipse(x, y, w, h int, color wui.Color) {
+	d.base.DrawEllipse(x+d.dx, y+d.dy, w, h, color)
+}
+
+func (d *offsetDrawer) FillEllipse(x, y, w, h int, color wui.Color) {
+	d.base.FillEllipse(x+d.dx, y+d.dy, w, h, color)
+}
+
 func (d *offsetDrawer) TextRectFormat(
 	x, y, w, h int, s string, format wui.Format, color wui.Color,
 ) {
@@ -464,13 +554,13 @@ func (d *offsetDrawer) Line(x1, y1, x2, y2 int, color wui.Color) {
 
 func drawContainer(container wui.Container, d drawer) {
 	for _, child := range container.Children() {
-		if button, ok := child.(*wui.Button); ok {
-			x, y, w, h := button.Bounds()
+		x, y, w, h := child.Bounds()
+		switch c := child.(type) {
+		case *wui.Button:
 			d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(173, 173, 173))
 			d.FillRect(x+2, y+2, w-4, h-4, wui.RGB(225, 225, 225))
-			d.TextRectFormat(x, y, w, h, button.Text(), wui.FormatCenter, wui.RGB(0, 0, 0))
-		} else if panel, ok := child.(*wui.Panel); ok {
-			x, y, w, h := panel.Bounds()
+			d.TextRectFormat(x, y, w, h, c.Text(), wui.FormatCenter, wui.RGB(0, 0, 0))
+		case *wui.Panel:
 			border := "none"
 			switch border {
 			case "none":
@@ -501,8 +591,25 @@ func drawContainer(container wui.Container, d drawer) {
 				d.Line(x+w-2, y+1, x+w-2, y+h-1, wui.RGB(227, 227, 227))
 				d.Line(x+1, y+h-2, x+w-1, y+h-2, wui.RGB(227, 227, 227))
 			}
-			drawContainer(panel, makeOffsetDrawer(d, panel.X(), panel.Y()))
-		} else {
+			drawContainer(c, makeOffsetDrawer(d, c.X(), c.Y()))
+		case *wui.RadioButton:
+			d.FillEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
+			d.DrawEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
+			if c.Checked() {
+				d.FillEllipse(x+3, y+(h-13)/2+3, 7, 7, wui.RGB(0, 0, 0))
+			}
+			d.TextRectFormat(x+16, y, w-16, h, c.Text(), wui.FormatCenterLeft, wui.RGB(0, 0, 0))
+		case *wui.Checkbox:
+			d.FillRect(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
+			d.DrawRect(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
+			if c.Checked() {
+				startX := x + 2
+				startY := y + (h-13)/2 + 6
+				d.Line(startX, startY, startX+3, startY+3, wui.RGB(0, 0, 0))
+				d.Line(startX+3, startY+2, startX+9, startY-4, wui.RGB(0, 0, 0))
+			}
+			d.TextRectFormat(x+16, y, w-16, h, c.Text(), wui.FormatCenterLeft, wui.RGB(0, 0, 0))
+		default:
 			panic("unhandled child control")
 		}
 	}
@@ -669,6 +776,48 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 			// see the comment there.
 			line("%s.Add(%s)", parent, name)
 			writeContainer(panel, name, line)
+		} else if r, ok := child.(*wui.RadioButton); ok {
+			do(" := wui.NewRadioButton()")
+			do(".SetText(%q)", r.Text())
+			do(".SetBounds(%d, %d, %d, %d)", r.X(), r.Y(), r.Width(), r.Height())
+			h, v := r.Anchors()
+			if h != wui.Anchor(0) {
+				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
+			}
+			if v != wui.Anchor(0) {
+				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
+			}
+			if !r.Enabled() {
+				do(".SetEnabled(false)")
+			}
+			if !r.Visible() {
+				do(".SetVisible(false)")
+			}
+			if r.Checked() {
+				do(".SetChecked(true)")
+			}
+			line("%s.Add(%s)", parent, name)
+		} else if r, ok := child.(*wui.Checkbox); ok {
+			do(" := wui.NewCheckbox()")
+			do(".SetText(%q)", r.Text())
+			do(".SetBounds(%d, %d, %d, %d)", r.X(), r.Y(), r.Width(), r.Height())
+			h, v := r.Anchors()
+			if h != wui.Anchor(0) {
+				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
+			}
+			if v != wui.Anchor(0) {
+				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
+			}
+			if !r.Enabled() {
+				do(".SetEnabled(false)")
+			}
+			if !r.Visible() {
+				do(".SetVisible(false)")
+			}
+			if r.Checked() {
+				do(".SetChecked(true)")
+			}
+			line("%s.Add(%s)", parent, name)
 		} else {
 			panic("unhandled child control")
 		}
