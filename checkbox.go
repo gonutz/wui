@@ -4,6 +4,8 @@ package wui
 
 import "github.com/gonutz/w32"
 
+// TODO Rename to CheckBox.
+
 func NewCheckbox() *Checkbox {
 	return &Checkbox{}
 }
@@ -46,4 +48,13 @@ func toCheckState(checked bool) uintptr {
 
 func (c *Checkbox) SetOnChange(f func(checked bool)) {
 	c.onChange = f
+}
+
+func (c *Checkbox) handleNotification(cmd uintptr) {
+	if cmd == w32.BN_CLICKED {
+		c.checked = w32.SendMessage(c.handle, w32.BM_GETCHECK, 0, 0) == w32.BST_CHECKED
+		if c.onChange != nil {
+			c.onChange(c.checked)
+		}
+	}
 }

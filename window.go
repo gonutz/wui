@@ -151,6 +151,7 @@ type Control interface {
 	SetHorizontalAnchor(a Anchor)
 	SetVerticalAnchor(a Anchor)
 	Parent() Container
+	handleNotification(cmd uintptr)
 }
 
 type Container interface {
@@ -988,81 +989,8 @@ func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 		// control clicked
 		index := wParam & 0xFFFF
 		cmd := (wParam & 0xFFFF0000) >> 16
-		if 0 <= index && index < uintptr(len(w.controls)) {
-			control := w.controls[index]
-			switch c := control.(type) {
-			case *Button:
-				if c.onClick != nil {
-					c.onClick()
-				}
-			case *FloatUpDown:
-				if cmd == w32.EN_CHANGE {
-					// TODO
-					//if c.onValueChange != nil {
-					//	c.onValueChange(int(c.Value()))
-					//}
-				}
-			case *IntUpDown:
-				if cmd == w32.EN_CHANGE {
-					if c.onValueChange != nil {
-						c.onValueChange(int(c.Value()))
-					}
-				}
-			case *Checkbox:
-				state := w32.IsDlgButtonChecked(c.parent.getHandle(), index)
-				checked := state == w32.BST_CHECKED
-				if c.checked != checked {
-					c.checked = checked
-					if c.onChange != nil {
-						c.onChange(checked)
-					}
-				}
-			case *RadioButton:
-				// look through all RadioButtons to see which have
-				// changed, first change to false, at the end change
-				// the newly selected one to true, always in this
-				// order
-				var changedToTrue *RadioButton
-				for i, c := range w.controls {
-					if rb, ok := c.(*RadioButton); ok {
-						id := uintptr(i)
-						state := w32.IsDlgButtonChecked(
-							rb.parent.getHandle(),
-							id,
-						)
-						checked := state == w32.BST_CHECKED
-						if rb.checked != checked {
-							if checked {
-								changedToTrue = rb
-							} else {
-								rb.checked = checked
-								if rb.onChange != nil {
-									rb.onChange(checked)
-								}
-							}
-						}
-					}
-				}
-				if changedToTrue != nil {
-					changedToTrue.checked = true
-					if changedToTrue.onChange != nil {
-						changedToTrue.onChange(true)
-					}
-				}
-			case *Combobox:
-				if cmd == w32.CBN_SELCHANGE {
-					if c.onChange != nil {
-						c.onChange(c.SelectedIndex())
-					}
-				}
-			case *EditLine:
-				if cmd == w32.EN_CHANGE {
-					if c.onTextChange != nil {
-						c.onTextChange()
-					}
-				}
-			}
-			return
+		if index < uintptr(len(w.controls)) {
+			w.controls[index].handleNotification(cmd)
 		}
 	}
 }

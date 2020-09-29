@@ -200,6 +200,8 @@ func (c *control) SetVisible(v bool) {
 	}
 }
 
+func (c *control) handleNotification(cmd uintptr) {}
+
 type textControl struct {
 	control
 	text        string

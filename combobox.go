@@ -81,3 +81,9 @@ func (e *Combobox) SetSelectedIndex(i int) {
 func (e *Combobox) SetOnChange(f func(newIndex int)) {
 	e.onChange = f
 }
+
+func (e *Combobox) handleNotification(cmd uintptr) {
+	if cmd == w32.CBN_SELCHANGE && e.onChange != nil {
+		e.onChange(e.SelectedIndex())
+	}
+}

@@ -190,3 +190,9 @@ func (n *IntUpDown) SetVisible(v bool) {
 		}
 	}
 }
+
+func (n *IntUpDown) handleNotification(cmd uintptr) {
+	if cmd == w32.EN_CHANGE && n.onValueChange != nil {
+		n.onValueChange(n.Value())
+	}
+}

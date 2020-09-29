@@ -231,3 +231,7 @@ func (n *FloatUpDown) SetPrecision(p int) {
 	}
 	n.precision = p
 }
+
+func (n *FloatUpDown) handleNotification(cmd uintptr) {
+	// TODO Handle EN_CHANGE in handleNotification to inform of change.
+}

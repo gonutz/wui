@@ -67,3 +67,9 @@ func (e *EditLine) SetOnTextChange(f func()) {
 func (e *EditLine) OnTextChange() func() {
 	return e.onTextChange
 }
+
+func (e *EditLine) handleNotification(cmd uintptr) {
+	if cmd == w32.EN_CHANGE && e.onTextChange != nil {
+		e.onTextChange()
+	}
+}
