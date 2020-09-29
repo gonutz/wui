@@ -177,53 +177,34 @@ func main() {
 	activate := func(newActive node) {
 		active = newActive
 		name.SetText(names[active])
-		preview.Paint()
-		switch x := active.(type) {
-		case *wui.Window:
-			alphaText.SetVisible(true)
-			alpha.SetVisible(true)
-			alpha.SetValue(int(x.Alpha()))
-			hAnchorText.SetVisible(false)
-			hAnchor.SetVisible(false)
-			vAnchorText.SetVisible(false)
-			vAnchor.SetVisible(false)
-			checked.SetVisible(false)
-		case *wui.RadioButton:
-			alphaText.SetVisible(false)
-			alpha.SetVisible(false)
-			hAnchorText.SetVisible(true)
-			hAnchor.SetVisible(true)
-			vAnchorText.SetVisible(true)
-			vAnchor.SetVisible(true)
-			h, v := x.Anchors()
+
+		_, isWindow := active.(*wui.Window)
+		_, isCheckBox := active.(*wui.CheckBox)
+		_, isRadioButton := active.(*wui.RadioButton)
+
+		alphaText.SetVisible(isWindow)
+		alpha.SetVisible(isWindow)
+		hAnchorText.SetVisible(!isWindow)
+		hAnchor.SetVisible(!isWindow)
+		vAnchorText.SetVisible(!isWindow)
+		vAnchor.SetVisible(!isWindow)
+		checked.SetVisible(isCheckBox || isRadioButton)
+
+		if isWindow {
+			alpha.SetValue(int(active.(*wui.Window).Alpha()))
+		} else {
+			h, v := active.(wui.Control).Anchors()
 			hAnchor.SetSelectedIndex(anchorToIndex[h])
 			vAnchor.SetSelectedIndex(anchorToIndex[v])
-			checked.SetVisible(true)
-			checked.SetChecked(x.Checked())
-		case *wui.CheckBox:
-			alphaText.SetVisible(false)
-			alpha.SetVisible(false)
-			hAnchorText.SetVisible(true)
-			hAnchor.SetVisible(true)
-			vAnchorText.SetVisible(true)
-			vAnchor.SetVisible(true)
-			h, v := x.Anchors()
-			hAnchor.SetSelectedIndex(anchorToIndex[h])
-			vAnchor.SetSelectedIndex(anchorToIndex[v])
-			checked.SetVisible(true)
-			checked.SetChecked(x.Checked())
-		case wui.Control:
-			alphaText.SetVisible(false)
-			alpha.SetVisible(false)
-			hAnchorText.SetVisible(true)
-			hAnchor.SetVisible(true)
-			vAnchorText.SetVisible(true)
-			vAnchor.SetVisible(true)
-			h, v := x.Anchors()
-			hAnchor.SetSelectedIndex(anchorToIndex[h])
-			vAnchor.SetSelectedIndex(anchorToIndex[v])
-			checked.SetVisible(false)
 		}
+		if isCheckBox {
+			checked.SetChecked(active.(*wui.CheckBox).Checked())
+		}
+		if isRadioButton {
+			checked.SetChecked(active.(*wui.RadioButton).Checked())
+		}
+
+		preview.Paint()
 	}
 	activate(theWindow)
 
@@ -670,7 +651,7 @@ import "github.com/gonutz/wui"
 func main() {`)
 
 	line := func(format string, a ...interface{}) {
-		fmt.Fprint(&code, "\n\t")
+		fmt.Fprint(&code, "\n")
 		fmt.Fprintf(&code, format, a...)
 	}
 
