@@ -682,7 +682,7 @@ func main() {`)
 	line(name+".SetTitle(%q)", w.Title())
 	line(name+".SetSize(%d, %d)", w.Width(), w.Height())
 	if w.Alpha() != 255 {
-		line(name+".SetAlpha(%d)", ^w.Alpha())
+		line(name+".SetAlpha(%d)", w.Alpha())
 	}
 	font := w.Font()
 	if font != nil {
