@@ -52,9 +52,37 @@ func main() {
 	rightSlider := wui.NewPanel()
 	rightSlider.SetBounds(600, -1, 5, 602)
 	rightSlider.SetSingleLineBorder()
-	leftSlider.SetVerticalAnchor(wui.AnchorMinAndMax)
+	rightSlider.SetVerticalAnchor(wui.AnchorMinAndMax)
 	rightSlider.SetHorizontalAnchor(wui.AnchorMax)
 	w.Add(rightSlider)
+
+	buttonTemplate := wui.NewButton()
+	buttonTemplate.SetText("Button")
+	buttonTemplate.SetBounds(9, 11, 85, 25)
+
+	checkBoxTemplate := wui.NewCheckBox()
+	checkBoxTemplate.SetText("CheckBox")
+	checkBoxTemplate.SetChecked(true)
+	checkBoxTemplate.SetBounds(10, 44, 100, 17)
+
+	radioButtonTemplate := wui.NewRadioButton()
+	radioButtonTemplate.SetText("RadioButton")
+	radioButtonTemplate.SetChecked(true)
+	radioButtonTemplate.SetBounds(10, 67, 100, 17)
+
+	palette := wui.NewPaintBox()
+	palette.SetBounds(605, 0, 195, 600)
+	palette.SetHorizontalAnchor(wui.AnchorMax)
+	palette.SetVerticalAnchor(wui.AnchorMinAndMax)
+	palette.SetOnPaint(func(c *wui.Canvas) {
+		w, h := c.Size()
+		c.FillRect(0, 0, w, h, wui.RGB(240, 240, 240))
+		// Draw all template controls.
+		drawButton(buttonTemplate, c)
+		drawCheckBox(checkBoxTemplate, c)
+		drawRadioButton(radioButtonTemplate, c)
+	})
+	w.Add(palette)
 
 	nameText := wui.NewLabel()
 	nameText.SetText("Variable Name")
@@ -247,6 +275,7 @@ func main() {
 			h: 12,
 		}
 
+		// Draw all the window contents.
 		drawContainer(theWindow, inner)
 
 		// Highlight the currently selected child control.
@@ -572,13 +601,11 @@ func (d *offsetDrawer) Line(x1, y1, x2, y2 int, color wui.Color) {
 
 func drawContainer(container wui.Container, d drawer) {
 	for _, child := range container.Children() {
-		x, y, w, h := child.Bounds()
 		switch c := child.(type) {
 		case *wui.Button:
-			d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(173, 173, 173))
-			d.FillRect(x+2, y+2, w-4, h-4, wui.RGB(225, 225, 225))
-			d.TextRectFormat(x, y, w, h, c.Text(), wui.FormatCenter, wui.RGB(0, 0, 0))
+			drawButton(c, d)
 		case *wui.Panel:
+			x, y, w, h := c.Bounds()
 			border := "sunken_thick" // TODO Get this from the panel.
 			switch border {
 			case "none":
@@ -610,30 +637,47 @@ func drawContainer(container wui.Container, d drawer) {
 				d.Line(x+1, y+h-2, x+w-1, y+h-2, wui.RGB(227, 227, 227))
 			}
 			// TODO Use inner coordinates for drawing panels once they are
-			// support in the library.
+			// supported in the library.
 			drawContainer(c, makeOffsetDrawer(d, c.X(), c.Y()))
 		case *wui.RadioButton:
-			d.FillEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
-			d.DrawEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
-			if c.Checked() {
-				d.FillEllipse(x+3, y+(h-13)/2+3, 7, 7, wui.RGB(0, 0, 0))
-			}
-			d.TextRectFormat(x+16, y, w-16, h, c.Text(), wui.FormatCenterLeft, wui.RGB(0, 0, 0))
+			drawRadioButton(c, d)
 		case *wui.CheckBox:
-			d.FillRect(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
-			d.DrawRect(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
-			if c.Checked() {
-				// Draw two lines for the check mark. ✓
-				startX := x + 2
-				startY := y + (h-13)/2 + 6
-				d.Line(startX, startY, startX+3, startY+3, wui.RGB(0, 0, 0))
-				d.Line(startX+3, startY+2, startX+9, startY-4, wui.RGB(0, 0, 0))
-			}
-			d.TextRectFormat(x+16, y, w-16, h, c.Text(), wui.FormatCenterLeft, wui.RGB(0, 0, 0))
+			drawCheckBox(c, d)
 		default:
 			panic("unhandled child control")
 		}
 	}
+}
+
+func drawButton(b *wui.Button, d drawer) {
+	x, y, w, h := b.Bounds()
+	d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(173, 173, 173))
+	d.FillRect(x+2, y+2, w-4, h-4, wui.RGB(225, 225, 225))
+	d.TextRectFormat(x, y, w, h, b.Text(), wui.FormatCenter, wui.RGB(0, 0, 0))
+}
+
+func drawRadioButton(r *wui.RadioButton, d drawer) {
+	x, y, w, h := r.Bounds()
+	d.FillEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
+	d.DrawEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
+	if r.Checked() {
+		d.FillEllipse(x+3, y+(h-13)/2+3, 7, 7, wui.RGB(0, 0, 0))
+	}
+	d.TextRectFormat(x+16, y, w-16, h, r.Text(), wui.FormatCenterLeft, wui.RGB(0, 0, 0))
+}
+
+func drawCheckBox(c *wui.CheckBox, d drawer) {
+	x, y, w, h := c.Bounds()
+	d.FillRect(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
+	d.DrawRect(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
+	if c.Checked() {
+		// Draw two lines for the check mark. ✓
+		startX := x + 2
+		startY := y + (h-13)/2 + 6
+		d.Line(startX, startY, startX+3, startY+3, wui.RGB(0, 0, 0))
+		d.Line(startX+3, startY+2, startX+9, startY-4, wui.RGB(0, 0, 0))
+	}
+	d.TextRectFormat(x+16, y, w-16, h, c.Text(), wui.FormatCenterLeft, wui.RGB(0, 0, 0))
 }
 
 func anchorToString(a wui.Anchor) string {
