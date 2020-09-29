@@ -4,28 +4,26 @@ package wui
 
 import "github.com/gonutz/w32"
 
-// TODO Rename to CheckBox.
-
-func NewCheckbox() *Checkbox {
-	return &Checkbox{}
+func NewCheckBox() *CheckBox {
+	return &CheckBox{}
 }
 
-type Checkbox struct {
+type CheckBox struct {
 	textControl
 	checked  bool
 	onChange func(bool)
 }
 
-func (c *Checkbox) create(id int) {
+func (c *CheckBox) create(id int) {
 	c.textControl.create(id, 0, "BUTTON", w32.WS_TABSTOP|w32.BS_AUTOCHECKBOX)
 	w32.SendMessage(c.handle, w32.BM_SETCHECK, toCheckState(c.checked), 0)
 }
 
-func (c *Checkbox) Checked() bool {
+func (c *CheckBox) Checked() bool {
 	return c.checked
 }
 
-func (c *Checkbox) SetChecked(checked bool) {
+func (c *CheckBox) SetChecked(checked bool) {
 	if checked == c.checked {
 		return
 	}
@@ -46,11 +44,11 @@ func toCheckState(checked bool) uintptr {
 	return w32.BST_UNCHECKED
 }
 
-func (c *Checkbox) SetOnChange(f func(checked bool)) {
+func (c *CheckBox) SetOnChange(f func(checked bool)) {
 	c.onChange = f
 }
 
-func (c *Checkbox) handleNotification(cmd uintptr) {
+func (c *CheckBox) handleNotification(cmd uintptr) {
 	if cmd == w32.BN_CLICKED {
 		c.checked = w32.SendMessage(c.handle, w32.BM_GETCHECK, 0, 0) == w32.BST_CHECKED
 		if c.onChange != nil {

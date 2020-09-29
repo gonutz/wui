@@ -113,7 +113,7 @@ func main() {
 	vAnchor.SetBounds(105, 70, 85, 25)
 	w.Add(vAnchor)
 
-	checked := wui.NewCheckbox()
+	checked := wui.NewCheckBox()
 	checked.SetText("Checked")
 	checked.SetBounds(30, 100, 100, 17)
 	w.Add(checked)
@@ -166,7 +166,7 @@ func main() {
 		if r, ok := active.(*wui.RadioButton); ok {
 			r.SetChecked(check)
 			preview.Paint()
-		} else if c, ok := active.(*wui.Checkbox); ok {
+		} else if c, ok := active.(*wui.CheckBox); ok {
 			c.SetChecked(check)
 			preview.Paint()
 		} else {
@@ -200,7 +200,7 @@ func main() {
 			vAnchor.SetSelectedIndex(anchorToIndex[v])
 			checked.SetVisible(true)
 			checked.SetChecked(x.Checked())
-		case *wui.Checkbox:
+		case *wui.CheckBox:
 			alphaText.SetVisible(false)
 			alpha.SetVisible(false)
 			hAnchorText.SetVisible(true)
@@ -477,7 +477,7 @@ func defaultWindow() *wui.Window {
 	r6.SetChecked(true)
 	p.Add(r6)
 
-	c := wui.NewCheckbox()
+	c := wui.NewCheckBox()
 	c.SetBounds(5, 50, 80, 17)
 	c.SetText("check")
 	c.SetChecked(true)
@@ -599,7 +599,7 @@ func drawContainer(container wui.Container, d drawer) {
 				d.FillEllipse(x+3, y+(h-13)/2+3, 7, 7, wui.RGB(0, 0, 0))
 			}
 			d.TextRectFormat(x+16, y, w-16, h, c.Text(), wui.FormatCenterLeft, wui.RGB(0, 0, 0))
-		case *wui.Checkbox:
+		case *wui.CheckBox:
 			d.FillRect(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
 			d.DrawRect(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
 			if c.Checked() {
@@ -797,8 +797,8 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 				do(".SetChecked(true)")
 			}
 			line("%s.Add(%s)", parent, name)
-		} else if r, ok := child.(*wui.Checkbox); ok {
-			do(" := wui.NewCheckbox()")
+		} else if r, ok := child.(*wui.CheckBox); ok {
+			do(" := wui.NewCheckBox()")
 			do(".SetText(%q)", r.Text())
 			do(".SetBounds(%d, %d, %d, %d)", r.X(), r.Y(), r.Width(), r.Height())
 			h, v := r.Anchors()
