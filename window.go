@@ -705,22 +705,18 @@ func (w *Window) Close() {
 }
 
 func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uintptr {
+	mouseX := int(lParam & 0xFFFF)
+	mouseY := int(lParam&0xFFFF0000) >> 16
 	switch msg {
 	case w32.WM_MOUSEMOVE:
 		if w.onMouseMove != nil {
-			w.onMouseMove(
-				int(lParam&0xFFFF),
-				int(lParam&0xFFFF0000)>>16,
-			)
+			w.onMouseMove(mouseX, mouseY)
 			return 0
 		}
 	case w32.WM_MOUSEWHEEL:
 		if w.onMouseWheel != nil {
-			w.onMouseWheel(
-				int(lParam&0xFFFF),
-				int(lParam&0xFFFF0000)>>16,
-				float64(int16(int32(wParam&0xFFFF0000)>>16))/120,
-			)
+			delta := float64(int16((wParam&0xFFFF0000)>>16)) / 120
+			w.onMouseWheel(mouseX, mouseY, delta)
 		}
 		return 0
 	case w32.WM_LBUTTONDOWN, w32.WM_MBUTTONDOWN, w32.WM_RBUTTONDOWN:
@@ -732,11 +728,7 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 			if msg == w32.WM_RBUTTONDOWN {
 				b = MouseButtonRight
 			}
-			w.onMouseDown(
-				b,
-				int(lParam&0xFFFF),
-				int(lParam&0xFFFF0000)>>16,
-			)
+			w.onMouseDown(b, mouseX, mouseY)
 		}
 		return 0
 	case w32.WM_LBUTTONUP, w32.WM_MBUTTONUP, w32.WM_RBUTTONUP:
@@ -748,11 +740,7 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 			if msg == w32.WM_RBUTTONUP {
 				b = MouseButtonRight
 			}
-			w.onMouseUp(
-				b,
-				int(lParam&0xFFFF),
-				int(lParam&0xFFFF0000)>>16,
-			)
+			w.onMouseUp(b, mouseX, mouseY)
 		}
 		return 0
 	case w32.WM_DRAWITEM:
