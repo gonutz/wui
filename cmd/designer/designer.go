@@ -12,6 +12,11 @@ import (
 	"github.com/gonutz/wui"
 )
 
+// TODO Handle negative widths/heights, they display in the preview but the real
+// window does not allow them.
+
+// TODO Clamp the drawing canvas for each container.
+
 const deleteTempDesignerFile = false // TODO Debug switch.
 
 var names = make(map[interface{}]string)
@@ -262,6 +267,34 @@ func main() {
 		c.FillRect(xOffset, yOffset, borderSize, height, borderColor)
 		c.FillRect(xOffset, yOffset+height-borderSize, width, borderSize, borderColor)
 		c.FillRect(xOffset+width-borderSize, yOffset, borderSize, height, borderColor)
+		// TODO Handle combinations of borders and top-right corner buttons. For
+		// now we just draw minimize, maximize and close buttons.
+		{
+			w := topBorderSize
+			h := w - 8
+			y := yOffset + 4
+			right := xOffset + width - borderSize
+			x0 := right - 3*w - 2
+			x1 := right - 2*w - 1
+			x2 := right - 1*w - 0
+			iconSize := h / 2
+			// Minimize button.
+			c.FillRect(x0, y, w, h, wui.RGB(240, 240, 240))
+			cx := x0 + (w-iconSize)/2
+			cy := y + h - 1 - (iconSize+1)/2
+			c.Line(cx, cy, cx+iconSize, cy, wui.RGB(0, 0, 0))
+			// Maximize button.
+			c.FillRect(x1, y, w, h, wui.RGB(240, 240, 240))
+			cx = x1 + (w-iconSize)/2
+			cy = y + (h-iconSize)/2
+			c.DrawRect(cx, cy, iconSize, iconSize, wui.RGB(0, 0, 0))
+			// Close button.
+			c.FillRect(x2, y, w, h, wui.RGB(255, 128, 128))
+			cx = x2 + (w-iconSize)/2
+			cy = y + (h-iconSize)/2
+			c.Line(cx, cy, cx+iconSize, cy+iconSize, wui.RGB(0, 0, 0))
+			c.Line(cx, cy+iconSize-1, cx+iconSize, cy-1, wui.RGB(0, 0, 0))
+		}
 
 		w32.DrawIconEx(
 			c.Handle(),
@@ -401,7 +434,8 @@ func defaultWindow() *wui.Window {
 	w.SetFont(font)
 	w.SetTitle("Window")
 	w.SetInnerSize(300, 300)
-	// TODO
+	// TODO Programatically add controls until we support creating them in the
+	// designer.
 	b := wui.NewButton()
 	b.SetBounds(10, 10, 75, 25)
 	b.SetText("TopLeft")
@@ -463,7 +497,8 @@ func defaultWindow() *wui.Window {
 	c.SetText("check")
 	c.SetChecked(true)
 	w.Add(c)
-	//
+	// TODO Remove the above debug controls eventually.
+
 	return w
 }
 
@@ -542,7 +577,7 @@ func drawContainer(container wui.Container, d drawer) {
 			d.FillRect(x+2, y+2, w-4, h-4, wui.RGB(225, 225, 225))
 			d.TextRectFormat(x, y, w, h, c.Text(), wui.FormatCenter, wui.RGB(0, 0, 0))
 		case *wui.Panel:
-			border := "none"
+			border := "sunken_thick" // TODO Get this from the panel.
 			switch border {
 			case "none":
 				d.DrawRect(x, y, w, h, wui.RGB(230, 230, 230))
@@ -572,6 +607,8 @@ func drawContainer(container wui.Container, d drawer) {
 				d.Line(x+w-2, y+1, x+w-2, y+h-1, wui.RGB(227, 227, 227))
 				d.Line(x+1, y+h-2, x+w-1, y+h-2, wui.RGB(227, 227, 227))
 			}
+			// TODO Use inner coordinates for drawing panels once they are
+			// support in the library.
 			drawContainer(c, makeOffsetDrawer(d, c.X(), c.Y()))
 		case *wui.RadioButton:
 			d.FillEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
@@ -584,6 +621,7 @@ func drawContainer(container wui.Container, d drawer) {
 			d.FillRect(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
 			d.DrawRect(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
 			if c.Checked() {
+				// Draw two lines for the check mark. ✓
 				startX := x + 2
 				startY := y + (h-13)/2 + 6
 				d.Line(startX, startY, startX+3, startY+3, wui.RGB(0, 0, 0))
@@ -631,7 +669,9 @@ func showPreview(w *wui.Window) {
 	if deleteTempDesignerFile {
 		defer os.Remove(fileName)
 	}
-	// TODO This blocks and freezes the designer:
+	// TODO This blocks and freezes the designer, instead build into a temporary
+	// directory and check that the build worked fine, then start the process
+	// non-blocking.
 	output, err := exec.Command("go", "run", fileName).CombinedOutput()
 	if err != nil {
 		wui.MessageBoxError("Error", err.Error()+"\r\n"+string(output))
