@@ -83,6 +83,7 @@ func main() {
 	}
 
 	var highlightedTemplate, controlToAdd wui.Control
+	var templateDx, templateDy int
 
 	palette := wui.NewPaintBox()
 	palette.SetBounds(605, 0, 195, 600)
@@ -468,6 +469,8 @@ func main() {
 					relX = relX / 5 * 5
 					relY = relY / 5 * 5
 				}
+				relX += templateDx
+				relY += templateDy
 				controlToAdd.SetBounds(relX, relY, w, h)
 			}
 			preview.Paint()
@@ -504,6 +507,9 @@ func main() {
 		if button == wui.MouseButtonLeft {
 			if contains(palette, x, y) && highlightedTemplate != nil {
 				controlToAdd = cloneControl(highlightedTemplate)
+				hx, hy, _, _ := highlightedTemplate.Bounds()
+				templateDx = hx - (x - palette.X())
+				templateDy = hy - (y - palette.Y())
 				mouseMode = addingControl
 				preview.Paint()
 			} else if mouseMode == addingControl {
