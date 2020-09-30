@@ -22,6 +22,12 @@ const deleteTempDesignerFile = false // TODO Debug switch.
 var names = make(map[interface{}]string)
 
 func main() {
+	const (
+		idleMouse = iota
+		addingControl
+	)
+	mouseMode := idleMouse
+
 	theWindow := defaultWindow()
 	names[theWindow] = "w"
 
@@ -76,7 +82,7 @@ func main() {
 		radioButtonTemplate,
 	}
 
-	var highlightedTemplate wui.Control
+	var highlightedTemplate, controlToAdd wui.Control
 
 	palette := wui.NewPaintBox()
 	palette.SetBounds(605, 0, 195, 600)
@@ -345,26 +351,22 @@ func main() {
 		// Draw all the window contents.
 		drawContainer(theWindow, inner)
 
-		// Highlight the currently selected child control.
-		if active != theWindow {
-			x, y, w, h := active.Bounds()
-			parent := active.Parent()
-			for parent != theWindow {
-				dx, dy, _, _ := parent.Bounds()
-				x += dx
-				y += dy
-				parent = parent.Parent()
-			}
-			inner.DrawRect(x-1, y-1, w+2, h+2, wui.RGB(255, 0, 255))
-			inner.DrawRect(x-2, y-2, w+4, h+4, wui.RGB(255, 0, 255))
-		}
-
 		// Draw the window border, icon and title.
 		borderColor := wui.RGB(100, 200, 255)
 		c.FillRect(xOffset, yOffset, width, topBorderSize, borderColor)
 		c.FillRect(xOffset, yOffset, borderSize, height, borderColor)
 		c.FillRect(xOffset, yOffset+height-borderSize, width, borderSize, borderColor)
 		c.FillRect(xOffset+width-borderSize, yOffset, borderSize, height, borderColor)
+
+		c.SetFont(theWindow.Font())
+		_, textH := c.TextExtent(theWindow.Title())
+		c.TextOut(
+			xOffset+borderSize+appIconWidth+5,
+			yOffset+(topBorderSize-textH)/2,
+			theWindow.Title(),
+			wui.RGB(0, 0, 0),
+		)
+
 		// TODO Handle combinations of borders and top-right corner buttons. For
 		// now we just draw minimize, maximize and close buttons.
 		{
@@ -403,15 +405,6 @@ func main() {
 			0, 0, w32.DI_NORMAL,
 		)
 
-		c.SetFont(theWindow.Font())
-		_, textH := c.TextExtent(theWindow.Title())
-		c.TextOut(
-			xOffset+borderSize+appIconWidth+5,
-			yOffset+(topBorderSize-textH)/2,
-			theWindow.Title(),
-			wui.RGB(0, 0, 0),
-		)
-
 		// Clear the background behind the window.
 		w, h := c.Size()
 		c.FillRect(0, 0, w, yOffset, white)
@@ -429,6 +422,24 @@ func main() {
 		outlineSquare(xResizeArea)
 		outlineSquare(yResizeArea)
 		outlineSquare(xyResizeArea)
+
+		// Highlight the currently selected child control.
+		if active != theWindow {
+			x, y, w, h := active.Bounds()
+			parent := active.Parent()
+			for parent != theWindow {
+				dx, dy, _, _ := parent.Bounds()
+				x += dx
+				y += dy
+				parent = parent.Parent()
+			}
+			inner.DrawRect(x-1, y-1, w+2, h+2, wui.RGB(255, 0, 255))
+			inner.DrawRect(x-2, y-2, w+4, h+4, wui.RGB(255, 0, 255))
+		}
+
+		if controlToAdd != nil {
+			drawControl(controlToAdd, c)
+		}
 	})
 	w.Add(preview)
 
@@ -443,7 +454,24 @@ func main() {
 	var dragStartX, dragStartY, dragStartWidth, dragStartHeight int
 
 	w.SetOnMouseMove(func(x, y int) {
-		if dragMode == dragNone {
+		if mouseMode == addingControl {
+			if contains(preview, x, y) {
+				_, _, w, h := controlToAdd.Bounds()
+				relX := x - preview.X()
+				relY := y - preview.Y()
+				if false {
+					// TODO Align to some nice-looking grid unless Ctrl is held
+					// down for example. NOTE that this right now contains a
+					// bug, relX is not in window client coordinates, it is
+					// relative to the preview paint box and thus we can never
+					// get to 0,0 with this.
+					relX = relX / 5 * 5
+					relY = relY / 5 * 5
+				}
+				controlToAdd.SetBounds(relX, relY, w, h)
+			}
+			preview.Paint()
+		} else if dragMode == dragNone {
 			x -= preview.X()
 			y -= preview.Y()
 			if xResizeArea.contains(x, y) {
@@ -474,29 +502,50 @@ func main() {
 
 	w.SetOnMouseDown(func(button wui.MouseButton, x, y int) {
 		if button == wui.MouseButtonLeft {
-			dragStartX = x
-			dragStartY = y
-			dragStartWidth, dragStartHeight = theWindow.Size()
-			windowArea := rectangle{
-				x: preview.X() + xOffset,
-				y: preview.Y() + yOffset,
-				w: theWindow.Width(),
-				h: theWindow.Height(),
-			}
-			if xResizeArea.contains(x-preview.X(), y-preview.Y()) {
-				dragMode = dragX
-			} else if yResizeArea.contains(x-preview.X(), y-preview.Y()) {
-				dragMode = dragY
-			} else if xyResizeArea.contains(x-preview.X(), y-preview.Y()) {
-				dragMode = dragXY
-			} else if windowArea.contains(x, y) {
-				newActive := findControlAt(
-					theWindow,
-					x-(preview.X()+innerX),
-					y-(preview.Y()+innerY),
+			if contains(palette, x, y) && highlightedTemplate != nil {
+				controlToAdd = cloneControl(highlightedTemplate)
+				mouseMode = addingControl
+				preview.Paint()
+			} else if mouseMode == addingControl {
+				// TODO Find the sub-container that this is to be placed in.
+				innerX, innerY, _, _ := theWindow.InnerBounds()
+				outerX, outerY, _, _ := theWindow.Bounds()
+				x, y, w, h := controlToAdd.Bounds()
+				controlToAdd.SetBounds(
+					x-(xOffset+innerX-outerX),
+					y-(yOffset+innerY-outerY),
+					w, h,
 				)
-				if newActive != active {
-					activate(newActive)
+				theWindow.Add(controlToAdd)
+				controlToAdd = nil
+				mouseMode = idleMouse
+				preview.Paint()
+			} else {
+				dragStartX = x
+				dragStartY = y
+				dragStartWidth, dragStartHeight = theWindow.Size()
+				windowArea := rectangle{
+					x: preview.X() + xOffset,
+					y: preview.Y() + yOffset,
+					w: theWindow.Width(),
+					h: theWindow.Height(),
+				}
+				if xResizeArea.contains(x-preview.X(), y-preview.Y()) {
+					// TODO Combine dragMode and mouseMode?
+					dragMode = dragX
+				} else if yResizeArea.contains(x-preview.X(), y-preview.Y()) {
+					dragMode = dragY
+				} else if xyResizeArea.contains(x-preview.X(), y-preview.Y()) {
+					dragMode = dragXY
+				} else if windowArea.contains(x, y) {
+					newActive := findControlAt(
+						theWindow,
+						x-(preview.X()+innerX),
+						y-(preview.Y()+innerY),
+					)
+					if newActive != active {
+						activate(newActive)
+					}
 				}
 			}
 		}
@@ -532,72 +581,6 @@ func defaultWindow() *wui.Window {
 	w.SetFont(font)
 	w.SetTitle("Window")
 	w.SetInnerSize(300, 300)
-	// TODO Programatically add controls until we support creating them in the
-	// designer.
-	b := wui.NewButton()
-	b.SetBounds(10, 10, 75, 25)
-	b.SetText("TopLeft")
-	w.Add(b)
-
-	b = wui.NewButton()
-	b.SetBounds(215, 265, 75, 25)
-	b.SetHorizontalAnchor(wui.AnchorMax)
-	b.SetVerticalAnchor(wui.AnchorMax)
-	b.SetText("BottomRight")
-	w.Add(b)
-
-	p := wui.NewPanel()
-	p.SetBounds(100, 100, 100, 100)
-	p.SetBorderStyle(wui.PanelBorderSingleLine)
-	p.SetHorizontalAnchor(wui.AnchorMinAndMax)
-	p.SetVerticalAnchor(wui.AnchorMinAndMax)
-	w.Add(p)
-
-	b = wui.NewButton()
-	b.SetBounds(10, 100-30, 80, 25)
-	b.SetVerticalAnchor(wui.AnchorMax)
-	b.SetText("In here")
-	p.Add(b)
-
-	r1 := wui.NewRadioButton()
-	r1.SetBounds(100, 10, 100, 17)
-	r1.SetText("Radio Button 1")
-	w.Add(r1)
-
-	r2 := wui.NewRadioButton()
-	r2.SetBounds(100, 30, 100, 17)
-	r2.SetText("Radio Button 2")
-	r2.SetChecked(true)
-	w.Add(r2)
-
-	r3 := wui.NewRadioButton()
-	r3.SetBounds(100, 50, 100, 17)
-	r3.SetText("Radio Button 3")
-	w.Add(r3)
-
-	r4 := wui.NewRadioButton()
-	r4.SetBounds(0, 0, 100, 17)
-	r4.SetText("Inner 1")
-	p.Add(r4)
-
-	r5 := wui.NewRadioButton()
-	r5.SetBounds(0, 20, 100, 17)
-	r5.SetText("Inner 2")
-	p.Add(r5)
-
-	r6 := wui.NewRadioButton()
-	r6.SetBounds(0, 40, 100, 17)
-	r6.SetText("Inner 3")
-	r6.SetChecked(true)
-	p.Add(r6)
-
-	c := wui.NewCheckBox()
-	c.SetBounds(5, 50, 80, 17)
-	c.SetText("check")
-	c.SetChecked(true)
-	w.Add(c)
-	// TODO Remove the above debug controls eventually.
-
 	return w
 }
 
@@ -669,55 +652,28 @@ func (d *offsetDrawer) Line(x1, y1, x2, y2 int, color wui.Color) {
 
 func drawContainer(container wui.Container, d drawer) {
 	for _, child := range container.Children() {
-		switch c := child.(type) {
-		case *wui.Button:
-			drawButton(c, d)
-		case *wui.Panel:
-			x, y, w, h := c.Bounds()
-			switch c.BorderStyle() {
-			case wui.PanelBorderNone:
-				d.DrawRect(x, y, w, h, wui.RGB(230, 230, 230))
-			case wui.PanelBorderSingleLine:
-				d.DrawRect(x, y, w, h, wui.RGB(100, 100, 100))
-			case wui.PanelBorderRaised:
-				d.Line(x, y, x+w, y, wui.RGB(227, 227, 227))
-				d.Line(x, y, x, y+h, wui.RGB(227, 227, 227))
-				d.Line(x+w-1, y, x+w-1, y+h, wui.RGB(105, 105, 105))
-				d.Line(x, y+h-1, x+w, y+h-1, wui.RGB(105, 105, 105))
-				d.Line(x+1, y+1, x+w-1, y+1, wui.RGB(255, 255, 255))
-				d.Line(x+1, y+1, x+1, y+h-1, wui.RGB(255, 255, 255))
-				d.Line(x+w-2, y+1, x+w-2, y+h-1, wui.RGB(160, 160, 160))
-				d.Line(x+1, y+h-2, x+w-1, y+h-2, wui.RGB(160, 160, 160))
-			case wui.PanelBorderSunken:
-				d.Line(x, y, x+w, y, wui.RGB(160, 160, 160))
-				d.Line(x, y, x, y+h, wui.RGB(160, 160, 160))
-				d.Line(x+w-1, y, x+w-1, y+h, wui.RGB(255, 255, 255))
-				d.Line(x, y+h-1, x+w, y+h-1, wui.RGB(255, 255, 255))
-			case wui.PanelBorderSunkenThick:
-				d.Line(x, y, x+w, y, wui.RGB(160, 160, 160))
-				d.Line(x, y, x, y+h, wui.RGB(160, 160, 160))
-				d.Line(x+w-1, y, x+w-1, y+h, wui.RGB(255, 255, 255))
-				d.Line(x, y+h-1, x+w, y+h-1, wui.RGB(255, 255, 255))
-				d.Line(x+1, y+1, x+w-1, y+1, wui.RGB(105, 105, 105))
-				d.Line(x+1, y+1, x+1, y+h-1, wui.RGB(105, 105, 105))
-				d.Line(x+w-2, y+1, x+w-2, y+h-1, wui.RGB(227, 227, 227))
-				d.Line(x+1, y+h-2, x+w-1, y+h-2, wui.RGB(227, 227, 227))
-			}
-			// TODO Use inner coordinates for drawing panels once they are
-			// supported in the library.
-			drawContainer(c, makeOffsetDrawer(d, c.X(), c.Y()))
-		case *wui.RadioButton:
-			drawRadioButton(c, d)
-		case *wui.CheckBox:
-			drawCheckBox(c, d)
-		default:
-			panic("unhandled child control")
-		}
+		drawControl(child, d)
+	}
+}
+
+func drawControl(c wui.Control, d drawer) {
+	switch x := c.(type) {
+	case *wui.Button:
+		drawButton(x, d)
+	case *wui.RadioButton:
+		drawRadioButton(x, d)
+	case *wui.CheckBox:
+		drawCheckBox(x, d)
+	case *wui.Panel:
+		drawPanel(x, d)
+	default:
+		panic("unhandled control type")
 	}
 }
 
 func drawButton(b *wui.Button, d drawer) {
 	x, y, w, h := b.Bounds()
+	d.DrawRect(x, y, w, h, wui.RGB(240, 240, 240))
 	d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(173, 173, 173))
 	d.FillRect(x+2, y+2, w-4, h-4, wui.RGB(225, 225, 225))
 	d.TextRectFormat(x, y, w, h, b.Text(), wui.FormatCenter, wui.RGB(0, 0, 0))
@@ -725,6 +681,7 @@ func drawButton(b *wui.Button, d drawer) {
 
 func drawRadioButton(r *wui.RadioButton, d drawer) {
 	x, y, w, h := r.Bounds()
+	d.FillRect(x, y, w, h, wui.RGB(240, 240, 240))
 	d.FillEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
 	d.DrawEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
 	if r.Checked() {
@@ -735,6 +692,7 @@ func drawRadioButton(r *wui.RadioButton, d drawer) {
 
 func drawCheckBox(c *wui.CheckBox, d drawer) {
 	x, y, w, h := c.Bounds()
+	d.FillRect(x, y, w, h, wui.RGB(240, 240, 240))
 	d.FillRect(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
 	d.DrawRect(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
 	if c.Checked() {
@@ -745,6 +703,42 @@ func drawCheckBox(c *wui.CheckBox, d drawer) {
 		d.Line(startX+3, startY+2, startX+9, startY-4, wui.RGB(0, 0, 0))
 	}
 	d.TextRectFormat(x+16, y, w-16, h, c.Text(), wui.FormatCenterLeft, wui.RGB(0, 0, 0))
+}
+
+func drawPanel(p *wui.Panel, d drawer) {
+	x, y, w, h := p.Bounds()
+	switch p.BorderStyle() {
+	case wui.PanelBorderNone:
+		d.DrawRect(x, y, w, h, wui.RGB(230, 230, 230))
+	case wui.PanelBorderSingleLine:
+		d.DrawRect(x, y, w, h, wui.RGB(100, 100, 100))
+	case wui.PanelBorderRaised:
+		d.Line(x, y, x+w, y, wui.RGB(227, 227, 227))
+		d.Line(x, y, x, y+h, wui.RGB(227, 227, 227))
+		d.Line(x+w-1, y, x+w-1, y+h, wui.RGB(105, 105, 105))
+		d.Line(x, y+h-1, x+w, y+h-1, wui.RGB(105, 105, 105))
+		d.Line(x+1, y+1, x+w-1, y+1, wui.RGB(255, 255, 255))
+		d.Line(x+1, y+1, x+1, y+h-1, wui.RGB(255, 255, 255))
+		d.Line(x+w-2, y+1, x+w-2, y+h-1, wui.RGB(160, 160, 160))
+		d.Line(x+1, y+h-2, x+w-1, y+h-2, wui.RGB(160, 160, 160))
+	case wui.PanelBorderSunken:
+		d.Line(x, y, x+w, y, wui.RGB(160, 160, 160))
+		d.Line(x, y, x, y+h, wui.RGB(160, 160, 160))
+		d.Line(x+w-1, y, x+w-1, y+h, wui.RGB(255, 255, 255))
+		d.Line(x, y+h-1, x+w, y+h-1, wui.RGB(255, 255, 255))
+	case wui.PanelBorderSunkenThick:
+		d.Line(x, y, x+w, y, wui.RGB(160, 160, 160))
+		d.Line(x, y, x, y+h, wui.RGB(160, 160, 160))
+		d.Line(x+w-1, y, x+w-1, y+h, wui.RGB(255, 255, 255))
+		d.Line(x, y+h-1, x+w, y+h-1, wui.RGB(255, 255, 255))
+		d.Line(x+1, y+1, x+w-1, y+1, wui.RGB(105, 105, 105))
+		d.Line(x+1, y+1, x+1, y+h-1, wui.RGB(105, 105, 105))
+		d.Line(x+w-2, y+1, x+w-2, y+h-1, wui.RGB(227, 227, 227))
+		d.Line(x+1, y+h-2, x+w-1, y+h-2, wui.RGB(227, 227, 227))
+	}
+	// TODO Use inner coordinates for drawing panels once they are
+	// supported in the library.
+	drawContainer(p, makeOffsetDrawer(d, p.X(), p.Y()))
 }
 
 func anchorToString(a wui.Anchor) string {
@@ -862,6 +856,7 @@ func main() {`)
 
 	writeContainer(w, name, line)
 
+	line("")
 	line(name + ".Show()")
 	code.WriteString("\n}")
 
@@ -970,5 +965,28 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 		} else {
 			panic("unhandled child control")
 		}
+	}
+}
+
+func cloneControl(c wui.Control) wui.Control {
+	switch x := c.(type) {
+	case *wui.Button:
+		b := wui.NewButton()
+		b.SetText(x.Text())
+		b.SetBounds(0, 0, x.Width(), x.Height())
+		return b
+	case *wui.CheckBox:
+		c := wui.NewCheckBox()
+		c.SetText(x.Text())
+		c.SetChecked(x.Checked())
+		c.SetBounds(0, 0, x.Width(), x.Height())
+		return c
+	case *wui.RadioButton:
+		r := wui.NewRadioButton()
+		r.SetText(x.Text())
+		r.SetBounds(0, 0, x.Width(), x.Height())
+		return r
+	default:
+		panic("unhandled control type in cloneControl")
 	}
 }
