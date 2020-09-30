@@ -246,123 +246,32 @@ func (w *Window) readBounds() {
 }
 
 func (w *Window) X() int {
-	if w.handle != 0 {
-		w.readBounds()
-	}
-	return w.x
-}
-
-func (w *Window) SetX(x int) {
-	w.x = x
-	if w.handle != 0 {
-		w32.SetWindowPos(
-			w.handle, 0,
-			w.x, w.y, w.width, w.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
+	x, _, _, _ := w.Bounds()
+	return x
 }
 
 func (w *Window) Y() int {
-	if w.handle != 0 {
-		w.readBounds()
-	}
-	return w.y
-}
-
-func (w *Window) SetY(y int) {
-	w.y = y
-	if w.handle != 0 {
-		w32.SetWindowPos(
-			w.handle, 0,
-			w.x, w.y, w.width, w.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
+	_, y, _, _ := w.Bounds()
+	return y
 }
 
 func (w *Window) Position() (x, y int) {
-	if w.handle != 0 {
-		w.readBounds()
-	}
-	return w.x, w.y
-}
-
-func (w *Window) SetPosition(x, y int) {
-	w.x = x
-	w.y = y
-	if w.handle != 0 {
-		w32.SetWindowPos(
-			w.handle, 0,
-			w.x, w.y, w.width, w.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
+	x, y, _, _ = w.Bounds()
+	return
 }
 
 func (w *Window) Width() int {
-	if w.handle != 0 {
-		w.readBounds()
-	}
-	return w.width
-}
-
-func (w *Window) SetWidth(width int) {
-	if width <= 0 {
-		// TODO Instead clamp to 0 and set that.
-		return
-	}
-	w.width = width
-	if w.handle != 0 {
-		w32.SetWindowPos(
-			w.handle, 0,
-			w.x, w.y, w.width, w.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
+	_, _, width, _ := w.Bounds()
+	return width
 }
 
 func (w *Window) Height() int {
-	if w.handle != 0 {
-		w.readBounds()
-	}
-	return w.height
-}
-
-func (w *Window) SetHeight(height int) {
-	if height <= 0 {
-		return
-	}
-	w.height = height
-	if w.handle != 0 {
-		w32.SetWindowPos(
-			w.handle, 0,
-			w.x, w.y, w.width, w.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
+	_, _, _, height := w.Bounds()
+	return height
 }
 
 func (w *Window) Size() (width, height int) {
-	if w.handle != 0 {
-		w.readBounds()
-	}
-	return w.width, w.height
-}
-
-func (w *Window) SetSize(width, height int) {
-	if width <= 0 || height <= 0 {
-		return
-	}
-	w.width = width
-	w.height = height
-	if w.handle != 0 {
-		w32.SetWindowPos(
-			w.handle, 0,
-			w.x, w.y, w.width, w.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
+	_, _, width, height = w.Bounds()
 	return
 }
 
@@ -373,13 +282,45 @@ func (w *Window) Bounds() (x, y, width, height int) {
 	return w.x, w.y, w.width, w.height
 }
 
+func (w *Window) SetX(x int) {
+	_, y, width, height := w.Bounds()
+	w.SetBounds(x, y, width, height)
+}
+
+func (w *Window) SetY(y int) {
+	x, _, width, height := w.Bounds()
+	w.SetBounds(x, y, width, height)
+}
+
+func (w *Window) SetPosition(x, y int) {
+	_, _, width, height := w.Bounds()
+	w.SetBounds(x, y, width, height)
+}
+
+func (w *Window) SetWidth(width int) {
+	x, y, _, height := w.Bounds()
+	w.SetBounds(x, y, width, height)
+}
+
+func (w *Window) SetHeight(height int) {
+	x, y, width, _ := w.Bounds()
+	w.SetBounds(x, y, width, height)
+}
+
+func (w *Window) SetSize(width, height int) {
+	x, y, _, _ := w.Bounds()
+	w.SetBounds(x, y, width, height)
+}
+
 // TODO Only calling SetInnerWidth does not adjust the inner height, making
 // it 0.
 
 func (w *Window) SetBounds(x, y, width, height int) {
-	if width <= 0 || height <= 0 {
-		// TODO Clamp to 0 or 1? Anyway, set it in all cases.
-		return
+	if width < 0 {
+		width = 0
+	}
+	if height < 0 {
+		height = 0
 	}
 	if w.handle != 0 {
 		// The window will receive a WM_SIZE which will handle anchoring child
@@ -455,6 +396,22 @@ func (w *Window) InnerY() int {
 	return y
 }
 
+func (w *Window) InnerWidth() int {
+	width, _ := w.InnerSize()
+	return width
+}
+
+func (w *Window) InnerHeight() int {
+	_, height := w.InnerSize()
+	return height
+}
+
+func (w *Window) InnerBounds() (x, y, width, height int) {
+	x, y = w.InnerPosition()
+	width, height = w.InnerSize()
+	return
+}
+
 func (w *Window) InnerPosition() (x, y int) {
 	if w.handle != 0 {
 		x, y = w32.ClientToScreen(w.handle, 0, 0)
@@ -468,16 +425,6 @@ func (w *Window) InnerPosition() (x, y int) {
 	return
 }
 
-func (w *Window) InnerWidth() int {
-	width, _ := w.InnerSize()
-	return width
-}
-
-func (w *Window) InnerHeight() int {
-	_, height := w.InnerSize()
-	return height
-}
-
 func (w *Window) InnerSize() (width, height int) {
 	if w.handle == 0 {
 		var r w32.RECT
@@ -489,12 +436,6 @@ func (w *Window) InnerSize() (width, height int) {
 		width = int(r.Width())
 		height = int(r.Height())
 	}
-	return
-}
-
-func (w *Window) InnerBounds() (x, y, width, height int) {
-	x, y = w.InnerPosition()
-	width, height = w.InnerSize()
 	return
 }
 
