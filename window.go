@@ -313,7 +313,7 @@ func (w *Window) SetSize(width, height int) {
 }
 
 // TODO Only calling SetInnerWidth does not adjust the inner height, making
-// it 0.
+// it 0 (CW_USEDEFAULT is negative).
 
 func (w *Window) SetBounds(x, y, width, height int) {
 	if width < 0 {
@@ -396,22 +396,6 @@ func (w *Window) InnerY() int {
 	return y
 }
 
-func (w *Window) InnerWidth() int {
-	width, _ := w.InnerSize()
-	return width
-}
-
-func (w *Window) InnerHeight() int {
-	_, height := w.InnerSize()
-	return height
-}
-
-func (w *Window) InnerBounds() (x, y, width, height int) {
-	x, y = w.InnerPosition()
-	width, height = w.InnerSize()
-	return
-}
-
 func (w *Window) InnerPosition() (x, y int) {
 	if w.handle != 0 {
 		x, y = w32.ClientToScreen(w.handle, 0, 0)
@@ -425,61 +409,74 @@ func (w *Window) InnerPosition() (x, y int) {
 	return
 }
 
+func (w *Window) InnerWidth() int {
+	width, _ := w.InnerSize()
+	return width
+}
+
+func (w *Window) InnerHeight() int {
+	_, height := w.InnerSize()
+	return height
+}
+
 func (w *Window) InnerSize() (width, height int) {
-	if w.handle == 0 {
+	if w.handle != 0 {
+		r := w32.GetClientRect(w.handle)
+		width = int(r.Width())
+		height = int(r.Height())
+	} else {
 		var r w32.RECT
 		w32.AdjustWindowRect(&r, w.style, w.menu != nil)
 		width = w.width - int(r.Width())
 		height = w.height - int(r.Height())
-	} else {
-		r := w32.GetClientRect(w.handle)
-		width = int(r.Width())
-		height = int(r.Height())
 	}
 	return
 }
 
+func (w *Window) InnerBounds() (x, y, width, height int) {
+	x, y = w.InnerPosition()
+	width, height = w.InnerSize()
+	return
+}
+
 func (w *Window) SetInnerWidth(width int) {
-	if width <= 0 {
-		return
+	if width < 0 {
+		width = 0
 	}
+	var r w32.RECT
+	w32.AdjustWindowRect(&r, w.style, w.menu != nil)
+	w.width = width + int(r.Width())
 	if w.handle != 0 {
-		var r w32.RECT
-		w32.AdjustWindowRect(&r, w.style, w.menu != nil)
-		w.width = width + int(r.Width())
 		w32.SetWindowPos(
 			w.handle, 0,
 			w.x, w.y, w.width, w.height,
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
-	} else {
-		// save negative size for Show to indicate inner size
-		w.width = -width
 	}
 }
 
 func (w *Window) SetInnerHeight(height int) {
-	if height <= 0 {
-		return
+	if height < 0 {
+		height = 0
 	}
+	var r w32.RECT
+	w32.AdjustWindowRect(&r, w.style, w.menu != nil)
+	w.height = height + int(r.Height())
 	if w.handle != 0 {
-		var r w32.RECT
-		w32.AdjustWindowRect(&r, w.style, w.menu != nil)
-		w.height = height + int(r.Height())
 		w32.SetWindowPos(
 			w.handle, 0,
 			w.x, w.y, w.width, w.height,
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
-	} else {
-		// save negative size for Show to indicate inner size
-		w.height = -height
 	}
 }
 
 func (w *Window) SetInnerSize(width, height int) {
-	if width <= 0 || height <= 0 {
-		return
+	if width < 0 {
+		width = 0
+	}
+	if height < 0 {
+		height = 0
 	}
 	var r w32.RECT
 	w32.AdjustWindowRect(&r, w.style, w.menu != nil)
