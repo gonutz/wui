@@ -948,22 +948,21 @@ func (w *Window) onWM_NOTIFY(wParam, lParam uintptr) {
 	}
 }
 
-// hideConsoleWindow hides the associated console window if it was created
-// because the ldflag H=windowsgui was not provided when building.
+// hideConsoleWindow hides the associated console window that gets created for
+// Windows applications that are of type console instead of type GUI. When
+// building you can pass the ldflag H=windowsgui to suppress this but if you
+// just go build or go run, a console window will pop open along with the GUI
+// window. hideConsoleWindow hides it.
 func hideConsoleWindow() {
 	console := w32.GetConsoleWindow()
 	if console == 0 {
-		return // no console attached
+		return // No console attached.
 	}
 	// If this application is the process that created the console window, then
 	// this program was not compiled with the -H=windowsgui flag and on start-up
 	// it created a console along with the main application window. In this case
-	// hide the console window.
-	// See
+	// hide the console window. See
 	// http://stackoverflow.com/questions/9009333/how-to-check-if-the-program-is-run-from-a-console
-	// and thanks to
-	// https://github.com/hajimehoshi
-	// for the tip.
 	_, consoleProcID := w32.GetWindowThreadProcessId(console)
 	if w32.GetCurrentProcessId() == consoleProcID {
 		w32.ShowWindowAsync(console, w32.SW_HIDE)
