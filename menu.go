@@ -9,14 +9,24 @@ import (
 	"github.com/gonutz/w32"
 )
 
-func NewMenu(name string) *Menu {
-	return &Menu{name: name}
-}
-
+// NewMainMenu returns a new menu bar that can be added to a Window. You can add
+// sub-menus to it with Menu.Add.
 func NewMainMenu() *Menu {
 	return &Menu{}
 }
 
+// NewMenu returns a new Menu with the given text. Add MenuItems to it using
+// Menu.Add.
+//
+// Place an ampersand in the name to underline the following character, e.g.
+// "&File" to underline the "F". This will be the character used when the user
+// uses the alt and arrow keys to navigate the menu.
+func NewMenu(name string) *Menu {
+	return &Menu{name: name}
+}
+
+// Menu is a named container for MenuItems. It is not executable, clicking a
+// Menu will expand it and show its children. See NewMainMenu and NewMenu.
 type Menu struct {
 	name  string
 	items []MenuItem
@@ -30,17 +40,26 @@ type MenuItem interface {
 
 func (*Menu) isMenuItem() {}
 
+// Add appends the given MenuItem to the Menu.
 func (m *Menu) Add(item MenuItem) *Menu {
 	m.items = append(m.items, item)
 	return m
 }
 
-// menu string
-
+// NewMenuString creates a new executable menu item with the given text.
+//
+// Insert an ampersand to underline the following character, e.g. "New &File" to
+// underline the "F". This will be the character used when the user uses the alt
+// and arrow keys to navigate the menu.
+//
+// If you want to display a shortcut text next to the menu, right aligned,
+// insert a tab and then your text, e.g. "Open File\tCtrl+O" to have "Open File"
+// on the left and "Ctrl+O" on the right.
 func NewMenuString(text string) *MenuString {
 	return &MenuString{text: text}
 }
 
+// MenuString is an executable menu item, see NewMenuString.
 type MenuString struct {
 	window  w32.HWND
 	menu    w32.HMENU
@@ -94,8 +113,7 @@ func (m *MenuString) SetText(s string) {
 	}
 }
 
-// separator
-
+// NewMenuSeparator returns a horizontal line separating regions in a menu.
 func NewMenuSeparator() MenuItem {
 	return separator
 }
