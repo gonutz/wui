@@ -523,6 +523,7 @@ func main() {
 					w, h,
 				)
 				theWindow.Add(controlToAdd)
+				activate(controlToAdd)
 				controlToAdd = nil
 				mouseMode = idleMouse
 				preview.Paint()
