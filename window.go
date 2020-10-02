@@ -49,10 +49,10 @@ func (s *windowStack) pop() {
 func NewWindow() *Window {
 	return &Window{
 		className:  "wui_window_class",
-		x:          w32.CW_USEDEFAULT,
-		y:          w32.CW_USEDEFAULT,
-		width:      w32.CW_USEDEFAULT,
-		height:     w32.CW_USEDEFAULT,
+		x:          100,
+		y:          50,
+		width:      600,
+		height:     400,
 		style:      w32.WS_OVERLAPPEDWINDOW,
 		state:      w32.SW_SHOWNORMAL,
 		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
@@ -64,10 +64,10 @@ func NewWindow() *Window {
 func NewDialogWindow() *Window {
 	return &Window{
 		className:  "wui_window_class",
-		x:          w32.CW_USEDEFAULT,
-		y:          w32.CW_USEDEFAULT,
-		width:      w32.CW_USEDEFAULT,
-		height:     w32.CW_USEDEFAULT,
+		x:          100,
+		y:          50,
+		width:      600,
+		height:     400,
 		style:      w32.WS_OVERLAPPED | w32.WS_CAPTION | w32.WS_SYSMENU,
 		state:      w32.SW_SHOWNORMAL,
 		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
