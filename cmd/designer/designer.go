@@ -17,8 +17,6 @@ import (
 
 // TODO Clamp the drawing canvas for each container.
 
-const deleteTempDesignerFile = false // TODO Debug switch.
-
 var names = make(map[interface{}]string)
 
 func main() {
@@ -33,6 +31,17 @@ func main() {
 
 	font, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -11})
 	w := wui.NewWindow()
+
+	menu := wui.NewMainMenu()
+	fileMenu := wui.NewMenu("&File")
+	fileOpenMenu := wui.NewMenuString("&Open File...\tCtrl+O")
+	fileMenu.Add(fileOpenMenu)
+	fileSaveMenu := wui.NewMenuString("&Save File\tCtrl+S")
+	fileMenu.Add(fileSaveMenu)
+	fileSaveAsMenu := wui.NewMenuString("Save File &As...\tCtrl+Shift+S")
+	fileMenu.Add(fileSaveAsMenu)
+	menu.Add(fileMenu)
+	w.SetMenu(menu)
 
 	appIcon := w32.LoadIcon(0, w32.MakeIntResource(w32.IDI_APPLICATION))
 	appIconWidth := w32.GetSystemMetrics(w32.SM_CXICON)
@@ -564,11 +573,62 @@ func main() {
 		}
 	})
 
+	workingPath := ""
+	setWorkingPath := func(path string) {
+		workingPath = path
+		title := "wui Designer"
+		if path != "" {
+			title += " - " + path
+		}
+		w.SetTitle(title)
+	}
+	setWorkingPath("")
+
+	fileOpenMenu.SetOnClick(func() {
+		open := wui.NewFileOpenDialog()
+		open.SetTitle("Select a Go file containing one or more wui.Windows")
+		open.AddFilter("Go file", ".go")
+		if accept, path := open.ExecuteSingleSelection(w); accept {
+			setWorkingPath(path)
+			wui.MessageBoxError("TODO", "Open is not yet implemented")
+		}
+	})
+
+	saveCodeTo := func(path string) {
+		code := generatePreviewCode(theWindow)
+		err := ioutil.WriteFile(path, code, 0666)
+		if err != nil {
+			wui.MessageBoxError("Error", err.Error())
+		} else {
+			workingPath = path
+		}
+	}
+
+	fileSaveAsMenu.SetOnClick(func() {
+		save := wui.NewFileSaveDialog()
+		save.SetAppendExt(true)
+		save.AddFilter("Go file", ".go")
+		if accept, path := save.Execute(w); accept {
+			saveCodeTo(path)
+		}
+	})
+
+	fileSaveMenu.SetOnClick(func() {
+		if workingPath != "" {
+			saveCodeTo(workingPath)
+		} else {
+			fileSaveAsMenu.OnClick()()
+		}
+	})
+
 	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'R'}, func() {
 		showPreview(theWindow)
 	})
+	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'O'}, fileOpenMenu.OnClick())
+	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'S'}, fileSaveMenu.OnClick())
+	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl | wui.ModShift, Rune: 'S'}, fileSaveAsMenu.OnClick())
 
-	w.SetShortcut(wui.ShortcutKeys{Rune: 27}, w.Close) // TODO for debugging
+	w.SetShortcut(wui.ShortcutKeys{Rune: 27}, w.Close) // TODO ESC for debugging
 
 	w.Maximize()
 	w.Show()
@@ -797,9 +857,7 @@ func showPreview(w *wui.Window) {
 		wui.MessageBoxError("Error", err.Error())
 		return
 	}
-	if deleteTempDesignerFile {
-		defer os.Remove(fileName)
-	}
+	defer os.Remove(fileName)
 	// TODO This blocks and freezes the designer, instead build into a temporary
 	// directory and check that the build worked fine, then start the process
 	// non-blocking.
