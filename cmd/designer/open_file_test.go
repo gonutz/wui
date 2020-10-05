@@ -169,3 +169,19 @@ func main() {
 	check.Eq(t, w.Height(), 555)
 	check.Eq(t, w.Alpha(), 50)
 }
+
+func TestInvalidIntegerGivesError(t *testing.T) {
+	code := `package main
+
+import "github.com/gonutz/wui"
+
+func main() {
+	w := wui.NewWindow()
+	w.SetAlpha(9999999999999999999999999999999999999999999999)
+	w.Show()
+}
+`
+	windows, err := extractWindowsFromCode(code)
+	check.Neq(t, err, nil)
+	check.Eq(t, windows, nil)
+}

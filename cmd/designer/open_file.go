@@ -144,7 +144,11 @@ func buildWindow(varName string, block *ast.BlockStmt, assignment ast.Node) *wui
 				var value reflect.Value
 				switch lit.Kind {
 				case token.INT:
-					n, _ := strconv.Atoi(lit.Value)
+					n, err := strconv.Atoi(lit.Value)
+					if err != nil {
+						// TODO Return error.
+						panic(err)
+					}
 					value = reflect.ValueOf(n)
 					// TODO Other cases.
 				}
