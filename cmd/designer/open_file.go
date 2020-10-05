@@ -2,40 +2,62 @@ package main
 
 import (
 	"errors"
-	"github.com/gonutz/wui"
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/ioutil"
+	"reflect"
+	"strconv"
+	"strings"
+
+	"github.com/gonutz/wui"
 )
 
-// TODO openFile should return a slice of windows instead.
 func openFile(path string) ([]*wui.Window, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	windows, err := extractWindowsFromCode(string(data))
+	w := make([]*wui.Window, len(windows))
+	for i := range w {
+		w[i] = windows[i].window
+	}
+	return w, err
+}
+
+type windowInCode struct {
+	window             *wui.Window
+	creationLineNumber int
+}
+
+func extractWindowsFromCode(code string) ([]windowInCode, error) {
+	var windows []windowInCode
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, path, nil, parser.AllErrors)
+	f, err := parser.ParseFile(fset, "", code, parser.AllErrors)
+	if err != nil {
+		return nil, errors.New("Parse error in code: " + err.Error())
+	}
+	wuiName, err := findWuiPackageImport(f)
 	if err != nil {
 		return nil, err
 	}
-	wuiImport, err := findWuiPackageImport(f)
-	if err != nil {
-		return nil, err
-	}
-	if wuiImport == "." {
-		return nil, errors.New(
-			"wui is imported as . which is currently not supported",
-		)
-	}
-	creations := findWuiWindowCreationPoints(f, wuiImport)
-	if len(creations) == 0 {
-		return nil, errors.New("the file does not contain a wui.NewWindow() statement")
-	}
-	windows := make([]*wui.Window, len(creations))
-	for i := range windows {
-		windows[i], err = createWindow(creations[i])
-		if err != nil {
-			return nil, err
+
+	var lastBlock *ast.BlockStmt
+	ast.Inspect(f, func(n ast.Node) bool {
+		if block, ok := n.(*ast.BlockStmt); ok {
+			lastBlock = block
 		}
-	}
-	return nil, errors.New("TODO")
+		if name, ok := isWuiWindowCreation(f, wuiName, n); ok {
+			windows = append(windows, windowInCode{
+				window:             buildWindow(name, lastBlock, n),
+				creationLineNumber: fset.Position(n.Pos()).Line,
+			})
+		}
+		return true
+	})
+
+	return windows, nil
 }
 
 func findWuiPackageImport(f *ast.File) (importName string, err error) {
@@ -58,32 +80,7 @@ func findWuiPackageImport(f *ast.File) (importName string, err error) {
 	return importName, nil
 }
 
-type wuiWindowCreation struct {
-	varName  string
-	creation *ast.AssignStmt
-	block    *ast.BlockStmt
-}
-
-func findWuiWindowCreationPoints(f *ast.File, wuiImport string) []wuiWindowCreation {
-	var windows []wuiWindowCreation
-	var lastBlock *ast.BlockStmt
-	ast.Inspect(f, func(n ast.Node) bool {
-		if block, ok := n.(*ast.BlockStmt); ok {
-			lastBlock = block
-		}
-		if name, ok := isWuiWindowCreation(wuiImport, f, n); ok {
-			windows = append(windows, wuiWindowCreation{
-				varName:  name,
-				creation: n.(*ast.AssignStmt),
-				block:    lastBlock,
-			})
-		}
-		return true
-	})
-	return windows
-}
-
-func isWuiWindowCreation(wuiName string, f *ast.File, n ast.Node) (varName string, allOK bool) {
+func isWuiWindowCreation(f *ast.File, wuiName string, n ast.Node) (name string, ok bool) {
 	if false {
 	} else if assign, ok := n.(*ast.AssignStmt); !ok {
 	} else if !(len(assign.Lhs) == 1) {
@@ -97,10 +94,15 @@ func isWuiWindowCreation(wuiName string, f *ast.File, n ast.Node) (varName strin
 	} else if !(pkg.Name == wuiName) {
 	} else if !(sel.Sel.Name == "NewWindow") {
 	} else if !containsIdent(f.Unresolved, pkg) {
+		// f.Unresolved is usually filled when other package files are parsed as
+		// well. In our case we only parse the code in one file and since the
+		// wui import is not resolved, because we do not parse wui itself, the
+		// package must be in f.Unresolved. If it is not, then the code before
+		// wui.NewWindow must have re-defined wui to something else.
 	} else {
 		return variable.Name, true
 	}
-	return
+	return "", false
 }
 
 func containsIdent(ids []*ast.Ident, id *ast.Ident) bool {
@@ -112,10 +114,68 @@ func containsIdent(ids []*ast.Ident, id *ast.Ident) bool {
 	return false
 }
 
-func createWindow(c wuiWindowCreation) (*wui.Window, error) {
-	for _, stmt := range c.block.List {
-		// TODO
-		_ = stmt
+// TODO Return error as well. Test first.
+func buildWindow(varName string, block *ast.BlockStmt, assignment ast.Node) *wui.Window {
+	w := wui.NewWindow()
+	first := 0
+	for i, stmt := range block.List {
+		assign, ok := stmt.(*ast.AssignStmt)
+		if ok && assign == assignment {
+			first = i
+			break
+		}
 	}
-	return nil, errors.New("TODO")
+	for _, stmt := range block.List[first+1:] {
+		if isReassignment(stmt, varName) {
+			break
+		}
+		if funcName, args, ok := isMethodCallOn(stmt, varName); ok && strings.HasPrefix(funcName, "Set") {
+			win := reflect.ValueOf(w)
+			method := win.MethodByName(funcName)
+			if !method.IsValid() {
+				// TODO
+				return nil
+			}
+			values := make([]reflect.Value, len(args))
+			for i, arg := range args {
+				// TODO Also handle Ident (var/const) instead of only literals.
+				// Some more interpretation might be necessary for this.
+				lit := arg.(*ast.BasicLit)
+				var value reflect.Value
+				switch lit.Kind {
+				case token.INT:
+					n, _ := strconv.Atoi(lit.Value)
+					value = reflect.ValueOf(n)
+					// TODO Other cases.
+				}
+				values[i] = value.Convert(method.Type().In(i))
+			}
+			method.Call(values)
+		}
+	}
+	return w
+}
+
+func isReassignment(stmt ast.Stmt, name string) bool {
+	if assign, ok := stmt.(*ast.AssignStmt); ok {
+		for _, left := range assign.Lhs {
+			if id, ok := left.(*ast.Ident); ok && id.Name == name {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func isMethodCallOn(stmt ast.Stmt, name string) (funcName string, args []ast.Expr, ok bool) {
+	if false {
+	} else if exprStmt, ok := stmt.(*ast.ExprStmt); !ok {
+	} else if call, ok := exprStmt.X.(*ast.CallExpr); !ok {
+	} else if sel, ok := call.Fun.(*ast.SelectorExpr); !ok {
+	} else if callee, ok := sel.X.(*ast.Ident); !ok {
+	} else if !(callee.Name == name) {
+	} else {
+		return sel.Sel.Name, call.Args, true
+	}
+	return "", nil, false
 }

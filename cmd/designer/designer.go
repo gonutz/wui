@@ -29,18 +29,6 @@ func main() {
 	theWindow := defaultWindow()
 	names[theWindow] = "w"
 
-	{
-		// TODO Debug code:
-		windows, err := openFile("test_gui.go")
-		if err != nil {
-			panic(err)
-		}
-		if len(windows) != 1 {
-			panic("TODO Handle more than one windows, present a select dialog")
-		}
-		theWindow = windows[0]
-	}
-
 	font, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -11})
 	w := wui.NewWindow()
 
@@ -602,11 +590,14 @@ func main() {
 		open.AddFilter("Go file", ".go")
 		if accept, path := open.ExecuteSingleSelection(w); accept {
 			setWorkingPath(path)
-			loaded, err := openFile(path)
+			windows, err := openFile(path)
 			if err != nil {
 				wui.MessageBoxError("Error", err.Error())
 			} else {
-				theWindow = loaded[0] // TODO Select one, see above.
+				if len(windows) != 1 {
+					panic("TODO Handle more than one windows, present a select dialog")
+				}
+				theWindow = windows[0]
 				activate(theWindow)
 			}
 		}
