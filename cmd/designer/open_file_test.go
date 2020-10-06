@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gonutz/check"
@@ -21,7 +22,7 @@ func main() {
 	check.Eq(t, err, nil)
 	check.Eq(t, len(windows), 1)
 	w := windows[0]
-	check.Eq(t, w.creationLineNumber, 6)
+	check.Eq(t, w.line, 6)
 	check.Eq(t, w.window.Width(), wui.NewWindow().Width()) // Default value.
 }
 
@@ -78,7 +79,7 @@ func main() {
 	check.Eq(t, err, nil)
 	check.Eq(t, len(windows), 1)
 	w := windows[0]
-	check.Eq(t, w.creationLineNumber, 6)
+	check.Eq(t, w.line, 6)
 	check.Eq(t, w.window.Width(), wui.NewWindow().Width()) // Default value.
 }
 
@@ -183,5 +184,81 @@ func main() {
 `
 	windows, err := extractWindowsFromCode(code)
 	check.Neq(t, err, nil)
+	// Check that the line number is contains in the error message.
+	check.Eq(t, strings.Contains(err.Error(), "7"), true)
 	check.Eq(t, windows, nil)
+}
+
+func TestFirstParseErrorIsReported(t *testing.T) {
+	code := `package main
+
+import "github.com/gonutz/wui"
+
+func main() {
+	w := wui.NewWindow()
+	if  true {
+		w := wui.NewWindow()
+		w.SetAlpha(9999999999999999999999999999999999999999999999)
+	}
+	if  true {
+		w := wui.NewWindow()
+		w.SetAlpha(9999999999999999999999999999999999999999999999)
+	}
+}
+`
+	windows, err := extractWindowsFromCode(code)
+	check.Neq(t, err, nil)
+	// Check that the line number is contains in the error message.
+	check.Eq(t, strings.Contains(err.Error(), "9"), true)
+	check.Eq(t, windows, nil)
+}
+
+func TestSingleWindowDeclarationYieldsDefaultWindow(t *testing.T) {
+	code := `package main
+
+import "github.com/gonutz/wui"
+
+func main() {
+	w := wui.NewWindow()
+}
+`
+	windows, err := extractWindowsFromCode(code)
+	check.Eq(t, err, nil)
+	check.Eq(t, len(windows), 1)
+	w := windows[0]
+	check.Eq(t, w.line, 6)
+	check.Eq(t, w.window.Width(), wui.NewWindow().Width()) // Default value.
+}
+
+func TestUnknownWindowMethodTriggersError(t *testing.T) {
+	code := `package main
+
+import "github.com/gonutz/wui"
+
+func main() {
+	w := wui.NewWindow()
+	w.SetSomethingThatDoesNotExist(666)
+}
+`
+	windows, err := extractWindowsFromCode(code)
+	check.Neq(t, err, nil)
+	check.Eq(t, windows, nil)
+	// Check that the line number is part of the error message.
+	check.Eq(t, strings.Contains(err.Error(), "7"), true)
+}
+
+func TestWindowTitleIsAString(t *testing.T) {
+	code := `package main
+
+import "github.com/gonutz/wui"
+
+func main() {
+	w := wui.NewWindow()
+	w.SetTitle("The Title")
+}
+`
+	windows, err := extractWindowsFromCode(code)
+	check.Eq(t, err, nil)
+	w := windows[0].window
+	check.Eq(t, w.Title(), "The Title")
 }

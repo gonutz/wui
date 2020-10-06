@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -27,8 +28,10 @@ func openFile(path string) ([]*wui.Window, error) {
 }
 
 type windowInCode struct {
-	window             *wui.Window
-	creationLineNumber int
+	window *wui.Window
+	// line is the line number (1-indexed) where the window was created with
+	// wui.NewWindow().
+	line int
 }
 
 func extractWindowsFromCode(code string) ([]windowInCode, error) {
@@ -44,19 +47,31 @@ func extractWindowsFromCode(code string) ([]windowInCode, error) {
 	}
 
 	var lastBlock *ast.BlockStmt
+	var overallErr error
 	ast.Inspect(f, func(n ast.Node) bool {
+		if overallErr != nil {
+			return false
+		}
 		if block, ok := n.(*ast.BlockStmt); ok {
 			lastBlock = block
 		}
 		if name, ok := isWuiWindowCreation(f, wuiName, n); ok {
+			window, err := buildWindow(name, lastBlock, n, fset)
+			if err != nil {
+				overallErr = err
+				return false
+			}
 			windows = append(windows, windowInCode{
-				window:             buildWindow(name, lastBlock, n),
-				creationLineNumber: fset.Position(n.Pos()).Line,
+				window: window,
+				line:   fset.Position(n.Pos()).Line,
 			})
 		}
 		return true
 	})
 
+	if overallErr != nil {
+		return nil, overallErr
+	}
 	return windows, nil
 }
 
@@ -114,8 +129,7 @@ func containsIdent(ids []*ast.Ident, id *ast.Ident) bool {
 	return false
 }
 
-// TODO Return error as well. Test first.
-func buildWindow(varName string, block *ast.BlockStmt, assignment ast.Node) *wui.Window {
+func buildWindow(varName string, block *ast.BlockStmt, assignment ast.Node, fset *token.FileSet) (*wui.Window, error) {
 	w := wui.NewWindow()
 	first := 0
 	for i, stmt := range block.List {
@@ -125,6 +139,9 @@ func buildWindow(varName string, block *ast.BlockStmt, assignment ast.Node) *wui
 			break
 		}
 	}
+	if first+1 >= len(block.List) {
+		return w, nil
+	}
 	for _, stmt := range block.List[first+1:] {
 		if isReassignment(stmt, varName) {
 			break
@@ -133,8 +150,11 @@ func buildWindow(varName string, block *ast.BlockStmt, assignment ast.Node) *wui
 			win := reflect.ValueOf(w)
 			method := win.MethodByName(funcName)
 			if !method.IsValid() {
-				// TODO
-				return nil
+				return nil, fmt.Errorf(
+					"unknown function %s in line %d",
+					funcName,
+					fset.Position(stmt.Pos()).Line,
+				)
 			}
 			values := make([]reflect.Value, len(args))
 			for i, arg := range args {
@@ -146,10 +166,19 @@ func buildWindow(varName string, block *ast.BlockStmt, assignment ast.Node) *wui
 				case token.INT:
 					n, err := strconv.Atoi(lit.Value)
 					if err != nil {
-						// TODO Return error.
-						panic(err)
+						return nil, fmt.Errorf(
+							"parse error in line %d: %s",
+							fset.Position(lit.Pos()).Line,
+							err.Error(),
+						)
 					}
 					value = reflect.ValueOf(n)
+				case token.STRING:
+					// We ignore the error, a string literal will always conform
+					// to the rules, otherwise we would have not come here,
+					// parsing would have failed already.
+					s, _ := strconv.Unquote(lit.Value)
+					value = reflect.ValueOf(s)
 					// TODO Other cases.
 				}
 				values[i] = value.Convert(method.Type().In(i))
@@ -157,7 +186,7 @@ func buildWindow(varName string, block *ast.BlockStmt, assignment ast.Node) *wui
 			method.Call(values)
 		}
 	}
-	return w
+	return w, nil
 }
 
 func isReassignment(stmt ast.Stmt, name string) bool {
