@@ -78,7 +78,7 @@ func (dlg *FileOpenDialog) ExecuteSingleSelection(parent *Window) (bool, string)
 func (dlg *FileOpenDialog) ExecuteMultiSelection(parent *Window) (bool, []string) {
 	ok, buf := dlg.getOpenFileName(parent, 65535, w32.OFN_ALLOWMULTISELECT)
 	if ok {
-		// parse mutliple files, the format is 0-separated UTF-16 strings, first
+		// parse multiple files, the format is 0-separated UTF-16 strings, first
 		// comes the directory, then the file names, after the last file name
 		// there are two zeros
 		var dir string
