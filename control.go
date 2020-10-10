@@ -60,6 +60,10 @@ type control struct {
 	onResize func()
 }
 
+func (c *control) Handle() uintptr {
+	return uintptr(c.handle)
+}
+
 func (c *control) Parent() Container {
 	return c.parent
 }

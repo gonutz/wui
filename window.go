@@ -1300,3 +1300,7 @@ func (w *Window) Monitor() w32.HMONITOR {
 func (w *Window) Parent() Container {
 	return w.parent
 }
+
+func (w *Window) Handle() uintptr {
+	return uintptr(w.handle)
+}
