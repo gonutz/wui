@@ -22,7 +22,7 @@ func (b *Button) SetOnClick(f func()) {
 }
 
 func (b *Button) create(id int) {
-	b.textControl.create(id, 0, "BUTTON", w32.WS_TABSTOP|w32.BS_DEFPUSHBUTTON)
+	b.textControl.create(id, 0, "BUTTON", w32.WS_TABSTOP|w32.BS_PUSHBUTTON)
 }
 
 func (b *Button) handleNotification(cmd uintptr) {
