@@ -129,24 +129,50 @@ func containsIdent(ids []*ast.Ident, id *ast.Ident) bool {
 	return false
 }
 
-func buildWindow(varName string, block *ast.BlockStmt, assignment ast.Node, fset *token.FileSet) (*wui.Window, error) {
-	w := wui.NewWindow()
-	first := 0
+func findFirstOr0(block *ast.BlockStmt, n ast.Node) int {
 	for i, stmt := range block.List {
-		assign, ok := stmt.(*ast.AssignStmt)
-		if ok && assign == assignment {
-			first = i
-			break
+		if stmt == n {
+			return i
 		}
 	}
+	return 0
+}
+
+func buildWindow(varName string, block *ast.BlockStmt, assignment ast.Node, fset *token.FileSet) (*wui.Window, error) {
+	w := wui.NewWindow()
+	first := findFirstOr0(block, assignment)
 	if first+1 >= len(block.List) {
 		return w, nil
 	}
+
 	for _, stmt := range block.List[first+1:] {
 		if isReassignment(stmt, varName) {
 			break
 		}
-		if funcName, args, ok := isMethodCallOn(stmt, varName); ok && strings.HasPrefix(funcName, "Set") {
+		funcName, args, ok := isMethodCallOn(stmt, varName)
+		if !ok {
+			continue
+		}
+		if funcName == "Add" {
+			if len(args) != 1 {
+				return nil, errors.New("TODO Test this")
+			}
+			id, ok := args[0].(*ast.Ident)
+			if !ok {
+				return nil, errors.New("TODO Test this")
+			}
+			// TODO Instead of using id.Obj look for the last statement where
+			// the identifier was assigned IN THIS BLOCK.
+			assign, ok := id.Obj.Decl.(*ast.AssignStmt)
+			if !ok {
+				return nil, errors.New("TODO Test this")
+			}
+			fmt.Printf("%#v\n", assign)
+			fmt.Println("adding to window:", id.Name)
+			fmt.Printf("%#v\n", id.Obj)
+			fmt.Println("created in line", fset.Position(id.Obj.Pos()).Line)
+			return nil, errors.New("TODO parse the added object")
+		} else if strings.HasPrefix(funcName, "Set") {
 			win := reflect.ValueOf(w)
 			method := win.MethodByName(funcName)
 			if !method.IsValid() {

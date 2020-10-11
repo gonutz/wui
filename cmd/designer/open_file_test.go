@@ -262,3 +262,29 @@ func main() {
 	w := windows[0].window
 	check.Eq(t, w.Title(), "The Title")
 }
+
+func TestButtonChildIsLoaded(t *testing.T) {
+	code := `package main
+
+import "github.com/gonutz/wui"
+
+func main() {
+	w := wui.NewWindow()
+	b := wui.NewButton()
+	b.SetText("Button")
+	b.SetBounds(20, 10, 75, 25)
+	w.Add(b)
+	w.Show()
+}
+`
+	windows, err := extractWindowsFromCode(code)
+	check.Eq(t, err, nil)
+	w := windows[0].window
+	check.Eq(t, len(w.Children()), 1)
+	b := w.Children()[0].(*wui.Button)
+	check.Eq(t, b.Text(), "Button")
+	check.Eq(t, b.X(), 20)
+	check.Eq(t, b.Y(), 10)
+	check.Eq(t, b.Width(), 75)
+	check.Eq(t, b.Height(), 25)
+}
