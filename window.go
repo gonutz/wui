@@ -152,6 +152,7 @@ type Control interface {
 	SetVerticalAnchor(a Anchor)
 	Parent() Container
 	handleNotification(cmd uintptr)
+	Handle() uintptr
 }
 
 type Container interface {
@@ -722,6 +723,14 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 			w.lastFocus = w32.GetFocus()
 		}
 		return 0
+	case w32.WM_HSCROLL, w32.WM_VSCROLL:
+		for _, c := range w.controls {
+			if lParam == c.Handle() {
+				if s, ok := c.(*Slider); ok {
+					s.handleChange(wParam & 0xFFFF)
+				}
+			}
+		}
 	case w32.WM_DESTROY:
 		w32.PostQuitMessage(0)
 		return 0
