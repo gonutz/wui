@@ -85,10 +85,14 @@ func main() {
 	radioButtonTemplate.SetChecked(true)
 	radioButtonTemplate.SetBounds(10, 67, 100, 17)
 
+	sliderTemplate := wui.NewSlider()
+	sliderTemplate.SetBounds(10, 95, 150, 45)
+
 	allTemplates := []wui.Control{
 		buttonTemplate,
 		checkBoxTemplate,
 		radioButtonTemplate,
+		sliderTemplate,
 	}
 
 	var highlightedTemplate, controlToAdd wui.Control
@@ -105,6 +109,7 @@ func main() {
 		drawButton(buttonTemplate, c)
 		drawCheckBox(checkBoxTemplate, c)
 		drawRadioButton(radioButtonTemplate, c)
+		drawSlider(sliderTemplate, c)
 		// Highlight what is under the mouse.
 		if highlightedTemplate != nil {
 			x, y, w, h := highlightedTemplate.Bounds()
@@ -733,6 +738,8 @@ func drawControl(c wui.Control, d drawer) {
 		drawCheckBox(x, d)
 	case *wui.Panel:
 		drawPanel(x, d)
+	case *wui.Slider:
+		drawSlider(x, d)
 	default:
 		panic("unhandled control type")
 	}
@@ -806,6 +813,24 @@ func drawPanel(p *wui.Panel, d drawer) {
 	// TODO Use inner coordinates for drawing panels once they are
 	// supported in the library.
 	drawContainer(p, makeOffsetDrawer(d, p.X(), p.Y()))
+}
+
+func drawSlider(s *wui.Slider, d drawer) {
+	x, y, w, _ := s.Bounds()
+	if s.Orientation() == wui.HorizontalSlider {
+		if s.TickPosition() == wui.TicksBottomOrRight {
+			d.DrawRect(x+8, y+8, w-16, 4, wui.RGB(214, 214, 214))
+			d.FillRect(x+9, y+9, w-18, 2, wui.RGB(231, 231, 234))
+			d.FillRect(x+8, y+2, 11, 19, wui.RGB(0, 120, 215))
+			d.Line(x+13, y+22, x+13, y+26, wui.RGB(196, 196, 196))
+			d.Line(x+w-14, y+22, x+w-14, y+26, wui.RGB(196, 196, 196))
+		}
+		// TODO Draw other tick positions.
+	}
+	// TODO Draw vertical sliders.
+	// TODO Draw ticks marks in the right frequency.
+	// TODO Draw no tick marks if HasTicks() is false.
+	// TODO Draw cursor at the right position.
 }
 
 func anchorToString(a wui.Anchor) string {
@@ -1027,9 +1052,58 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 				do(".SetChecked(true)")
 			}
 			line("%s.Add(%s)", parent, name)
+		} else if s, ok := child.(*wui.Slider); ok {
+			do(" := wui.NewSlider()")
+			do(".SetMinMax(%d, %d)", s.Min(), s.Max())
+			do(".SetCursor(%d)", s.Cursor())
+			do(".SetTickFrequency(%d)", s.TickFrequency())
+			do(".SetArrowIncrement(%d)", s.ArrowIncrement())
+			do(".SetMouseIncrement(%d)", s.MouseIncrement())
+			do(".SetHasTicks(%v)", s.HasTicks())
+			do(".SetOrientation(wui.%s)", orientationString(s.Orientation()))
+			do(".SetTickPosition(wui.%s)", tickPosString(s.TickPosition()))
+			do(".SetBounds(%d, %d, %d, %d)", s.X(), s.Y(), s.Width(), s.Height())
+			h, v := s.Anchors()
+			if h != wui.Anchor(0) {
+				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
+			}
+			if v != wui.Anchor(0) {
+				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
+			}
+			if !s.Enabled() {
+				do(".SetEnabled(false)")
+			}
+			if !s.Visible() {
+				do(".SetVisible(false)")
+			}
+			line("%s.Add(%s)", parent, name)
 		} else {
 			panic("unhandled child control")
 		}
+	}
+}
+
+func orientationString(o wui.SliderOrientation) string {
+	switch o {
+	case wui.HorizontalSlider:
+		return "HorizontalSlider"
+	case wui.VerticalSlider:
+		return "VerticalSlider"
+	default:
+		panic("unhandled orientation")
+	}
+}
+
+func tickPosString(p wui.TickPosition) string {
+	switch p {
+	case wui.TicksBottomOrRight:
+		return "TicksBottomOrRight"
+	case wui.TicksTopOrLeft:
+		return "TicksTopOrLeft"
+	case wui.TicksOnBothSides:
+		return "TicksOnBothSides"
+	default:
+		panic("unhandled tick position")
 	}
 }
 
@@ -1051,6 +1125,18 @@ func cloneControl(c wui.Control) wui.Control {
 		r.SetText(x.Text())
 		r.SetBounds(0, 0, x.Width(), x.Height())
 		return r
+	case *wui.Slider:
+		s := wui.NewSlider()
+		s.SetMinMax(x.MinMax())
+		s.SetCursor(x.Cursor())
+		s.SetTickFrequency(x.TickFrequency())
+		s.SetArrowIncrement(x.ArrowIncrement())
+		s.SetMouseIncrement(x.MouseIncrement())
+		s.SetHasTicks(x.HasTicks())
+		s.SetOrientation(x.Orientation())
+		s.SetTickPosition(x.TickPosition())
+		s.SetBounds(0, 0, x.Width(), x.Height())
+		return s
 	default:
 		panic("unhandled control type in cloneControl")
 	}
