@@ -116,11 +116,11 @@ func (c *control) SetY(y int) {
 	c.SetBounds(c.x, y, c.width, c.height)
 }
 
-func (c *control) Pos() (x, y int) {
+func (c *control) Position() (x, y int) {
 	return c.x, c.y
 }
 
-func (c *control) SetPos(x, y int) {
+func (c *control) SetPosition(x, y int) {
 	c.SetBounds(x, y, c.width, c.height)
 }
 
