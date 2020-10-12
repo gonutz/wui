@@ -685,6 +685,7 @@ type drawer interface {
 	DrawEllipse(x, y, w, h int, color wui.Color)
 	FillEllipse(x, y, w, h int, color wui.Color)
 	TextRectFormat(x, y, w, h int, s string, format wui.Format, color wui.Color)
+	Polygon(p []w32.POINT, color wui.Color)
 }
 
 func makeOffsetDrawer(base drawer, dx, dy int) drawer {
@@ -716,6 +717,14 @@ func (d *offsetDrawer) TextRectFormat(
 	x, y, w, h int, s string, format wui.Format, color wui.Color,
 ) {
 	d.base.TextRectFormat(x+d.dx, y+d.dy, w, h, s, format, color)
+}
+
+func (d *offsetDrawer) Polygon(p []w32.POINT, color wui.Color) {
+	for i := range p {
+		p[i].X += int32(d.dx)
+		p[i].Y += int32(d.dy)
+	}
+	d.base.Polygon(p, color)
 }
 
 func (d *offsetDrawer) Line(x1, y1, x2, y2 int, color wui.Color) {
@@ -816,21 +825,110 @@ func drawPanel(p *wui.Panel, d drawer) {
 }
 
 func drawSlider(s *wui.Slider, d drawer) {
-	x, y, w, _ := s.Bounds()
-	if s.Orientation() == wui.HorizontalSlider {
-		if s.TickPosition() == wui.TicksBottomOrRight {
-			d.DrawRect(x+8, y+8, w-16, 4, wui.RGB(214, 214, 214))
-			d.FillRect(x+9, y+9, w-18, 2, wui.RGB(231, 231, 234))
-			d.FillRect(x+8, y+2, 11, 19, wui.RGB(0, 120, 215))
-			d.Line(x+13, y+22, x+13, y+26, wui.RGB(196, 196, 196))
-			d.Line(x+w-14, y+22, x+w-14, y+26, wui.RGB(196, 196, 196))
+	x, y, w, h := s.Bounds()
+	orientation := s.Orientation()
+	drawSlideBar := func(offset int) {
+		if orientation == wui.HorizontalSlider {
+			d.DrawRect(x+8, y+offset, w-16, 4, wui.RGB(214, 214, 214))
+			d.FillRect(x+9, y+offset+1, w-18, 2, wui.RGB(231, 231, 234))
+		} else {
+			d.DrawRect(x+offset, y+8, 4, h-16, wui.RGB(214, 214, 214))
+			d.FillRect(x+offset+1, y+9, 2, h-18, wui.RGB(231, 231, 234))
 		}
-		// TODO Draw other tick positions.
 	}
-	// TODO Draw vertical sliders.
-	// TODO Draw ticks marks in the right frequency.
-	// TODO Draw no tick marks if HasTicks() is false.
-	// TODO Draw cursor at the right position.
+	min, max := s.MinMax()
+	innerTickCount := max - min - 1
+	xLeft := x + 13
+	xRight := x + w - 14
+	yTop := y + 13
+	yBottom := y + h - 14
+	scale := 1.0 / float64(innerTickCount+1) * float64(xRight-xLeft)
+	if orientation == wui.VerticalSlider {
+		scale = 1.0 / float64(innerTickCount+1) * float64(yBottom-yTop)
+	}
+	relCursor := s.Cursor() - min
+	xOffset := int(float64(relCursor)*scale + 0.5)
+	yOffset := int(float64(relCursor)*scale + 0.5)
+	cursorCenter := xLeft + xOffset
+	if orientation == wui.VerticalSlider {
+		cursorCenter = yTop + yOffset
+	}
+	cursorColor := wui.RGB(0, 120, 215)
+	drawCursorBody := func(offset, size int) {
+		if orientation == wui.HorizontalSlider {
+			d.FillRect(cursorCenter-5, y+offset, 11, size, cursorColor)
+		} else {
+			d.FillRect(x+offset, cursorCenter-5, size, 11, cursorColor)
+		}
+	}
+	drawCursorArrow := func(offset int) {
+		if orientation == wui.HorizontalSlider {
+			d.Polygon([]w32.POINT{
+				{int32(cursorCenter - 5), int32(y + 15)},
+				{int32(cursorCenter), int32(y + 15 + offset)},
+				{int32(cursorCenter + 5), int32(y + 15)},
+			}, cursorColor)
+		} else {
+			d.Polygon([]w32.POINT{
+				{int32(x + 15), int32(cursorCenter - 5)},
+				{int32(x + 15 + offset), int32(cursorCenter)},
+				{int32(x + 15), int32(cursorCenter + 5)},
+			}, cursorColor)
+		}
+	}
+	tickColor := wui.RGB(196, 196, 196)
+	freq := s.TickFrequency()
+	drawEndTicks := func(offset int) {
+		if !s.TicksVisible() {
+			return
+		}
+		if orientation == wui.HorizontalSlider {
+			d.Line(xLeft, y+offset, xLeft, y+offset+4, tickColor)
+			d.Line(xRight, y+offset, xRight, y+offset+4, tickColor)
+		} else {
+			d.Line(x+offset, yTop, x+offset+4, yTop, tickColor)
+			d.Line(x+offset, yBottom, x+offset+4, yBottom, tickColor)
+		}
+	}
+	drawMiddleTicks := func(offset int) {
+		if !s.TicksVisible() {
+			return
+		}
+		if orientation == wui.HorizontalSlider {
+			for i := freq; i <= innerTickCount; i += freq {
+				x := xLeft + int(float64(i)*scale+0.5)
+				d.Line(x, y+offset, x, y+offset+3, tickColor)
+			}
+		} else {
+			for i := freq; i <= innerTickCount; i += freq {
+				y := yTop + int(float64(i)*scale+0.5)
+				d.Line(x+offset, y, x+offset+3, y, tickColor)
+			}
+		}
+	}
+	switch s.TickPosition() {
+	case wui.TicksBottomOrRight:
+		drawSlideBar(8)
+		drawCursorBody(2, 14)
+		drawCursorArrow(5)
+		drawEndTicks(22)
+		drawMiddleTicks(22)
+	case wui.TicksTopOrLeft:
+		drawSlideBar(18)
+		drawCursorBody(15, 14)
+		drawCursorArrow(-5)
+		drawEndTicks(5)
+		drawMiddleTicks(6)
+	case wui.TicksOnBothSides:
+		drawSlideBar(19)
+		drawCursorBody(10, 21)
+		drawEndTicks(5)
+		drawEndTicks(33)
+		drawMiddleTicks(6)
+		drawMiddleTicks(33)
+	default:
+		panic("unhandled tick position")
+	}
 }
 
 func anchorToString(a wui.Anchor) string {
@@ -1059,7 +1157,7 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 			do(".SetTickFrequency(%d)", s.TickFrequency())
 			do(".SetArrowIncrement(%d)", s.ArrowIncrement())
 			do(".SetMouseIncrement(%d)", s.MouseIncrement())
-			do(".SetHasTicks(%v)", s.HasTicks())
+			do(".SetTicksVisible(%v)", s.TicksVisible())
 			do(".SetOrientation(wui.%s)", orientationString(s.Orientation()))
 			do(".SetTickPosition(wui.%s)", tickPosString(s.TickPosition()))
 			do(".SetBounds(%d, %d, %d, %d)", s.X(), s.Y(), s.Width(), s.Height())
@@ -1132,7 +1230,7 @@ func cloneControl(c wui.Control) wui.Control {
 		s.SetTickFrequency(x.TickFrequency())
 		s.SetArrowIncrement(x.ArrowIncrement())
 		s.SetMouseIncrement(x.MouseIncrement())
-		s.SetHasTicks(x.HasTicks())
+		s.SetTicksVisible(x.TicksVisible())
 		s.SetOrientation(x.Orientation())
 		s.SetTickPosition(x.TickPosition())
 		s.SetBounds(0, 0, x.Width(), x.Height())
