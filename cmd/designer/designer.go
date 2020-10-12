@@ -823,87 +823,97 @@ func drawPanel(p *wui.Panel, d drawer) {
 }
 
 func drawSlider(s *wui.Slider, d drawer) {
+	var (
+		drawSlideBar    func(offset int)
+		drawCursorBody  func(offset, size int)
+		drawCursorArrow func(offset int)
+		// drawEndTicks and drawMiddleTicks are only assigned if ticks are
+		// visible for this slider.
+		drawEndTicks    = func(offset int) {}
+		drawMiddleTicks = func(offset int) {}
+	)
+
+	cursorColor := wui.RGB(0, 120, 215)
+	tickColor := wui.RGB(196, 196, 196)
+	slideBarBorder := wui.RGB(214, 214, 214)
+	slideBarBackground := wui.RGB(231, 231, 234)
+
 	x, y, w, h := s.Bounds()
-	orientation := s.Orientation()
-	drawSlideBar := func(offset int) {
-		if orientation == wui.HorizontalSlider {
-			d.DrawRect(x+8, y+offset, w-16, 4, wui.RGB(214, 214, 214))
-			d.FillRect(x+9, y+offset+1, w-18, 2, wui.RGB(231, 231, 234))
-		} else {
-			d.DrawRect(x+offset, y+8, 4, h-16, wui.RGB(214, 214, 214))
-			d.FillRect(x+offset+1, y+9, 2, h-18, wui.RGB(231, 231, 234))
-		}
-	}
 	min, max := s.MinMax()
 	innerTickCount := max - min - 1
-	xLeft := x + 13
-	xRight := x + w - 14
-	yTop := y + 13
-	yBottom := y + h - 14
-	scale := 1.0 / float64(innerTickCount+1) * float64(xRight-xLeft)
-	if orientation == wui.VerticalSlider {
-		scale = 1.0 / float64(innerTickCount+1) * float64(yBottom-yTop)
-	}
+	freq := s.TickFrequency()
 	relCursor := s.Cursor() - min
-	xOffset := int(float64(relCursor)*scale + 0.5)
-	yOffset := int(float64(relCursor)*scale + 0.5)
-	cursorCenter := xLeft + xOffset
-	if orientation == wui.VerticalSlider {
-		cursorCenter = yTop + yOffset
-	}
-	cursorColor := wui.RGB(0, 120, 215)
-	drawCursorBody := func(offset, size int) {
-		if orientation == wui.HorizontalSlider {
-			d.FillRect(cursorCenter-5, y+offset, 11, size, cursorColor)
-		} else {
-			d.FillRect(x+offset, cursorCenter-5, size, 11, cursorColor)
+
+	if s.Orientation() == wui.HorizontalSlider {
+		xLeft := x + 13
+		xRight := x + w - 14
+		scale := 1.0 / float64(innerTickCount+1) * float64(xRight-xLeft)
+		xOffset := int(float64(relCursor)*scale + 0.5)
+		cursorCenter := xLeft + xOffset
+
+		drawSlideBar = func(offset int) {
+			d.DrawRect(x+8, y+offset, w-16, 4, slideBarBorder)
+			d.FillRect(x+9, y+offset+1, w-18, 2, slideBarBackground)
 		}
-	}
-	drawCursorArrow := func(offset int) {
-		if orientation == wui.HorizontalSlider {
+		drawCursorBody = func(offset, size int) {
+			d.FillRect(cursorCenter-5, y+offset, 11, size, cursorColor)
+		}
+		drawCursorArrow = func(offset int) {
 			d.Polygon([]w32.POINT{
 				{int32(cursorCenter - 5), int32(y + 15)},
 				{int32(cursorCenter), int32(y + 15 + offset)},
 				{int32(cursorCenter + 5), int32(y + 15)},
 			}, cursorColor)
-		} else {
+		}
+
+		if s.TicksVisible() {
+			drawEndTicks = func(offset int) {
+				d.Line(xLeft, y+offset, xLeft, y+offset+4, tickColor)
+				d.Line(xRight, y+offset, xRight, y+offset+4, tickColor)
+			}
+			drawMiddleTicks = func(offset int) {
+				for i := freq; i <= innerTickCount; i += freq {
+					x := xLeft + int(float64(i)*scale+0.5)
+					d.Line(x, y+offset, x, y+offset+3, tickColor)
+				}
+			}
+		}
+	} else {
+		yTop := y + 13
+		yBottom := y + h - 14
+		scale := 1.0 / float64(innerTickCount+1) * float64(yBottom-yTop)
+		yOffset := int(float64(relCursor)*scale + 0.5)
+		cursorCenter := yTop + yOffset
+
+		drawSlideBar = func(offset int) {
+			d.DrawRect(x+offset, y+8, 4, h-16, slideBarBorder)
+			d.FillRect(x+offset+1, y+9, 2, h-18, slideBarBackground)
+		}
+		drawCursorBody = func(offset, size int) {
+			d.FillRect(x+offset, cursorCenter-5, size, 11, cursorColor)
+		}
+		drawCursorArrow = func(offset int) {
 			d.Polygon([]w32.POINT{
 				{int32(x + 15), int32(cursorCenter - 5)},
 				{int32(x + 15 + offset), int32(cursorCenter)},
 				{int32(x + 15), int32(cursorCenter + 5)},
 			}, cursorColor)
 		}
-	}
-	tickColor := wui.RGB(196, 196, 196)
-	freq := s.TickFrequency()
-	drawEndTicks := func(offset int) {
-		if !s.TicksVisible() {
-			return
-		}
-		if orientation == wui.HorizontalSlider {
-			d.Line(xLeft, y+offset, xLeft, y+offset+4, tickColor)
-			d.Line(xRight, y+offset, xRight, y+offset+4, tickColor)
-		} else {
-			d.Line(x+offset, yTop, x+offset+4, yTop, tickColor)
-			d.Line(x+offset, yBottom, x+offset+4, yBottom, tickColor)
-		}
-	}
-	drawMiddleTicks := func(offset int) {
-		if !s.TicksVisible() {
-			return
-		}
-		if orientation == wui.HorizontalSlider {
-			for i := freq; i <= innerTickCount; i += freq {
-				x := xLeft + int(float64(i)*scale+0.5)
-				d.Line(x, y+offset, x, y+offset+3, tickColor)
+
+		if s.TicksVisible() {
+			drawEndTicks = func(offset int) {
+				d.Line(x+offset, yTop, x+offset+4, yTop, tickColor)
+				d.Line(x+offset, yBottom, x+offset+4, yBottom, tickColor)
 			}
-		} else {
-			for i := freq; i <= innerTickCount; i += freq {
-				y := yTop + int(float64(i)*scale+0.5)
-				d.Line(x+offset, y, x+offset+3, y, tickColor)
+			drawMiddleTicks = func(offset int) {
+				for i := freq; i <= innerTickCount; i += freq {
+					y := yTop + int(float64(i)*scale+0.5)
+					d.Line(x+offset, y, x+offset+3, y, tickColor)
+				}
 			}
 		}
 	}
+
 	switch s.TickPosition() {
 	case wui.TicksBottomOrRight:
 		drawSlideBar(8)
