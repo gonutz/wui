@@ -87,12 +87,22 @@ func (s *Slider) SetMax(max int) {
 	s.SetMinMax(s.min, max)
 }
 
+// SetMinMax sets the minimum and maximum values of the Slider. min must be
+// smaller or equal to max. If the current cursor is outside these ranges, it is
+// clamped.
 func (s *Slider) SetMinMax(min, max int) {
 	s.min, s.max = min, max
 	if s.handle != 0 {
 		const redraw = 1
 		w32.SendMessage(s.handle, w32.TBM_SETRANGEMIN, 0, uintptr(min))
 		w32.SendMessage(s.handle, w32.TBM_SETRANGEMAX, redraw, uintptr(max))
+	} else {
+		if s.cursor < min {
+			s.cursor = min
+		}
+		if s.cursor > max {
+			s.cursor = max
+		}
 	}
 }
 
@@ -110,7 +120,15 @@ func (s *Slider) Max() int {
 	return max
 }
 
+// SetCursor sets the position of the cursor. It clamps it to the Slider's
+// min/max values.
 func (s *Slider) SetCursor(cursor int) {
+	if cursor < s.min {
+		cursor = s.min
+	}
+	if cursor > s.max {
+		cursor = s.max
+	}
 	s.cursor = cursor
 	if s.handle != 0 {
 		const redraw = 1
@@ -118,6 +136,7 @@ func (s *Slider) SetCursor(cursor int) {
 	}
 }
 
+// Cursor returns the current position of the Slider.
 func (s *Slider) Cursor() int {
 	if s.handle != 0 {
 		s.cursor = int(w32.SendMessage(s.handle, w32.TBM_GETPOS, 0, 0))
@@ -129,10 +148,13 @@ func (s *Slider) TickFrequency() int {
 	return s.tickFrequency
 }
 
-func (s *Slider) SetTickFrequency(f int) {
-	s.tickFrequency = f
+// SetTickFrequency sets the distance between two ticks to n (only every n'th
+// tick is drawn). The first and last ticks are always drawn (except if you hide
+// ticks altogether).
+func (s *Slider) SetTickFrequency(n int) {
+	s.tickFrequency = n
 	if s.handle != 0 {
-		w32.SendMessage(s.handle, w32.TBM_SETTICFREQ, uintptr(f), 0)
+		w32.SendMessage(s.handle, w32.TBM_SETTICFREQ, uintptr(n), 0)
 	}
 }
 
@@ -160,15 +182,15 @@ func (s *Slider) MouseIncrement() int {
 	return s.mouseInc
 }
 
-// SetHasTicks only takes effect before the window is shown on screen. At
+// SetTicksVisible only takes effect before the window is shown on screen. At
 // run-time this cannot be changed.
-func (s *Slider) SetHasTicks(show bool) {
+func (s *Slider) SetTicksVisible(show bool) {
 	if s.handle == 0 {
 		s.hideTicks = !show
 	}
 }
 
-func (s *Slider) HasTicks() bool {
+func (s *Slider) TicksVisible() bool {
 	return !s.hideTicks
 }
 
