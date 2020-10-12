@@ -105,11 +105,9 @@ func main() {
 	palette.SetOnPaint(func(c *wui.Canvas) {
 		w, h := c.Size()
 		c.FillRect(0, 0, w, h, wui.RGB(240, 240, 240))
-		// Draw all template controls.
-		drawButton(buttonTemplate, c)
-		drawCheckBox(checkBoxTemplate, c)
-		drawRadioButton(radioButtonTemplate, c)
-		drawSlider(sliderTemplate, c)
+		for _, template := range allTemplates {
+			drawControl(template, c)
+		}
 		// Highlight what is under the mouse.
 		if highlightedTemplate != nil {
 			x, y, w, h := highlightedTemplate.Bounds()
