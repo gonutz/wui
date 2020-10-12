@@ -160,6 +160,7 @@ type Container interface {
 	Children() []Control
 	Parent() Container
 	Bounds() (x, y, width, height int)
+	SetBounds(x, y, width, height int)
 }
 
 type container interface {

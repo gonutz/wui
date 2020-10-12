@@ -132,21 +132,26 @@ func main() {
 	nameText := wui.NewLabel()
 	nameText.SetText("Variable Name")
 	nameText.SetRightAlign()
-	nameText.SetBounds(10, 10, 85, 25)
+	nameText.SetBounds(10, 10, 85, 20)
 	w.Add(nameText)
 	name := wui.NewEditLine()
 	name.SetBounds(105, 10, 85, 25)
 	w.Add(name)
 
-	alphaText := wui.NewLabel()
-	alphaText.SetText("Alpha")
-	alphaText.SetRightAlign()
-	alphaText.SetBounds(10, 40, 85, 25)
-	w.Add(alphaText)
-	alpha := wui.NewIntUpDown()
-	alpha.SetBounds(105, 40, 85, 25)
+	makeIntEdit := func(text string, y int) (*wui.Label, *wui.IntUpDown) {
+		l := wui.NewLabel()
+		l.SetText(text)
+		l.SetRightAlign()
+		l.SetBounds(10, y, 85, 20)
+		w.Add(l)
+		edit := wui.NewIntUpDown()
+		edit.SetBounds(105, y, 85, 25)
+		w.Add(edit)
+		return l, edit
+	}
+
+	alphaText, alpha := makeIntEdit("Alpha", 40)
 	alpha.SetMinMaxValues(0, 255)
-	w.Add(alpha)
 
 	anchorToIndex := map[wui.Anchor]int{
 		wui.AnchorMin:          0,
@@ -164,7 +169,7 @@ func main() {
 	hAnchorText := wui.NewLabel()
 	hAnchorText.SetText("Horizontal Anchor")
 	hAnchorText.SetRightAlign()
-	hAnchorText.SetBounds(10, 40, 85, 25)
+	hAnchorText.SetBounds(10, 40, 85, 20)
 	w.Add(hAnchorText)
 	hAnchor := wui.NewComboBox()
 	hAnchor.Add("Left")
@@ -179,7 +184,7 @@ func main() {
 	vAnchorText := wui.NewLabel()
 	vAnchorText.SetText("Vertical Anchor")
 	vAnchorText.SetRightAlign()
-	vAnchorText.SetBounds(10, 70, 85, 25)
+	vAnchorText.SetBounds(10, 70, 85, 20)
 	w.Add(vAnchorText)
 	vAnchor := wui.NewComboBox()
 	vAnchor.Add("Top")
@@ -190,6 +195,66 @@ func main() {
 	vAnchor.Add("Bottom+Center")
 	vAnchor.SetBounds(105, 70, 85, 25)
 	w.Add(vAnchor)
+
+	_, xEdit := makeIntEdit("X", 100)
+	_, yEdit := makeIntEdit("Y", 130)
+	_, widthEdit := makeIntEdit("Width", 160)
+	_, heightEdit := makeIntEdit("Height", 190)
+
+	enabled := wui.NewCheckBox()
+	enabled.SetText("Enabled")
+	enabled.SetBounds(105, 220, 85, 17)
+	w.Add(enabled)
+
+	visible := wui.NewCheckBox()
+	visible.SetText("Visible")
+	visible.SetBounds(105, 240, 85, 17)
+	w.Add(visible)
+
+	minText, minEdit := makeIntEdit("Min Value", 260)
+	maxText, maxEdit := makeIntEdit("Max Value", 290)
+
+	orientationToIndex := map[wui.SliderOrientation]int{
+		wui.HorizontalSlider: 0,
+		wui.VerticalSlider:   1,
+	}
+	indexToOrientation := make(map[int]wui.SliderOrientation)
+	for o, i := range orientationToIndex {
+		indexToOrientation[i] = o
+	}
+	orientationText := wui.NewLabel()
+	orientationText.SetText("Orientation")
+	orientationText.SetRightAlign()
+	orientationText.SetBounds(10, 320, 85, 20)
+	w.Add(orientationText)
+	orientation := wui.NewComboBox()
+	orientation.Add("Horizontal")
+	orientation.Add("Vertical")
+	orientation.SetBounds(105, 320, 85, 25)
+	w.Add(orientation)
+
+	tickPosToIndex := map[wui.TickPosition]int{
+		wui.TicksBottomOrRight: 0,
+		wui.TicksTopOrLeft:     1,
+		wui.TicksOnBothSides:   2,
+	}
+	indexToTickPos := make(map[int]wui.TickPosition)
+	for p, i := range tickPosToIndex {
+		indexToTickPos[i] = p
+	}
+	tickPosText := wui.NewLabel()
+	tickPosText.SetText("Tick Position")
+	tickPosText.SetRightAlign()
+	tickPosText.SetBounds(10, 350, 85, 20)
+	w.Add(tickPosText)
+	tickPos := wui.NewComboBox()
+	tickPos.Add("Bottom/Right")
+	tickPos.Add("Top/Left")
+	tickPos.Add("Both Sides")
+	tickPos.SetBounds(105, 350, 85, 25)
+	w.Add(tickPos)
+
+	cursorText, cursor := makeIntEdit("Cursor Position", 380)
 
 	checked := wui.NewCheckBox()
 	checked.SetText("Checked")
@@ -211,7 +276,7 @@ func main() {
 	panelBorderStyleText := wui.NewLabel()
 	panelBorderStyleText.SetText("Border Style")
 	panelBorderStyleText.SetRightAlign()
-	panelBorderStyleText.SetBounds(10, 100, 85, 25)
+	panelBorderStyleText.SetBounds(10, 100, 85, 20)
 	w.Add(panelBorderStyleText)
 	panelBorderStyle := wui.NewComboBox()
 	panelBorderStyle.Add("None")
@@ -266,6 +331,68 @@ func main() {
 			panic("anchor set on non-Control")
 		}
 	})
+	xEdit.SetOnValueChange(func(x int) {
+		_, y, w, h := active.Bounds()
+		active.SetBounds(x, y, w, h)
+		preview.Paint()
+	})
+	yEdit.SetOnValueChange(func(y int) {
+		x, _, w, h := active.Bounds()
+		active.SetBounds(x, y, w, h)
+		preview.Paint()
+	})
+	widthEdit.SetOnValueChange(func(w int) {
+		x, y, _, h := active.Bounds()
+		active.SetBounds(x, y, w, h)
+		preview.Paint()
+	})
+	heightEdit.SetOnValueChange(func(h int) {
+		x, y, w, _ := active.Bounds()
+		active.SetBounds(x, y, w, h)
+		preview.Paint()
+	})
+	enabled.SetOnChange(func(enabled bool) {
+		if e, ok := active.(enabler); ok {
+			e.SetEnabled(enabled)
+		}
+	})
+	visible.SetOnChange(func(visible bool) {
+		if v, ok := active.(visibler); ok {
+			v.SetVisible(visible)
+		}
+	})
+	minEdit.SetOnValueChange(func(min int) {
+		if s, ok := active.(*wui.Slider); ok {
+			s.SetMin(min)
+			cursor.SetValue(s.Cursor())
+			preview.Paint()
+		}
+	})
+	maxEdit.SetOnValueChange(func(max int) {
+		if s, ok := active.(*wui.Slider); ok {
+			s.SetMax(max)
+			cursor.SetValue(s.Cursor())
+			preview.Paint()
+		}
+	})
+	orientation.SetOnChange(func(index int) {
+		if s, ok := active.(*wui.Slider); ok {
+			s.SetOrientation(indexToOrientation[index])
+			preview.Paint()
+		}
+	})
+	tickPos.SetOnChange(func(index int) {
+		if s, ok := active.(*wui.Slider); ok {
+			s.SetTickPosition(indexToTickPos[index])
+			preview.Paint()
+		}
+	})
+	cursor.SetOnValueChange(func(cursor int) {
+		if s, ok := active.(*wui.Slider); ok {
+			s.SetCursor(cursor)
+			preview.Paint()
+		}
+	})
 	checked.SetOnChange(func(check bool) {
 		if r, ok := active.(*wui.RadioButton); ok {
 			r.SetChecked(check)
@@ -294,6 +421,7 @@ func main() {
 		_, isCheckBox := active.(*wui.CheckBox)
 		_, isRadioButton := active.(*wui.RadioButton)
 		_, isPanel := active.(*wui.Panel)
+		_, isSlider := active.(*wui.Slider)
 
 		alphaText.SetVisible(isWindow)
 		alpha.SetVisible(isWindow)
@@ -304,6 +432,29 @@ func main() {
 		checked.SetVisible(isCheckBox || isRadioButton)
 		panelBorderStyleText.SetVisible(isPanel)
 		panelBorderStyle.SetVisible(isPanel)
+		minText.SetVisible(isSlider)
+		minEdit.SetVisible(isSlider)
+		maxText.SetVisible(isSlider)
+		maxEdit.SetVisible(isSlider)
+		orientationText.SetVisible(isSlider)
+		orientation.SetVisible(isSlider)
+		tickPosText.SetVisible(isSlider)
+		tickPos.SetVisible(isSlider)
+		cursorText.SetVisible(isSlider)
+		cursor.SetVisible(isSlider)
+
+		x, y, width, height := active.Bounds()
+		xEdit.SetValue(x)
+		yEdit.SetValue(y)
+		widthEdit.SetValue(width)
+		heightEdit.SetValue(height)
+
+		if e, ok := active.(enabler); ok {
+			enabled.SetChecked(e.Enabled())
+		}
+		if v, ok := active.(visibler); ok {
+			visible.SetChecked(v.Visible())
+		}
 
 		if isWindow {
 			alpha.SetValue(int(active.(*wui.Window).Alpha()))
@@ -321,6 +472,16 @@ func main() {
 		if isPanel {
 			b := active.(*wui.Panel).BorderStyle()
 			panelBorderStyle.SetSelectedIndex(panelBorderToIndex[b])
+		}
+		if isSlider {
+			s := active.(*wui.Slider)
+			min, max := s.MinMax()
+			minEdit.SetValue(min)
+			maxEdit.SetValue(max)
+			orientation.SetSelectedIndex(orientationToIndex[s.Orientation()])
+			tickPos.SetSelectedIndex(tickPosToIndex[s.TickPosition()])
+			cursor.SetValue(s.Cursor())
+			cursor.SetMinMaxValues(s.MinMax())
 		}
 
 		preview.Paint()
@@ -978,6 +1139,7 @@ func panelBorderToString(s wui.PanelBorderStyle) string {
 type node interface {
 	Parent() wui.Container
 	Bounds() (x, y, width, height int)
+	SetBounds(x, y, width, height int)
 }
 
 func showPreview(w *wui.Window) {
@@ -1246,4 +1408,14 @@ func cloneControl(c wui.Control) wui.Control {
 	default:
 		panic("unhandled control type in cloneControl")
 	}
+}
+
+type enabler interface {
+	Enabled() bool
+	SetEnabled(bool)
+}
+
+type visibler interface {
+	Visible() bool
+	SetVisible(bool)
 }
