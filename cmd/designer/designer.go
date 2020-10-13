@@ -811,7 +811,6 @@ func defaultWindow() *wui.Window {
 	w := wui.NewWindow()
 	w.SetFont(font)
 	w.SetTitle("Window")
-	w.SetInnerSize(300, 300)
 	return w
 }
 
