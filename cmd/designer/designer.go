@@ -977,9 +977,8 @@ func drawPanel(p *wui.Panel, d drawer) {
 		d.Line(x+w-2, y+1, x+w-2, y+h-1, wui.RGB(227, 227, 227))
 		d.Line(x+1, y+h-2, x+w-1, y+h-2, wui.RGB(227, 227, 227))
 	}
-	// TODO Use inner coordinates for drawing panels once they are
-	// supported in the library.
-	drawContainer(p, makeOffsetDrawer(d, p.X(), p.Y()))
+	innerX, innerY, _, _ := p.InnerBounds()
+	drawContainer(p, makeOffsetDrawer(d, innerX, innerY))
 }
 
 func drawSlider(s *wui.Slider, d drawer) {

@@ -161,6 +161,7 @@ type Container interface {
 	Parent() Container
 	Bounds() (x, y, width, height int)
 	SetBounds(x, y, width, height int)
+	InnerBounds() (x, y, width, height int)
 }
 
 type container interface {
@@ -313,9 +314,6 @@ func (w *Window) SetSize(width, height int) {
 	x, y, _, _ := w.Bounds()
 	w.SetBounds(x, y, width, height)
 }
-
-// TODO Only calling SetInnerWidth does not adjust the inner height, making
-// it 0 (CW_USEDEFAULT is negative).
 
 func (w *Window) SetBounds(x, y, width, height int) {
 	if width < 0 {
