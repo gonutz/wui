@@ -39,3 +39,15 @@ func (l *Label) SetCenterAlign() *Label {
 func (l *Label) SetRightAlign() *Label {
 	return l.setAlign(w32.SS_RIGHT)
 }
+
+func (l *Label) IsLeftAligned() bool {
+	return l.align == w32.SS_LEFT
+}
+
+func (l *Label) IsCenterAligned() bool {
+	return l.align == w32.SS_CENTER
+}
+
+func (l *Label) IsRightAligned() bool {
+	return l.align == w32.SS_RIGHT
+}

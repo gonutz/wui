@@ -88,11 +88,24 @@ func main() {
 	sliderTemplate := wui.NewSlider()
 	sliderTemplate.SetBounds(10, 95, 150, 45)
 
+	panelTemplate := wui.NewPanel()
+	panelTemplate.SetBounds(10, 150, 150, 50)
+	panelTemplate.SetBorderStyle(wui.PanelBorderSingleLine)
+	panelText := wui.NewLabel()
+	panelText.SetText("Panel")
+	panelText.SetCenterAlign()
+	{
+		_, _, w, h := panelTemplate.InnerBounds()
+		panelText.SetBounds(0, 0, w, h)
+	}
+	panelTemplate.Add(panelText)
+
 	allTemplates := []wui.Control{
 		buttonTemplate,
 		checkBoxTemplate,
 		radioButtonTemplate,
 		sliderTemplate,
+		panelTemplate,
 	}
 
 	var highlightedTemplate, controlToAdd wui.Control
@@ -276,7 +289,7 @@ func main() {
 	panelBorderStyleText := wui.NewLabel()
 	panelBorderStyleText.SetText("Border Style")
 	panelBorderStyleText.SetRightAlign()
-	panelBorderStyleText.SetBounds(10, 100, 85, 20)
+	panelBorderStyleText.SetBounds(10, 266, 85, 20)
 	w.Add(panelBorderStyleText)
 	panelBorderStyle := wui.NewComboBox()
 	panelBorderStyle.Add("None")
@@ -284,7 +297,7 @@ func main() {
 	panelBorderStyle.Add("Raised")
 	panelBorderStyle.Add("Sunken")
 	panelBorderStyle.Add("Sunken Thick")
-	panelBorderStyle.SetBounds(105, 100, 85, 25)
+	panelBorderStyle.SetBounds(105, 265, 85, 25)
 	w.Add(panelBorderStyle)
 
 	preview := wui.NewPaintBox()
@@ -602,7 +615,7 @@ func main() {
 			x, y, w, h := active.Bounds()
 			parent := active.Parent()
 			for parent != theWindow {
-				dx, dy, _, _ := parent.Bounds()
+				dx, dy, _, _ := parent.InnerBounds()
 				x += dx
 				y += dy
 				parent = parent.Parent()
@@ -690,12 +703,13 @@ func main() {
 				innerX, innerY, _, _ := theWindow.InnerBounds()
 				outerX, outerY, _, _ := theWindow.Bounds()
 				x, y, w, h := controlToAdd.Bounds()
-				controlToAdd.SetBounds(
-					x-(xOffset+innerX-outerX),
-					y-(yOffset+innerY-outerY),
-					w, h,
-				)
-				theWindow.Add(controlToAdd)
+				relX := x - (xOffset + innerX - outerX)
+				relY := y - (yOffset + innerY - outerY)
+				// Find the sub-container that this is to be placed in. Use the
+				// center of the new control to determine where to add it..
+				addToThis, x, y := findContainerAt(theWindow, relX+w/2, relY+h/2)
+				controlToAdd.SetBounds(x-w/2, y-h/2, w, h)
+				addToThis.Add(controlToAdd)
 				activate(controlToAdd)
 				controlToAdd = nil
 				mouseMode = idleMouse
@@ -836,6 +850,15 @@ type bounder interface {
 	Bounds() (x, y, width, height int)
 }
 
+func innerContains(b innerBounder, atX, atY int) bool {
+	x, y, w, h := b.InnerBounds()
+	return atX >= x && atY >= y && atX < x+w && atY < y+h
+}
+
+type innerBounder interface {
+	InnerBounds() (x, y, width, height int)
+}
+
 type drawer interface {
 	Line(x1, y1, x2, y2 int, color wui.Color)
 	DrawRect(x, y, w, h int, color wui.Color)
@@ -907,6 +930,8 @@ func drawControl(c wui.Control, d drawer) {
 		drawPanel(x, d)
 	case *wui.Slider:
 		drawSlider(x, d)
+	case *wui.Label:
+		drawLabel(x, d)
 	default:
 		panic("unhandled control type")
 	}
@@ -1096,6 +1121,19 @@ func drawSlider(s *wui.Slider, d drawer) {
 	default:
 		panic("unhandled tick position")
 	}
+}
+
+func drawLabel(l *wui.Label, d drawer) {
+	x, y, w, h := l.Bounds()
+	var format wui.Format
+	if l.IsLeftAligned() {
+		format = wui.FormatCenterLeft
+	} else if l.IsCenterAligned() {
+		format = wui.FormatCenter
+	} else if l.IsRightAligned() {
+		format = wui.FormatCenterRight
+	}
+	d.TextRectFormat(x, y, w, h, l.Text(), format, wui.RGB(0, 0, 0))
 }
 
 func anchorToString(a wui.Anchor) string {
@@ -1403,6 +1441,11 @@ func cloneControl(c wui.Control) wui.Control {
 		s.SetTickPosition(x.TickPosition())
 		s.SetBounds(0, 0, x.Width(), x.Height())
 		return s
+	case *wui.Panel:
+		p := wui.NewPanel()
+		p.SetBorderStyle(x.BorderStyle())
+		p.SetBounds(0, 0, x.Width(), x.Height())
+		return p
 	default:
 		panic("unhandled control type in cloneControl")
 	}
@@ -1416,4 +1459,16 @@ type enabler interface {
 type visibler interface {
 	Visible() bool
 	SetVisible(bool)
+}
+
+func findContainerAt(c wui.Container, x, y int) (innerMost wui.Container, atX, atY int) {
+	for _, child := range c.Children() {
+		if container, ok := child.(wui.Container); ok {
+			if innerContains(container, x, y) {
+				dx, dy, _, _ := container.InnerBounds()
+				return findContainerAt(container, x-dx, y-dy)
+			}
+		}
+	}
+	return c, x, y
 }
