@@ -944,8 +944,8 @@ type innerBounder interface {
 }
 
 type drawer interface {
-	SetDrawRegion(x, y, width, height int)
-	ResetDrawRegion()
+	PushDrawRegion(x, y, width, height int)
+	PopDrawRegion()
 	Line(x1, y1, x2, y2 int, color wui.Color)
 	DrawRect(x, y, w, h int, color wui.Color)
 	FillRect(x, y, w, h int, color wui.Color)
@@ -966,12 +966,12 @@ type offsetDrawer struct {
 	dx, dy int
 }
 
-func (d *offsetDrawer) SetDrawRegion(x, y, width, height int) {
-	d.base.SetDrawRegion(x+d.dx, y+d.dy, width, height)
+func (d *offsetDrawer) PushDrawRegion(x, y, width, height int) {
+	d.base.PushDrawRegion(x+d.dx, y+d.dy, width, height)
 }
 
-func (d *offsetDrawer) ResetDrawRegion() {
-	d.base.ResetDrawRegion()
+func (d *offsetDrawer) PopDrawRegion() {
+	d.base.PopDrawRegion()
 }
 
 func (d *offsetDrawer) DrawRect(x, y, w, h int, color wui.Color) {
@@ -1017,9 +1017,12 @@ func (d *offsetDrawer) Line(x1, y1, x2, y2 int, color wui.Color) {
 }
 
 func drawContainer(container wui.Container, d drawer) {
+	_, _, w, h := container.InnerBounds()
+	d.PushDrawRegion(0, 0, w, h)
 	for _, child := range container.Children() {
 		drawControl(child, d)
 	}
+	d.PopDrawRegion()
 }
 
 func drawControl(c wui.Control, d drawer) {
@@ -1054,15 +1057,15 @@ func drawButton(b *wui.Button, d drawer) {
 	}
 	if w > 6 && h > 6 {
 		textW, textH := d.TextExtent(b.Text())
-		d.SetDrawRegion(x+3, y+3, w-6, h-6)
+		d.PushDrawRegion(x+3, y+3, w-6, h-6)
 		d.TextOut(x+(w-textW)/2, y+(h-textH)/2, b.Text(), wui.RGB(0, 0, 0))
-		d.ResetDrawRegion()
+		d.PopDrawRegion()
 	}
 }
 
 func drawRadioButton(r *wui.RadioButton, d drawer) {
 	x, y, w, h := r.Bounds()
-	d.SetDrawRegion(x, y, w, h)
+	d.PushDrawRegion(x, y, w, h)
 	d.FillRect(x, y, w, h, wui.RGB(240, 240, 240))
 	d.FillEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
 	d.DrawEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
@@ -1071,12 +1074,12 @@ func drawRadioButton(r *wui.RadioButton, d drawer) {
 	}
 	_, textH := d.TextExtent(r.Text())
 	d.TextOut(x+16, y+(h-textH)/2, r.Text(), wui.RGB(0, 0, 0))
-	d.ResetDrawRegion()
+	d.PopDrawRegion()
 }
 
 func drawCheckBox(c *wui.CheckBox, d drawer) {
 	x, y, w, h := c.Bounds()
-	d.SetDrawRegion(x, y, w, h)
+	d.PushDrawRegion(x, y, w, h)
 	d.FillRect(x, y, w, h, wui.RGB(240, 240, 240))
 	d.FillRect(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
 	d.DrawRect(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
@@ -1089,7 +1092,7 @@ func drawCheckBox(c *wui.CheckBox, d drawer) {
 	}
 	_, textH := d.TextExtent(c.Text())
 	d.TextOut(x+16, y+(h-textH)/2, c.Text(), wui.RGB(0, 0, 0))
-	d.ResetDrawRegion()
+	d.PopDrawRegion()
 }
 
 func drawPanel(p *wui.Panel, d drawer) {
@@ -1254,9 +1257,9 @@ func drawLabel(l *wui.Label, d drawer) {
 	case wui.AlignRight:
 		textX = x + w - textW
 	}
-	d.SetDrawRegion(x, y, w, h)
+	d.PushDrawRegion(x, y, w, h)
 	d.TextOut(textX, y+(h-textH)/2, l.Text(), wui.RGB(0, 0, 0))
-	d.ResetDrawRegion()
+	d.PopDrawRegion()
 }
 
 func anchorToString(a wui.Anchor) string {
