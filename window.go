@@ -77,44 +77,44 @@ func NewDialogWindow() *Window {
 }
 
 type Window struct {
-	handle        w32.HWND
-	parent        *Window
-	className     string
-	classStyle    uint32
-	title         string
-	style         uint
-	exStyle       uint
-	x             int
-	y             int
-	width         int
-	height        int
-	clientWidth   int
-	clientHeight  int
-	state         int
-	background    w32.HBRUSH
-	cursor        w32.HCURSOR
-	menu          *Menu
-	menuStrings   []*MenuString
-	font          *Font
-	controls      []Control
-	children      []Control
-	icon          uintptr
-	showConsole   bool
-	altF4disabled bool
-	shortcuts     []shortcut
-	accelTable    w32.HACCEL
-	lastFocus     w32.HWND
-	alpha         uint8
-	onShow        func()
-	onClose       func()
-	onCanClose    func() bool
-	onMouseMove   func(x, y int)
-	onMouseWheel  func(x, y int, delta float64)
-	onMouseDown   func(button MouseButton, x, y int)
-	onMouseUp     func(button MouseButton, x, y int)
-	onKeyDown     func(key int)
-	onKeyUp       func(key int)
-	onResize      func()
+	handle          w32.HWND
+	parent          *Window
+	className       string
+	classStyle      uint32
+	title           string
+	style           uint
+	exStyle         uint
+	x               int
+	y               int
+	width           int
+	height          int
+	lastInnerWidth  int
+	lastInnerHeight int
+	state           int
+	background      w32.HBRUSH
+	cursor          w32.HCURSOR
+	menu            *Menu
+	menuStrings     []*MenuString
+	font            *Font
+	controls        []Control
+	children        []Control
+	icon            uintptr
+	showConsole     bool
+	altF4disabled   bool
+	shortcuts       []shortcut
+	accelTable      w32.HACCEL
+	lastFocus       w32.HWND
+	alpha           uint8
+	onShow          func()
+	onClose         func()
+	onCanClose      func() bool
+	onMouseMove     func(x, y int)
+	onMouseWheel    func(x, y int, delta float64)
+	onMouseDown     func(button MouseButton, x, y int)
+	onMouseUp       func(button MouseButton, x, y int)
+	onKeyDown       func(key int)
+	onKeyUp         func(key int)
+	onResize        func()
 }
 
 func (w *Window) Children() []Control {
@@ -331,26 +331,24 @@ func (w *Window) SetBounds(x, y, width, height int) {
 			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
 		)
 	} else {
-		w.clientWidth, w.clientHeight = w.InnerSize()
+		oldW, oldH := w.InnerSize()
 		w.x = x
 		w.y = y
 		w.width = width
 		w.height = height
-		w.repositionChidrenByAnchors()
+		newW, newH := w.InnerSize()
+		repositionChidrenByAnchors(w, oldW, oldH, newW, newH)
 	}
 }
 
-func (w *Window) repositionChidrenByAnchors() {
-	oldClientW, oldClientH := w.clientWidth, w.clientHeight
-	newClientW, newClientH := w.InnerSize()
-	w.clientWidth, w.clientHeight = newClientW, newClientH
-	dw := newClientW - oldClientW
-	dh := newClientH - oldClientH
-	oldCenterX := oldClientW / 2
-	newCenterX := newClientW / 2
-	oldCenterY := oldClientH / 2
-	newCenterY := newClientH / 2
-	for _, c := range w.children {
+func repositionChidrenByAnchors(c Container, oldW, oldH, newW, newH int) {
+	dw := newW - oldW
+	dh := newH - oldH
+	oldCenterX := oldW / 2
+	newCenterX := newW / 2
+	oldCenterY := oldH / 2
+	newCenterY := newH / 2
+	for _, c := range c.Children() {
 		x, y, w, h := c.Bounds()
 		hAnchor, vAnchor := c.Anchors()
 
@@ -706,7 +704,10 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 		w.onWM_NOTIFY(wParam, lParam)
 		return 0
 	case w32.WM_SIZE:
-		w.repositionChidrenByAnchors()
+		oldW, oldH := w.lastInnerWidth, w.lastInnerHeight
+		newW, newH := w.InnerSize()
+		repositionChidrenByAnchors(w, oldW, oldH, newW, newH)
+		w.lastInnerWidth, w.lastInnerHeight = newW, newH
 		if w.onResize != nil {
 			w.onResize()
 		}
@@ -813,8 +814,6 @@ func (w *Window) Show() error {
 	}
 	defer w32.UnregisterClassAtom(atom, w32.GetModuleHandle(""))
 
-	w.adjustClientRect()
-	w.clientWidth, w.clientHeight = w.InnerSize()
 	if w.alpha != 255 {
 		w.exStyle |= w32.WS_EX_LAYERED
 	}
@@ -835,6 +834,7 @@ func (w *Window) Show() error {
 	}
 
 	w.updateAccelerators()
+	w.lastInnerWidth, w.lastInnerHeight = w.InnerSize()
 	w.createContents()
 	w.applyIcon()
 	w32.ShowWindow(window, w.state)
@@ -842,7 +842,6 @@ func (w *Window) Show() error {
 	if w.onShow != nil {
 		w.onShow()
 	}
-	w.clientWidth, w.clientHeight = w.InnerSize()
 
 	var msg w32.MSG
 	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
@@ -1057,19 +1056,6 @@ func (w *Window) SetIconFromFile(path string) {
 	w.applyIcon()
 }
 
-func (w *Window) adjustClientRect() {
-	// if the width or height are negative, this indicates it is the inner
-	// rect's size
-	var r w32.RECT
-	w32.AdjustWindowRect(&r, w.style, w.menu != nil)
-	if w.width < 0 && w.width != w32.CW_USEDEFAULT {
-		w.width = -w.width + int(r.Width())
-	}
-	if w.height < 0 && w.height != w32.CW_USEDEFAULT {
-		w.height = -w.height + int(r.Height())
-	}
-}
-
 func (w *Window) ShowModal() error {
 	if w.handle != 0 {
 		return errors.New("wui.Window.ShowModal: window already visible")
@@ -1089,7 +1075,6 @@ func (w *Window) ShowModal() error {
 		w.font = w.parent.font
 	}
 
-	w.adjustClientRect()
 	window := w32.CreateWindowEx(
 		0,
 		syscall.StringToUTF16Ptr(w.parent.className),
@@ -1115,6 +1100,7 @@ func (w *Window) ShowModal() error {
 	}), 0, 0)
 
 	w.updateAccelerators()
+	w.lastInnerWidth, w.lastInnerHeight = w.InnerSize()
 	w.createContents()
 	w.applyIcon()
 	w32.ShowWindow(w.handle, w32.SW_SHOWNORMAL)

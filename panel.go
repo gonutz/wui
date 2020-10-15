@@ -72,11 +72,6 @@ func (p *Panel) create(id int) {
 			return w32.DefSubclassProc(window, msg, wParam, lParam)
 		}
 	}), 0, 0)
-	// TODO Why is this here:
-	for i, c := range p.children {
-		c.create(id + i + 1)
-		p.parent.registerControl(c)
-	}
 }
 
 func (p *Panel) getHandle() w32.HWND {
@@ -167,4 +162,11 @@ func (p *Panel) InnerBounds() (x, y, width, height int) {
 	width -= int(r.Width())
 	height -= int(r.Height())
 	return
+}
+
+func (p *Panel) SetBounds(x, y, width, height int) {
+	_, _, oldW, oldH := p.InnerBounds()
+	p.control.SetBounds(x, y, width, height)
+	_, _, newW, newH := p.InnerBounds()
+	repositionChidrenByAnchors(p, oldW, oldH, newW, newH)
 }
