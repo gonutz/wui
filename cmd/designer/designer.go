@@ -1278,15 +1278,19 @@ func showPreview(w *wui.Window, x, y int) {
 		return
 	}
 	defer os.Remove(fileName)
-	// TODO This blocks and freezes the designer, instead build into a temporary
-	// directory and check that the build worked fine, then start the process
-	// non-blocking.
-	output, err := exec.Command("go", "run", fileName).CombinedOutput()
+	tempFile, err := ioutil.TempFile("", "wui_designer_preview_build*.exe")
+	if err != nil {
+		wui.MessageBoxError("Error", err.Error())
+		return
+	}
+	tempPath := tempFile.Name()
+	tempFile.Close()
+	output, err := exec.Command("go", "build", "-o", tempPath, fileName).CombinedOutput()
 	if err != nil {
 		wui.MessageBoxError("Error", err.Error()+"\r\n"+string(output))
-	} else if len(output) > 0 {
-		wui.MessageBoxInfo("go output", string(output))
+		return
 	}
+	exec.Command(tempPath).Start()
 }
 
 func generatePreviewCode(w *wui.Window, x, y int) []byte {
