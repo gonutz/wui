@@ -7,6 +7,9 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/gonutz/w32"
 	"github.com/gonutz/wui"
@@ -17,9 +20,39 @@ import (
 
 // TODO Clamp the drawing canvas for each container.
 
-var names = make(map[interface{}]string)
+var (
+	// names associates variable names with the controls.
+	names = make(map[interface{}]string)
+
+	// The build* variables are for previews which create temporary Go and exe
+	// files that need to be deleted at the end of the program.
+	buildDir    = "."
+	buildPrefix = "wui_designer_preview_"
+	buildCount  = 0
+)
 
 func main() {
+	// Create a temporary directory to save our preview builds in.
+	if dir, err := ioutil.TempDir("", "wui_designer_preview_builds"); err == nil {
+		buildDir = dir
+		defer os.Remove(dir)
+	}
+	// After closing the designer, delete all preview builds from this session.
+	defer func() {
+		if files, err := ioutil.ReadDir(buildDir); err == nil {
+			for _, file := range files {
+				if !file.IsDir() &&
+					strings.HasSuffix(file.Name(), ".exe") &&
+					strings.HasPrefix(file.Name(), buildPrefix) {
+					// Ignore the error on the remove, one of the builds might
+					// still be running and cannot be removed. This is OK, most
+					// of the files will get deleted.
+					os.Remove(filepath.Join(buildDir, file.Name()))
+				}
+			}
+		}
+	}()
+
 	const (
 		idleMouse = iota
 		addingControl
@@ -1283,26 +1316,30 @@ type node interface {
 
 func showPreview(w *wui.Window, x, y int) {
 	code := generatePreviewCode(w, x, y)
-	const fileName = "wui_designer_temp_file.go"
-	err := ioutil.WriteFile(fileName, code, 0666)
+
+	// Write the Go file to our temporary build dir.
+	goFile := filepath.Join(buildDir, "wui_designer_temp_file.go")
+	err := ioutil.WriteFile(goFile, code, 0666)
 	if err != nil {
 		wui.MessageBoxError("Error", err.Error())
 		return
 	}
-	defer os.Remove(fileName)
-	tempFile, err := ioutil.TempFile("", "wui_designer_preview_build*.exe")
-	if err != nil {
-		wui.MessageBoxError("Error", err.Error())
-		return
-	}
-	tempPath := tempFile.Name()
-	tempFile.Close()
-	output, err := exec.Command("go", "build", "-o", tempPath, fileName).CombinedOutput()
+	defer os.Remove(goFile)
+
+	// Build the executable into our temporary build dir.
+	exeFile := filepath.Join(buildDir, buildPrefix+strconv.Itoa(buildCount)+".exe")
+	buildCount++
+
+	// Do the build synchronously and report any build errors.
+	output, err := exec.Command("go", "build", "-o", exeFile, goFile).CombinedOutput()
 	if err != nil {
 		wui.MessageBoxError("Error", err.Error()+"\r\n"+string(output))
 		return
 	}
-	exec.Command(tempPath).Start()
+
+	// Start the program in parallel so we can have multiple previews open at
+	// once.
+	exec.Command(exeFile).Start()
 }
 
 func generatePreviewCode(w *wui.Window, x, y int) []byte {
