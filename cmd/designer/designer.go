@@ -93,12 +93,16 @@ func main() {
 	panelTemplate.SetBorderStyle(wui.PanelBorderSingleLine)
 	panelText := wui.NewLabel()
 	panelText.SetText("Panel")
-	panelText.SetCenterAlign()
+	panelText.SetAlignment(wui.AlignCenter)
 	{
 		_, _, w, h := panelTemplate.InnerBounds()
 		panelText.SetBounds(0, 0, w, h)
 	}
 	panelTemplate.Add(panelText)
+
+	labelTemplate := wui.NewLabel()
+	labelTemplate.SetText("Text Label")
+	labelTemplate.SetBounds(10, 210, 50, 13)
 
 	allTemplates := []wui.Control{
 		buttonTemplate,
@@ -106,6 +110,7 @@ func main() {
 		radioButtonTemplate,
 		sliderTemplate,
 		panelTemplate,
+		labelTemplate,
 	}
 
 	var highlightedTemplate, controlToAdd wui.Control
@@ -144,7 +149,7 @@ func main() {
 
 	nameText := wui.NewLabel()
 	nameText.SetText("Variable Name")
-	nameText.SetRightAlign()
+	nameText.SetAlignment(wui.AlignRight)
 	nameText.SetBounds(10, 10, 85, 20)
 	w.Add(nameText)
 	name := wui.NewEditLine()
@@ -154,7 +159,7 @@ func main() {
 	makeIntEdit := func(text string, y int) (*wui.Label, *wui.IntUpDown) {
 		l := wui.NewLabel()
 		l.SetText(text)
-		l.SetRightAlign()
+		l.SetAlignment(wui.AlignRight)
 		l.SetBounds(10, y, 85, 20)
 		w.Add(l)
 		edit := wui.NewIntUpDown()
@@ -181,7 +186,7 @@ func main() {
 
 	hAnchorText := wui.NewLabel()
 	hAnchorText.SetText("Horizontal Anchor")
-	hAnchorText.SetRightAlign()
+	hAnchorText.SetAlignment(wui.AlignRight)
 	hAnchorText.SetBounds(10, 40, 85, 20)
 	w.Add(hAnchorText)
 	hAnchor := wui.NewComboBox()
@@ -196,7 +201,7 @@ func main() {
 
 	vAnchorText := wui.NewLabel()
 	vAnchorText.SetText("Vertical Anchor")
-	vAnchorText.SetRightAlign()
+	vAnchorText.SetAlignment(wui.AlignRight)
 	vAnchorText.SetBounds(10, 70, 85, 20)
 	w.Add(vAnchorText)
 	vAnchor := wui.NewComboBox()
@@ -237,7 +242,7 @@ func main() {
 	}
 	orientationText := wui.NewLabel()
 	orientationText.SetText("Orientation")
-	orientationText.SetRightAlign()
+	orientationText.SetAlignment(wui.AlignRight)
 	orientationText.SetBounds(10, 320, 85, 20)
 	w.Add(orientationText)
 	orientation := wui.NewComboBox()
@@ -257,7 +262,7 @@ func main() {
 	}
 	tickPosText := wui.NewLabel()
 	tickPosText.SetText("Tick Position")
-	tickPosText.SetRightAlign()
+	tickPosText.SetAlignment(wui.AlignRight)
 	tickPosText.SetBounds(10, 350, 85, 20)
 	w.Add(tickPosText)
 	tickPos := wui.NewComboBox()
@@ -274,6 +279,28 @@ func main() {
 	checked.SetBounds(105, 100, 85, 17)
 	w.Add(checked)
 
+	alignmentToIndex := map[wui.TextAlignment]int{
+		wui.AlignLeft:   0,
+		wui.AlignCenter: 1,
+		wui.AlignRight:  2,
+	}
+	indexToAlignment := make(map[int]wui.TextAlignment)
+	for a, i := range alignmentToIndex {
+		indexToAlignment[i] = a
+	}
+
+	labelAlignText := wui.NewLabel()
+	labelAlignText.SetText("Alignment")
+	labelAlignText.SetAlignment(wui.AlignRight)
+	labelAlignText.SetBounds(10, 260, 85, 17)
+	w.Add(labelAlignText)
+	labelAlign := wui.NewComboBox()
+	labelAlign.Add("Left")
+	labelAlign.Add("Center")
+	labelAlign.Add("Right")
+	labelAlign.SetBounds(105, 260, 85, 25)
+	w.Add(labelAlign)
+
 	panelBorderToIndex := map[wui.PanelBorderStyle]int{
 		wui.PanelBorderNone:        0,
 		wui.PanelBorderSingleLine:  1,
@@ -288,7 +315,7 @@ func main() {
 
 	panelBorderStyleText := wui.NewLabel()
 	panelBorderStyleText.SetText("Border Style")
-	panelBorderStyleText.SetRightAlign()
+	panelBorderStyleText.SetAlignment(wui.AlignRight)
 	panelBorderStyleText.SetBounds(10, 266, 85, 20)
 	w.Add(panelBorderStyleText)
 	panelBorderStyle := wui.NewComboBox()
@@ -425,6 +452,14 @@ func main() {
 			panic("panel border style only for panels")
 		}
 	})
+	labelAlign.SetOnChange(func(i int) {
+		if l, ok := active.(*wui.Label); ok {
+			l.SetAlignment(indexToAlignment[i])
+			preview.Paint()
+		} else {
+			panic("text alignment only for labels")
+		}
+	})
 
 	activate := func(newActive node) {
 		active = newActive
@@ -435,6 +470,7 @@ func main() {
 		_, isRadioButton := active.(*wui.RadioButton)
 		_, isPanel := active.(*wui.Panel)
 		_, isSlider := active.(*wui.Slider)
+		_, isLabel := active.(*wui.Label)
 
 		alphaText.SetVisible(isWindow)
 		alpha.SetVisible(isWindow)
@@ -455,6 +491,8 @@ func main() {
 		tickPos.SetVisible(isSlider)
 		cursorText.SetVisible(isSlider)
 		cursor.SetVisible(isSlider)
+		labelAlignText.SetVisible(isLabel)
+		labelAlign.SetVisible(isLabel)
 
 		x, y, width, height := active.Bounds()
 		xEdit.SetValue(x)
@@ -495,6 +533,10 @@ func main() {
 			tickPos.SetSelectedIndex(tickPosToIndex[s.TickPosition()])
 			cursor.SetValue(s.Cursor())
 			cursor.SetMinMaxValues(s.MinMax())
+		}
+		if isLabel {
+			l := active.(*wui.Label)
+			labelAlign.SetSelectedIndex(alignmentToIndex[l.Alignment()])
 		}
 
 		preview.Paint()
@@ -1126,11 +1168,12 @@ func drawSlider(s *wui.Slider, d drawer) {
 func drawLabel(l *wui.Label, d drawer) {
 	x, y, w, h := l.Bounds()
 	var format wui.Format
-	if l.IsLeftAligned() {
+	switch l.Alignment() {
+	case wui.AlignLeft:
 		format = wui.FormatCenterLeft
-	} else if l.IsCenterAligned() {
+	case wui.AlignCenter:
 		format = wui.FormatCenter
-	} else if l.IsRightAligned() {
+	case wui.AlignRight:
 		format = wui.FormatCenterRight
 	}
 	d.TextRectFormat(x, y, w, h, l.Text(), format, wui.RGB(0, 0, 0))
@@ -1169,6 +1212,19 @@ func panelBorderToString(s wui.PanelBorderStyle) string {
 		return "PanelBorderRaised"
 	default:
 		panic("unhandled panel border style")
+	}
+}
+
+func alignmentToString(a wui.TextAlignment) string {
+	switch a {
+	case wui.AlignLeft:
+		return "AlignLeft"
+	case wui.AlignCenter:
+		return "AlignCenter"
+	case wui.AlignRight:
+		return "AlignRight"
+	default:
+		panic("unhandled text alignment")
 	}
 }
 
@@ -1381,6 +1437,27 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 				do(".SetVisible(false)")
 			}
 			line("%s.Add(%s)", parent, name)
+		} else if l, ok := child.(*wui.Label); ok {
+			do(" := wui.NewLabel()")
+			do(".SetText(%q)", l.Text())
+			if l.Alignment() != wui.AlignLeft {
+				do(".SetAlignment(wui.%s)", alignmentToString(l.Alignment()))
+			}
+			do(".SetBounds(%d, %d, %d, %d)", l.X(), l.Y(), l.Width(), l.Height())
+			h, v := l.Anchors()
+			if h != wui.Anchor(0) {
+				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
+			}
+			if v != wui.Anchor(0) {
+				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
+			}
+			if !l.Enabled() {
+				do(".SetEnabled(false)")
+			}
+			if !l.Visible() {
+				do(".SetVisible(false)")
+			}
+			line("%s.Add(%s)", parent, name)
 		} else {
 			panic("unhandled child control")
 		}
@@ -1446,6 +1523,12 @@ func cloneControl(c wui.Control) wui.Control {
 		p.SetBorderStyle(x.BorderStyle())
 		p.SetBounds(0, 0, x.Width(), x.Height())
 		return p
+	case *wui.Label:
+		l := wui.NewLabel()
+		l.SetText(x.Text())
+		l.SetAlignment(x.Alignment())
+		l.SetBounds(0, 0, x.Width(), x.Height())
+		return l
 	default:
 		panic("unhandled control type in cloneControl")
 	}
