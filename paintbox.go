@@ -117,6 +117,14 @@ func (c *Canvas) Height() int {
 	return c.height
 }
 
+func (c *Canvas) SetDrawRegion(x, y, width, height int) {
+	w32.IntersectClipRect(c.hdc, x, y, x+width, y+height)
+}
+
+func (c *Canvas) ResetDrawRegion() {
+	w32.SelectClipRgn(c.hdc, 0)
+}
+
 func (c *Canvas) DrawRect(x, y, width, height int, color Color) {
 	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
 	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
