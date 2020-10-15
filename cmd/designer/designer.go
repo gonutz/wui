@@ -662,6 +662,12 @@ func main() {
 				y += dy
 				parent = parent.Parent()
 			}
+			if w < 0 {
+				w = 0
+			}
+			if h < 0 {
+				h = 0
+			}
 			inner.DrawRect(x-1, y-1, w+2, h+2, wui.RGB(255, 0, 255))
 			inner.DrawRect(x-2, y-2, w+4, h+4, wui.RGB(255, 0, 255))
 		}
@@ -1023,13 +1029,16 @@ func drawButton(b *wui.Button, d drawer) {
 
 func drawRadioButton(r *wui.RadioButton, d drawer) {
 	x, y, w, h := r.Bounds()
+	d.SetDrawRegion(x, y, w, h)
 	d.FillRect(x, y, w, h, wui.RGB(240, 240, 240))
 	d.FillEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
 	d.DrawEllipse(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
 	if r.Checked() {
 		d.FillEllipse(x+3, y+(h-13)/2+3, 7, 7, wui.RGB(0, 0, 0))
 	}
-	d.TextRectFormat(x+16, y, w-16, h, r.Text(), wui.FormatCenterLeft, wui.RGB(0, 0, 0))
+	_, textH := d.TextExtent(r.Text())
+	d.TextOut(x+16, y+(h-textH)/2, r.Text(), wui.RGB(0, 0, 0))
+	d.ResetDrawRegion()
 }
 
 func drawCheckBox(c *wui.CheckBox, d drawer) {
