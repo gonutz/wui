@@ -47,6 +47,9 @@ func main() {
 	menu.Add(fileMenu)
 	w.SetMenu(menu)
 
+	// TODO Doing this after the menu does not work.
+	//w.SetInnerSize(800, 600)
+
 	appIcon := w32.LoadIcon(0, w32.MakeIntResource(w32.IDI_APPLICATION))
 	appIconWidth := w32.GetSystemMetrics(w32.SM_CXICON)
 	appIconHeight := w32.GetSystemMetrics(w32.SM_CYICON)
@@ -726,6 +729,7 @@ func main() {
 			// TODO Refactor this, we want to go through SetBounds for now since
 			// only it does updating children by anchor at the moment.
 			theWindow.SetBounds(theWindow.X(), theWindow.Y(), newW, newH)
+			activate(theWindow) // Update the size in the UI.
 			preview.Paint()
 		}
 	})
