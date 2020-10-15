@@ -547,8 +547,6 @@ func main() {
 
 	const xOffset, yOffset = 5, 5
 	preview.SetOnPaint(func(c *wui.Canvas) {
-		// TODO Use Bounds and InnerBounds to determine the real borders, they
-		// do not necessarily have to be the same left/right and bottom.
 		width, height := theWindow.Size()
 		innerWidth, innerHeight := theWindow.InnerSize()
 		borderSize := (width - innerWidth) / 2
@@ -905,12 +903,16 @@ type innerBounder interface {
 }
 
 type drawer interface {
+	SetDrawRegion(x, y, width, height int)
+	ResetDrawRegion()
 	Line(x1, y1, x2, y2 int, color wui.Color)
 	DrawRect(x, y, w, h int, color wui.Color)
 	FillRect(x, y, w, h int, color wui.Color)
 	DrawEllipse(x, y, w, h int, color wui.Color)
 	FillEllipse(x, y, w, h int, color wui.Color)
 	TextRectFormat(x, y, w, h int, s string, format wui.Format, color wui.Color)
+	TextExtent(s string) (width, height int)
+	TextOut(x, y int, s string, color wui.Color)
 	Polygon(p []w32.POINT, color wui.Color)
 }
 
@@ -921,6 +923,14 @@ func makeOffsetDrawer(base drawer, dx, dy int) drawer {
 type offsetDrawer struct {
 	base   drawer
 	dx, dy int
+}
+
+func (d *offsetDrawer) SetDrawRegion(x, y, width, height int) {
+	d.base.SetDrawRegion(x+d.dx, y+d.dy, width, height)
+}
+
+func (d *offsetDrawer) ResetDrawRegion() {
+	d.base.ResetDrawRegion()
 }
 
 func (d *offsetDrawer) DrawRect(x, y, w, h int, color wui.Color) {
@@ -943,6 +953,14 @@ func (d *offsetDrawer) TextRectFormat(
 	x, y, w, h int, s string, format wui.Format, color wui.Color,
 ) {
 	d.base.TextRectFormat(x+d.dx, y+d.dy, w, h, s, format, color)
+}
+
+func (d *offsetDrawer) TextExtent(s string) (width, height int) {
+	return d.base.TextExtent(s)
+}
+
+func (d *offsetDrawer) TextOut(x, y int, s string, color wui.Color) {
+	d.base.TextOut(x+d.dx, y+d.dy, s, color)
 }
 
 func (d *offsetDrawer) Polygon(p []w32.POINT, color wui.Color) {
@@ -984,10 +1002,21 @@ func drawControl(c wui.Control, d drawer) {
 
 func drawButton(b *wui.Button, d drawer) {
 	x, y, w, h := b.Bounds()
-	d.DrawRect(x, y, w, h, wui.RGB(240, 240, 240))
-	d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(173, 173, 173))
-	d.FillRect(x+2, y+2, w-4, h-4, wui.RGB(225, 225, 225))
-	d.TextRectFormat(x, y, w, h, b.Text(), wui.FormatCenter, wui.RGB(0, 0, 0))
+	if w > 0 && h > 0 {
+		d.DrawRect(x, y, w, h, wui.RGB(240, 240, 240))
+	}
+	if w > 2 && h > 2 {
+		d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(173, 173, 173))
+	}
+	if w > 4 && h > 4 {
+		d.FillRect(x+2, y+2, w-4, h-4, wui.RGB(225, 225, 225))
+	}
+	if w > 6 && h > 6 {
+		textW, textH := d.TextExtent(b.Text())
+		d.SetDrawRegion(x+3, y+3, w-6, h-6)
+		d.TextOut(x+(w-textW)/2, y+(h-textH)/2, b.Text(), wui.RGB(0, 0, 0))
+		d.ResetDrawRegion()
+	}
 }
 
 func drawRadioButton(r *wui.RadioButton, d drawer) {
@@ -1170,16 +1199,17 @@ func drawSlider(s *wui.Slider, d drawer) {
 
 func drawLabel(l *wui.Label, d drawer) {
 	x, y, w, h := l.Bounds()
-	var format wui.Format
+	textW, textH := d.TextExtent(l.Text())
+	textX := x
 	switch l.Alignment() {
-	case wui.AlignLeft:
-		format = wui.FormatCenterLeft
 	case wui.AlignCenter:
-		format = wui.FormatCenter
+		textX = x + (w-textW)/2
 	case wui.AlignRight:
-		format = wui.FormatCenterRight
+		textX = x + w - textW
 	}
-	d.TextRectFormat(x, y, w, h, l.Text(), format, wui.RGB(0, 0, 0))
+	d.SetDrawRegion(x, y, w, h)
+	d.TextOut(textX, y+(h-textH)/2, l.Text(), wui.RGB(0, 0, 0))
+	d.ResetDrawRegion()
 }
 
 func anchorToString(a wui.Anchor) string {
