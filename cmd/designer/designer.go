@@ -31,6 +31,10 @@ func main() {
 
 	font, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -11})
 	w := wui.NewWindow()
+	w.SetFont(font)
+	w.SetTitle("wui Designer")
+	w.SetBackground(w32.GetSysColorBrush(w32.COLOR_BTNFACE))
+	w.SetInnerSize(800, 600)
 
 	menu := wui.NewMainMenu()
 	fileMenu := wui.NewMenu("&File")
@@ -52,11 +56,6 @@ func main() {
 	upDownCursor := w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_SIZENS))
 	leftRightCursor := w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_SIZEWE))
 	diagonalCursor := w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_SIZENWSE))
-
-	w.SetFont(font)
-	w.SetTitle("wui Designer")
-	w.SetBackground(w32.GetSysColorBrush(w32.COLOR_BTNFACE))
-	w.SetInnerSize(800, 600)
 
 	leftSlider := wui.NewPanel()
 	leftSlider.SetBounds(195, -1, 5, 602)
