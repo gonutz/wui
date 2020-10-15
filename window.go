@@ -771,7 +771,7 @@ func (w *Window) onWM_DRAWITEM(wParam, lParam uintptr) {
 				if p.parent != nil {
 					c.SetFont(p.parent.Font())
 				}
-				c.ResetDrawRegion()
+				c.ClearDrawRegions()
 				p.onPaint(c)
 
 				// blit the backbuffer to the front

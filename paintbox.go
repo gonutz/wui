@@ -95,9 +95,10 @@ func RGB(r, g, b uint8) Color {
 }
 
 type Canvas struct {
-	hdc    w32.HDC
-	width  int
-	height int
+	hdc     w32.HDC
+	width   int
+	height  int
+	regions []w32.HRGN
 }
 
 func (c *Canvas) Handle() w32.HDC {
@@ -117,13 +118,34 @@ func (c *Canvas) Height() int {
 	return c.height
 }
 
-func (c *Canvas) SetDrawRegion(x, y, width, height int) {
-	c.ResetDrawRegion()
-	w32.IntersectClipRect(c.hdc, x, y, x+width, y+height)
+func (c *Canvas) PushDrawRegion(x, y, width, height int) {
+	r := w32.CreateRectRgn(x, y, x+width, y+height)
+	if len(c.regions) > 0 {
+		w32.CombineRgn(r, r, c.regions[len(c.regions)-1], w32.RGN_AND)
+	}
+	c.regions = append(c.regions, r)
+	w32.SelectClipRgn(c.hdc, r)
 }
 
-func (c *Canvas) ResetDrawRegion() {
+func (c *Canvas) PopDrawRegion() {
+	n := len(c.regions)
+	if n == 0 {
+		return
+	}
+	if n == 1 {
+		w32.SelectClipRgn(c.hdc, 0)
+	} else {
+		w32.SelectClipRgn(c.hdc, c.regions[n-2])
+	}
+	w32.DeleteObject(w32.HGDIOBJ(c.regions[n-1]))
+	c.regions = c.regions[:n-1]
+}
+
+func (c *Canvas) ClearDrawRegions() {
 	w32.SelectClipRgn(c.hdc, 0)
+	for _, r := range c.regions {
+		w32.DeleteObject(w32.HGDIOBJ(r))
+	}
 }
 
 func (c *Canvas) DrawRect(x, y, width, height int, color Color) {
