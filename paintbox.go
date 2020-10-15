@@ -118,6 +118,7 @@ func (c *Canvas) Height() int {
 }
 
 func (c *Canvas) SetDrawRegion(x, y, width, height int) {
+	c.ResetDrawRegion()
 	w32.IntersectClipRect(c.hdc, x, y, x+width, y+height)
 }
 
