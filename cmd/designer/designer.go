@@ -816,7 +816,7 @@ func main() {
 	})
 
 	saveCodeTo := func(path string) {
-		code := generatePreviewCode(theWindow)
+		code := generatePreviewCode(theWindow, theWindow.X(), theWindow.Y())
 		err := ioutil.WriteFile(path, code, 0666)
 		if err != nil {
 			wui.MessageBoxError("Error", err.Error())
@@ -843,7 +843,9 @@ func main() {
 	})
 
 	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'R'}, func() {
-		showPreview(theWindow)
+		// We place the window such that it lies exactly over our drawing.
+		x, y := w32.ClientToScreen(w32.HWND(w.Handle()), preview.X(), preview.Y())
+		showPreview(theWindow, x+xOffset, y+yOffset)
 	})
 	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'O'}, fileOpenMenu.OnClick())
 	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'S'}, fileSaveMenu.OnClick())
@@ -1267,8 +1269,8 @@ type node interface {
 	SetBounds(x, y, width, height int)
 }
 
-func showPreview(w *wui.Window) {
-	code := generatePreviewCode(w)
+func showPreview(w *wui.Window, x, y int) {
+	code := generatePreviewCode(w, x, y)
 	const fileName = "wui_designer_temp_file.go"
 	err := ioutil.WriteFile(fileName, code, 0666)
 	if err != nil {
@@ -1287,7 +1289,7 @@ func showPreview(w *wui.Window) {
 	}
 }
 
-func generatePreviewCode(w *wui.Window) []byte {
+func generatePreviewCode(w *wui.Window, x, y int) []byte {
 	var code bytes.Buffer
 	code.WriteString(`//+build ignore
 
@@ -1308,6 +1310,7 @@ func main() {`)
 	}
 	line(name + " := wui.NewWindow()")
 	line(name+".SetTitle(%q)", w.Title())
+	line(name+".SetPosition(%d, %d)", x, y)
 	line(name+".SetSize(%d, %d)", w.Width(), w.Height())
 	if w.Alpha() != 255 {
 		line(name+".SetAlpha(%d)", w.Alpha())
