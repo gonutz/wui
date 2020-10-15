@@ -78,12 +78,12 @@ func main() {
 	buttonTemplate.SetBounds(9, 11, 85, 25)
 
 	checkBoxTemplate := wui.NewCheckBox()
-	checkBoxTemplate.SetText("CheckBox")
+	checkBoxTemplate.SetText("Check Box")
 	checkBoxTemplate.SetChecked(true)
 	checkBoxTemplate.SetBounds(10, 44, 100, 17)
 
 	radioButtonTemplate := wui.NewRadioButton()
-	radioButtonTemplate.SetText("RadioButton")
+	radioButtonTemplate.SetText("Radio Button")
 	radioButtonTemplate.SetChecked(true)
 	radioButtonTemplate.SetBounds(10, 67, 100, 17)
 
@@ -1043,6 +1043,7 @@ func drawRadioButton(r *wui.RadioButton, d drawer) {
 
 func drawCheckBox(c *wui.CheckBox, d drawer) {
 	x, y, w, h := c.Bounds()
+	d.SetDrawRegion(x, y, w, h)
 	d.FillRect(x, y, w, h, wui.RGB(240, 240, 240))
 	d.FillRect(x, y+(h-13)/2, 13, 13, wui.RGB(255, 255, 255))
 	d.DrawRect(x, y+(h-13)/2, 13, 13, wui.RGB(0, 0, 0))
@@ -1053,7 +1054,9 @@ func drawCheckBox(c *wui.CheckBox, d drawer) {
 		d.Line(startX, startY, startX+3, startY+3, wui.RGB(0, 0, 0))
 		d.Line(startX+3, startY+2, startX+9, startY-4, wui.RGB(0, 0, 0))
 	}
-	d.TextRectFormat(x+16, y, w-16, h, c.Text(), wui.FormatCenterLeft, wui.RGB(0, 0, 0))
+	_, textH := d.TextExtent(c.Text())
+	d.TextOut(x+16, y+(h-textH)/2, c.Text(), wui.RGB(0, 0, 0))
+	d.ResetDrawRegion()
 }
 
 func drawPanel(p *wui.Panel, d drawer) {
