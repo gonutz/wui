@@ -9,7 +9,7 @@ func NewTextEdit() *TextEdit {
 }
 
 type TextEdit struct {
-	textControl
+	textEditControl
 	limit       int
 	autoHScroll bool
 }

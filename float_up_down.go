@@ -20,7 +20,7 @@ func NewFloatUpDown() *FloatUpDown {
 }
 
 type FloatUpDown struct {
-	textControl
+	textEditControl
 	upDownHandle w32.HWND
 	value        float64
 	minValue     float64

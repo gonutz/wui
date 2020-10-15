@@ -20,7 +20,7 @@ func NewIntUpDown() *IntUpDown {
 }
 
 type IntUpDown struct {
-	textControl
+	textEditControl
 	upDownHandle  w32.HWND
 	value         int32
 	minValue      int32

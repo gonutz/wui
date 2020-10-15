@@ -9,7 +9,7 @@ func NewEditLine() *EditLine {
 }
 
 type EditLine struct {
-	textControl
+	textEditControl
 	isPass       bool
 	passChar     uintptr
 	limit        int

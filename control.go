@@ -213,56 +213,14 @@ func (c *control) handleNotification(cmd uintptr) {}
 
 type textControl struct {
 	control
-	text        string
-	font        *Font
-	cursorStart int
-	cursorEnd   int
+	text string
+	font *Font
 }
 
 func (c *textControl) create(id int, exStyle uint, className string, style uint) {
 	c.control.create(id, exStyle, className, style)
 	w32.SetWindowText(c.handle, c.text)
 	c.SetFont(c.font)
-	if c.cursorStart != 0 || c.cursorEnd != 0 {
-		c.setCursor(c.cursorStart, c.cursorEnd)
-	}
-	w32.SetWindowSubclass(c.handle, syscall.NewCallback(func(
-		window w32.HWND,
-		msg uint32,
-		wParam, lParam uintptr,
-		subclassID uintptr,
-		refData uintptr,
-	) uintptr {
-		switch msg {
-		case w32.WM_CHAR:
-			if wParam == 1 && w32.GetKeyState(w32.VK_CONTROL)&0x8000 != 0 {
-				// Ctrl+A was pressed - select all text.
-				c.SelectAll()
-				return 0
-			}
-			if wParam == 127 {
-				// Ctrl+Backspace was pressed, if there is currently a selected
-				// active, delete it. If there is just the cursor, delete the
-				// last word before the cursor.
-				text := []rune(c.Text())
-				start, end := c.CursorPosition()
-				if start != end {
-					// There is a selection, delete it.
-					c.SetText(string(append(text[:start], text[end:]...)))
-					c.SetCursorPosition(start)
-				} else {
-					// No selection, delete the last word before the cursor.
-					newText, newCursor := deleteWordBeforeCursor(text, start)
-					c.SetText(newText)
-					c.SetCursorPosition(newCursor)
-				}
-				return 0
-			}
-			return w32.DefSubclassProc(window, msg, wParam, lParam)
-		default:
-			return w32.DefSubclassProc(window, msg, wParam, lParam)
-		}
-	}), 0, 0)
 }
 
 func deleteWordBeforeCursor(text []rune, cursor int) (newText string, newCursor int) {
@@ -334,14 +292,64 @@ func (c *textControl) fontHandle() w32.HFONT {
 	return 0
 }
 
-func (c *textControl) Focus() {
+type textEditControl struct {
+	textControl
+	cursorStart int
+	cursorEnd   int
+}
+
+func (c *textEditControl) create(id int, exStyle uint, className string, style uint) {
+	c.textControl.create(id, exStyle, className, style)
+	if c.cursorStart != 0 || c.cursorEnd != 0 {
+		c.setCursor(c.cursorStart, c.cursorEnd)
+	}
+	w32.SetWindowSubclass(c.handle, syscall.NewCallback(func(
+		window w32.HWND,
+		msg uint32,
+		wParam, lParam uintptr,
+		subclassID uintptr,
+		refData uintptr,
+	) uintptr {
+		switch msg {
+		case w32.WM_CHAR:
+			if wParam == 1 && w32.GetKeyState(w32.VK_CONTROL)&0x8000 != 0 {
+				// Ctrl+A was pressed - select all text.
+				c.SelectAll()
+				return 0
+			}
+			if wParam == 127 {
+				// Ctrl+Backspace was pressed, if there is currently a selected
+				// active, delete it. If there is just the cursor, delete the
+				// last word before the cursor.
+				text := []rune(c.Text())
+				start, end := c.CursorPosition()
+				if start != end {
+					// There is a selection, delete it.
+					c.SetText(string(append(text[:start], text[end:]...)))
+					c.SetCursorPosition(start)
+				} else {
+					// No selection, delete the last word before the cursor.
+					newText, newCursor := deleteWordBeforeCursor(text, start)
+					c.SetText(newText)
+					c.SetCursorPosition(newCursor)
+				}
+				return 0
+			}
+			return w32.DefSubclassProc(window, msg, wParam, lParam)
+		default:
+			return w32.DefSubclassProc(window, msg, wParam, lParam)
+		}
+	}), 0, 0)
+}
+
+func (c *textEditControl) Focus() {
 	// TODO Allow this before showing a window.
 	if c.handle != 0 {
 		w32.SetFocus(c.handle)
 	}
 }
 
-func (c *textControl) HasFocus() bool {
+func (c *textEditControl) HasFocus() bool {
 	return c.handle != 0 && w32.GetFocus() == c.handle
 }
 
@@ -357,7 +365,7 @@ func (c *textControl) HasFocus() bool {
 // the selection. The selected text is thus
 //
 //     c.Text()[start:end]
-func (c *textControl) CursorPosition() (start, end int) {
+func (c *textEditControl) CursorPosition() (start, end int) {
 	if c.handle != 0 {
 		var start, end uint32
 		w32.SendMessage(
@@ -371,19 +379,19 @@ func (c *textControl) CursorPosition() (start, end int) {
 	return c.cursorStart, c.cursorEnd
 }
 
-func (c *textControl) SetCursorPosition(pos int) {
+func (c *textEditControl) SetCursorPosition(pos int) {
 	c.setCursor(pos, pos)
 }
 
-func (c *textControl) SetSelection(start, end int) {
+func (c *textEditControl) SetSelection(start, end int) {
 	c.setCursor(start, end)
 }
 
-func (c *textControl) SelectAll() {
+func (c *textEditControl) SelectAll() {
 	c.setCursor(0, -1)
 }
 
-func (c *textControl) setCursor(start, end int) {
+func (c *textEditControl) setCursor(start, end int) {
 	c.cursorStart = start
 	c.cursorEnd = end
 
@@ -400,7 +408,7 @@ func (c *textControl) setCursor(start, end int) {
 	}
 }
 
-func (c *textControl) clampCursorToText() {
+func (c *textEditControl) clampCursorToText() {
 	// If called before we have a window, we have to handle clamping of the
 	// positions ourselves.
 	n := utf8.RuneCountInString(c.Text())
