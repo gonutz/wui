@@ -18,8 +18,6 @@ import (
 // TODO Handle negative widths/heights, they display in the preview but the real
 // window does not allow them.
 
-// TODO Clamp the drawing canvas for each container.
-
 var (
 	// names associates variable names with the controls.
 	names = make(map[interface{}]string)
@@ -372,10 +370,10 @@ func main() {
 	var (
 		// The ResizeAreas are the size drag points of the window.
 		xResizeArea, yResizeArea, xyResizeArea rectangle
-		// innerX and Y is the top-left corner where the inner area of the
-		// window is drawn. The coordinates are relative to the application
-		// window so we can use it in mouse events to find the relative mouse
-		// position inside the window. TODO Say this with fewer "window"s.
+		// innerX and Y is the top-left corner of where theWindow's inner
+		// rectangle is drawn, relative to the application window. This means we
+		// can use innerX and Y in the application window's mouse events to find
+		// the relative mouse position inside theWindow.
 		innerX, innerY int
 		// active is the highlighted control whose properties are shown in the
 		// tool bar.
