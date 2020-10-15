@@ -18,7 +18,7 @@ func NewStringTable(header1 string, headers ...string) *StringTable {
 }
 
 type StringTable struct {
-	textControl
+	textEditControl
 	headers           []string
 	items             []string
 	createdRows       int
