@@ -292,6 +292,17 @@ func (c *textControl) fontHandle() w32.HFONT {
 	return 0
 }
 
+func (c *textControl) Focus() {
+	// TODO Allow this before showing a window.
+	if c.handle != 0 {
+		w32.SetFocus(c.handle)
+	}
+}
+
+func (c *textControl) HasFocus() bool {
+	return c.handle != 0 && w32.GetFocus() == c.handle
+}
+
 type textEditControl struct {
 	textControl
 	cursorStart int
@@ -340,17 +351,6 @@ func (c *textEditControl) create(id int, exStyle uint, className string, style u
 			return w32.DefSubclassProc(window, msg, wParam, lParam)
 		}
 	}), 0, 0)
-}
-
-func (c *textEditControl) Focus() {
-	// TODO Allow this before showing a window.
-	if c.handle != 0 {
-		w32.SetFocus(c.handle)
-	}
-}
-
-func (c *textEditControl) HasFocus() bool {
-	return c.handle != 0 && w32.GetFocus() == c.handle
 }
 
 // CursorPosition returns the current cursor position, respectively the current
