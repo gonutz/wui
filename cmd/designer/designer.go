@@ -772,14 +772,13 @@ func main() {
 				mouseMode = addingControl
 				preview.Paint()
 			} else if mouseMode == addingControl {
-				// TODO Find the sub-container that this is to be placed in.
 				innerX, innerY, _, _ := theWindow.InnerBounds()
 				outerX, outerY, _, _ := theWindow.Bounds()
 				x, y, w, h := controlToAdd.Bounds()
 				relX := x - (xOffset + innerX - outerX)
 				relY := y - (yOffset + innerY - outerY)
 				// Find the sub-container that this is to be placed in. Use the
-				// center of the new control to determine where to add it..
+				// center of the new control to determine where to add it.
 				addToThis, x, y := findContainerAt(theWindow, relX+w/2, relY+h/2)
 				controlToAdd.SetBounds(x-w/2, y-h/2, w, h)
 				addToThis.Add(controlToAdd)
