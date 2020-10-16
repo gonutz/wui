@@ -1087,6 +1087,9 @@ func drawCheckBox(c *wui.CheckBox, d drawer) {
 
 func drawPanel(p *wui.Panel, d drawer) {
 	x, y, w, h := p.Bounds()
+	if w <= 0 || h <= 0 {
+		return
+	}
 	switch p.BorderStyle() {
 	case wui.PanelBorderNone:
 		d.DrawRect(x, y, w, h, wui.RGB(230, 230, 230))
