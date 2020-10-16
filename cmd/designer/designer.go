@@ -750,17 +750,12 @@ func main() {
 			}
 		} else {
 			dx, dy := x-dragStartX, y-dragStartY
-			newW := dragStartWidth
-			newH := dragStartHeight
 			if dragMode == dragX || dragMode == dragXY {
-				newW += dx
+				theWindow.SetWidth(dragStartWidth + dx)
 			}
 			if dragMode == dragY || dragMode == dragXY {
-				newH += dy
+				theWindow.SetHeight(dragStartHeight + dy)
 			}
-			// TODO Refactor this, we want to go through SetBounds for now since
-			// only it does updating children by anchor at the moment.
-			theWindow.SetBounds(theWindow.X(), theWindow.Y(), newW, newH)
 			activate(theWindow) // Update the size in the UI.
 			preview.Paint()
 		}
