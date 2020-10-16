@@ -15,9 +15,6 @@ import (
 	"github.com/gonutz/wui"
 )
 
-// TODO Handle negative widths/heights, they display in the preview but the real
-// window does not allow them.
-
 var (
 	// names associates variable names with the controls.
 	names = make(map[interface{}]string)
@@ -1145,6 +1142,11 @@ func drawSlider(s *wui.Slider, d drawer) {
 	slideBarBackground := wui.RGB(231, 231, 234)
 
 	x, y, w, h := s.Bounds()
+	if w <= 0 || h <= 0 {
+		return
+	}
+	d.PushDrawRegion(x, y, w, h)
+	defer d.PopDrawRegion()
 	min, max := s.MinMax()
 	innerTickCount := max - min - 1
 	freq := s.TickFrequency()
@@ -1154,6 +1156,10 @@ func drawSlider(s *wui.Slider, d drawer) {
 		xLeft := x + 13
 		xRight := x + w - 14
 		scale := 1.0 / float64(innerTickCount+1) * float64(xRight-xLeft)
+		if xRight < xLeft {
+			xRight = xLeft
+			scale = 0
+		}
 		xOffset := int(float64(relCursor)*scale + 0.5)
 		cursorCenter := xLeft + xOffset
 
