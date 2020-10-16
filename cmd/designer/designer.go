@@ -1164,8 +1164,10 @@ func drawSlider(s *wui.Slider, d drawer) {
 		cursorCenter := xLeft + xOffset
 
 		drawSlideBar = func(offset int) {
-			d.DrawRect(x+8, y+offset, w-16, 4, slideBarBorder)
-			d.FillRect(x+9, y+offset+1, w-18, 2, slideBarBackground)
+			if xLeft != xRight {
+				d.DrawRect(x+8, y+offset, w-16, 4, slideBarBorder)
+				d.FillRect(x+9, y+offset+1, w-18, 2, slideBarBackground)
+			}
 		}
 		drawCursorBody = func(offset, size int) {
 			d.FillRect(cursorCenter-5, y+offset, 11, size, cursorColor)
@@ -1194,12 +1196,18 @@ func drawSlider(s *wui.Slider, d drawer) {
 		yTop := y + 13
 		yBottom := y + h - 14
 		scale := 1.0 / float64(innerTickCount+1) * float64(yBottom-yTop)
+		if yBottom < yTop {
+			yBottom = yTop
+			scale = 0
+		}
 		yOffset := int(float64(relCursor)*scale + 0.5)
 		cursorCenter := yTop + yOffset
 
 		drawSlideBar = func(offset int) {
-			d.DrawRect(x+offset, y+8, 4, h-16, slideBarBorder)
-			d.FillRect(x+offset+1, y+9, 2, h-18, slideBarBackground)
+			if yTop != yBottom {
+				d.DrawRect(x+offset, y+8, 4, h-16, slideBarBorder)
+				d.FillRect(x+offset+1, y+9, 2, h-18, slideBarBackground)
+			}
 		}
 		drawCursorBody = func(offset, size int) {
 			d.FillRect(x+offset, cursorCenter-5, size, 11, cursorColor)
