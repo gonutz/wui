@@ -132,11 +132,11 @@ const (
 func (b MouseButton) String() string {
 	switch b {
 	case MouseButtonLeft:
-		return "left mouse button"
+		return "MouseButtonLeft"
 	case MouseButtonMiddle:
-		return "middle mouse button"
+		return "MouseButtonLeft"
 	case MouseButtonRight:
-		return "right mouse button"
+		return "MouseButtonRight"
 	}
 	return "unknown mouse button"
 }
