@@ -46,6 +46,36 @@ func (s *windowStack) pop() {
 	}
 }
 
+type WindowState int
+
+const (
+	WindowNormal WindowState = iota
+	WindowMaximized
+	WindowMinimized
+)
+
+func (s WindowState) String() string {
+	switch s {
+	case WindowMaximized:
+		return "WindowMaximized"
+	case WindowMinimized:
+		return "WindowMinimized"
+	default:
+		return "WindowNormal"
+	}
+}
+
+func (s WindowState) toCmd() int {
+	switch s {
+	case WindowMaximized:
+		return w32.SW_MAXIMIZE
+	case WindowMinimized:
+		return w32.SW_MINIMIZE
+	default:
+		return w32.SW_SHOWNORMAL
+	}
+}
+
 func NewWindow() *Window {
 	return &Window{
 		className:  "wui_window_class",
@@ -54,7 +84,6 @@ func NewWindow() *Window {
 		width:      600,
 		height:     400,
 		style:      w32.WS_OVERLAPPEDWINDOW,
-		state:      w32.SW_SHOWNORMAL,
 		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
 		cursor:     w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_ARROW)),
 		alpha:      255,
@@ -69,7 +98,6 @@ func NewDialogWindow() *Window {
 		width:      600,
 		height:     400,
 		style:      w32.WS_OVERLAPPED | w32.WS_CAPTION | w32.WS_SYSMENU,
-		state:      w32.SW_SHOWNORMAL,
 		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
 		cursor:     w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_ARROW)),
 		alpha:      255,
@@ -90,7 +118,7 @@ type Window struct {
 	height          int
 	lastInnerWidth  int
 	lastInnerHeight int
-	state           int
+	state           WindowState
 	background      w32.HBRUSH
 	cursor          w32.HCURSOR
 	menu            *Menu
@@ -222,7 +250,7 @@ func (w *Window) SetStyle(ws uint) {
 	w.style = ws
 	if w.handle != 0 {
 		w32.SetWindowLongPtr(w.handle, w32.GWL_STYLE, uintptr(w.style))
-		w32.ShowWindow(w.handle, w.state) // for the new style to take effect
+		w32.ShowWindow(w.handle, w.state.toCmd()) // for the new style to take effect
 		w.style = uint(w32.GetWindowLongPtr(w.handle, w32.GWL_STYLE))
 		w.readBounds()
 	}
@@ -234,7 +262,7 @@ func (w *Window) SetExtendedStyle(x uint) {
 	w.exStyle = x
 	if w.handle != 0 {
 		w32.SetWindowLongPtr(w.handle, w32.GWL_EXSTYLE, uintptr(w.exStyle))
-		w32.ShowWindow(w.handle, w.state) // for the new style to take effect
+		w32.ShowWindow(w.handle, w.state.toCmd()) // for the new style to take effect
 		w.exStyle = uint(w32.GetWindowLongPtr(w.handle, w32.GWL_EXSTYLE))
 		w.readBounds()
 	}
@@ -489,44 +517,29 @@ func (w *Window) SetInnerSize(width, height int) {
 	}
 }
 
-func (w *Window) setState(s uint) {
-	w.state = w32.SW_MAXIMIZE
+func (w *Window) SetState(s WindowState) {
+	w.state = s
 	if w.handle != 0 {
-		w32.ShowWindow(w.handle, w.state)
+		w32.ShowWindow(w.handle, s.toCmd())
 	}
 }
 
-func (w *Window) readState() {
-	var p w32.WINDOWPLACEMENT
-	if w32.GetWindowPlacement(w.handle, &p) {
-		w.state = int(p.ShowCmd)
-	}
-}
-
-func (w *Window) Maximized() bool {
+func (w *Window) State() WindowState {
 	if w.handle != 0 {
-		w.readState()
+		var p w32.WINDOWPLACEMENT
+		if w32.GetWindowPlacement(w.handle, &p) {
+			switch p.ShowCmd {
+			case w32.SW_MAXIMIZE:
+				w.state = WindowMaximized
+			case w32.SW_SHOWMINIMIZED, w32.SW_MINIMIZE,
+				w32.SW_SHOWMINNOACTIVE, w32.SW_FORCEMINIMIZE:
+				w.state = WindowMinimized
+			default:
+				w.state = WindowNormal
+			}
+		}
 	}
-	return w.state == w32.SW_MAXIMIZE
-}
-
-func (w *Window) Maximize() {
-	w.setState(w32.SW_MAXIMIZE)
-}
-
-func (w *Window) Minimized() bool {
-	if w.handle != 0 {
-		w.readState()
-	}
-	return w.state == w32.SW_MINIMIZE
-}
-
-func (w *Window) Minimize() {
-	w.setState(w32.SW_MINIMIZE)
-}
-
-func (w *Window) Restore() {
-	w.setState(w32.SW_SHOWNORMAL)
+	return w.state
 }
 
 func (w *Window) GetBackground() w32.HBRUSH { return w.background }
@@ -838,7 +851,7 @@ func (w *Window) Show() error {
 	w.lastInnerWidth, w.lastInnerHeight = w.InnerSize()
 	w.createContents()
 	w.applyIcon()
-	w32.ShowWindow(window, w.state)
+	w32.ShowWindow(window, w.state.toCmd())
 	w.readBounds()
 	if w.onShow != nil {
 		w.onShow()
@@ -1104,7 +1117,7 @@ func (w *Window) ShowModal() error {
 	w.lastInnerWidth, w.lastInnerHeight = w.InnerSize()
 	w.createContents()
 	w.applyIcon()
-	w32.ShowWindow(w.handle, w32.SW_SHOWNORMAL)
+	w32.ShowWindow(window, w.state.toCmd())
 	w32.EnableWindow(w.parent.handle, false)
 	w.readBounds()
 	if w.onShow != nil {

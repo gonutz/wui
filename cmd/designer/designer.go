@@ -882,7 +882,7 @@ func main() {
 
 	w.SetShortcut(wui.ShortcutKeys{Rune: 27}, w.Close) // TODO ESC for debugging
 
-	w.Maximize()
+	w.SetState(wui.WindowMaximized)
 	w.Show()
 }
 
