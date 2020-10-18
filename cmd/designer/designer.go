@@ -83,10 +83,7 @@ func main() {
 	appIconHeight := w32.GetSystemMetrics(w32.SM_CYICON)
 	appIconWidth, appIconHeight = 17, 17
 
-	stdCursor := w.Cursor()
-	upDownCursor := w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_SIZENS))
-	leftRightCursor := w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_SIZEWE))
-	diagonalCursor := w32.LoadCursor(0, w32.MakeIntResource(w32.IDC_SIZENWSE))
+	defaultCursor := w.Cursor()
 
 	leftSlider := wui.NewPanel()
 	leftSlider.SetBounds(195, -1, 5, 602)
@@ -740,13 +737,13 @@ func main() {
 			x -= preview.X()
 			y -= preview.Y()
 			if xResizeArea.contains(x, y) {
-				w.SetCursor(leftRightCursor)
+				w.SetCursor(wui.CursorSizeWE)
 			} else if yResizeArea.contains(x, y) {
-				w.SetCursor(upDownCursor)
+				w.SetCursor(wui.CursorSizeNS)
 			} else if xyResizeArea.contains(x, y) {
-				w.SetCursor(diagonalCursor)
+				w.SetCursor(wui.CursorSizeNWSE)
 			} else {
-				w.SetCursor(stdCursor)
+				w.SetCursor(defaultCursor)
 			}
 		} else {
 			if dragMode == dragX || dragMode == dragXY {
