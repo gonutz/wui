@@ -194,6 +194,46 @@ func (p *Panel) InnerBounds() (x, y, width, height int) {
 	return
 }
 
+func (p *Panel) SetInnerX(x int) {
+	_, y, width, height := p.InnerBounds()
+	p.SetInnerBounds(x, y, width, height)
+}
+
+func (p *Panel) SetInnerY(y int) {
+	x, _, width, height := p.InnerBounds()
+	p.SetInnerBounds(x, y, width, height)
+}
+
+func (p *Panel) SetInnerPosition(x, y int) {
+	_, _, width, height := p.InnerBounds()
+	p.SetInnerBounds(x, y, width, height)
+}
+
+func (p *Panel) SetInnerWidth(width int) {
+	x, y, _, height := p.InnerBounds()
+	p.SetInnerBounds(x, y, width, height)
+}
+
+func (p *Panel) SetInnerHeight(height int) {
+	x, y, width, _ := p.InnerBounds()
+	p.SetInnerBounds(x, y, width, height)
+}
+
+func (p *Panel) SetInnerSize(width, height int) {
+	x, y, _, _ := p.InnerBounds()
+	p.SetInnerBounds(x, y, width, height)
+}
+
+func (p *Panel) SetInnerBounds(x, y, width, height int) {
+	var r w32.RECT
+	w32.AdjustWindowRectEx(&r, borderStyle(p.border), false, borderStyleEx(p.border))
+	x += int(r.Left)
+	y += int(r.Top)
+	width += int(r.Width())
+	height += int(r.Height())
+	p.SetBounds(x, y, width, height)
+}
+
 func (p *Panel) SetBounds(x, y, width, height int) {
 	_, _, oldW, oldH := p.InnerBounds()
 	p.control.SetBounds(x, y, width, height)
