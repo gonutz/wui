@@ -170,8 +170,9 @@ func (c *control) SetBounds(x, y, width, height int) {
 	}
 }
 
-func (c *control) Anchors() (horizontal, vertical Anchor) {
-	return c.hAnchor, c.vAnchor
+func (c *control) SetAnchors(horizontal, vertical Anchor) {
+	c.hAnchor = horizontal
+	c.vAnchor = vertical
 }
 
 func (c *control) SetHorizontalAnchor(a Anchor) {
@@ -180,6 +181,18 @@ func (c *control) SetHorizontalAnchor(a Anchor) {
 
 func (c *control) SetVerticalAnchor(a Anchor) {
 	c.vAnchor = a
+}
+
+func (c *control) Anchors() (horizontal, vertical Anchor) {
+	return c.hAnchor, c.vAnchor
+}
+
+func (c *control) HorizontalAnchor() Anchor {
+	return c.hAnchor
+}
+
+func (c *control) VerticalAnchor() Anchor {
+	return c.vAnchor
 }
 
 func (c *control) Enabled() bool {
