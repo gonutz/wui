@@ -1440,155 +1440,156 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 		do := func(format string, a ...interface{}) {
 			line(name+format, a...)
 		}
-		if button, ok := child.(*wui.Button); ok {
+		switch c := child.(type) {
+		case *wui.Button:
 			do(" := wui.NewButton()")
-			do(".SetBounds(%d, %d, %d, %d)", button.X(), button.Y(), button.Width(), button.Height())
-			h, v := button.Anchors()
+			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
+			h, v := c.Anchors()
 			if h != wui.Anchor(0) {
 				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
 			}
 			if v != wui.Anchor(0) {
 				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
 			}
-			do(".SetText(%q)", button.Text())
-			if !button.Enabled() {
+			do(".SetText(%q)", c.Text())
+			if !c.Enabled() {
 				do(".SetEnabled(false)")
 			}
-			if !button.Visible() {
+			if !c.Visible() {
 				do(".SetVisible(false)")
 			}
 			line("%s.Add(%s)", parent, name)
-		} else if panel, ok := child.(*wui.Panel); ok {
+		case *wui.Panel:
 			do(" := wui.NewPanel()")
-			border := panel.BorderStyle()
+			border := c.BorderStyle()
 			if border != wui.PanelBorderNone {
 				do(".SetBorderStyle(wui.%s)", panelBorderToString(border))
 			}
-			do(".SetBounds(%d, %d, %d, %d)", panel.X(), panel.Y(), panel.Width(), panel.Height())
-			h, v := panel.Anchors()
+			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
+			h, v := c.Anchors()
 			if h != wui.Anchor(0) {
 				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
 			}
 			if v != wui.Anchor(0) {
 				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
 			}
-			if !panel.Enabled() {
+			if !c.Enabled() {
 				do(".SetEnabled(false)")
 			}
-			if !panel.Visible() {
+			if !c.Visible() {
 				do(".SetVisible(false)")
 			}
 			// TODO We would want to fill in the panel content here, before
 			// adding the panel to the parent, but there is a bug in Panel.Add,
 			// see the comment there.
 			line("%s.Add(%s)", parent, name)
-			writeContainer(panel, name, line)
-		} else if r, ok := child.(*wui.RadioButton); ok {
+			writeContainer(c, name, line)
+		case *wui.RadioButton:
 			do(" := wui.NewRadioButton()")
-			do(".SetText(%q)", r.Text())
-			do(".SetBounds(%d, %d, %d, %d)", r.X(), r.Y(), r.Width(), r.Height())
-			h, v := r.Anchors()
+			do(".SetText(%q)", c.Text())
+			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
+			h, v := c.Anchors()
 			if h != wui.Anchor(0) {
 				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
 			}
 			if v != wui.Anchor(0) {
 				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
 			}
-			if !r.Enabled() {
+			if !c.Enabled() {
 				do(".SetEnabled(false)")
 			}
-			if !r.Visible() {
+			if !c.Visible() {
 				do(".SetVisible(false)")
 			}
-			if r.Checked() {
+			if c.Checked() {
 				do(".SetChecked(true)")
 			}
 			line("%s.Add(%s)", parent, name)
-		} else if r, ok := child.(*wui.CheckBox); ok {
+		case *wui.CheckBox:
 			do(" := wui.NewCheckBox()")
-			do(".SetText(%q)", r.Text())
-			do(".SetBounds(%d, %d, %d, %d)", r.X(), r.Y(), r.Width(), r.Height())
-			h, v := r.Anchors()
+			do(".SetText(%q)", c.Text())
+			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
+			h, v := c.Anchors()
 			if h != wui.Anchor(0) {
 				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
 			}
 			if v != wui.Anchor(0) {
 				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
 			}
-			if !r.Enabled() {
+			if !c.Enabled() {
 				do(".SetEnabled(false)")
 			}
-			if !r.Visible() {
+			if !c.Visible() {
 				do(".SetVisible(false)")
 			}
-			if r.Checked() {
+			if c.Checked() {
 				do(".SetChecked(true)")
 			}
 			line("%s.Add(%s)", parent, name)
-		} else if s, ok := child.(*wui.Slider); ok {
+		case *wui.Slider:
 			do(" := wui.NewSlider()")
-			do(".SetMinMax(%d, %d)", s.Min(), s.Max())
-			do(".SetCursor(%d)", s.Cursor())
-			do(".SetTickFrequency(%d)", s.TickFrequency())
-			do(".SetArrowIncrement(%d)", s.ArrowIncrement())
-			do(".SetMouseIncrement(%d)", s.MouseIncrement())
-			do(".SetTicksVisible(%v)", s.TicksVisible())
-			do(".SetOrientation(wui.%s)", orientationString(s.Orientation()))
-			do(".SetTickPosition(wui.%s)", tickPosString(s.TickPosition()))
-			do(".SetBounds(%d, %d, %d, %d)", s.X(), s.Y(), s.Width(), s.Height())
-			h, v := s.Anchors()
+			do(".SetMinMax(%d, %d)", c.Min(), c.Max())
+			do(".SetCursor(%d)", c.Cursor())
+			do(".SetTickFrequency(%d)", c.TickFrequency())
+			do(".SetArrowIncrement(%d)", c.ArrowIncrement())
+			do(".SetMouseIncrement(%d)", c.MouseIncrement())
+			do(".SetTicksVisible(%v)", c.TicksVisible())
+			do(".SetOrientation(wui.%s)", orientationString(c.Orientation()))
+			do(".SetTickPosition(wui.%s)", tickPosString(c.TickPosition()))
+			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
+			h, v := c.Anchors()
 			if h != wui.Anchor(0) {
 				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
 			}
 			if v != wui.Anchor(0) {
 				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
 			}
-			if !s.Enabled() {
+			if !c.Enabled() {
 				do(".SetEnabled(false)")
 			}
-			if !s.Visible() {
+			if !c.Visible() {
 				do(".SetVisible(false)")
 			}
 			line("%s.Add(%s)", parent, name)
-		} else if l, ok := child.(*wui.Label); ok {
+		case *wui.Label:
 			do(" := wui.NewLabel()")
-			do(".SetText(%q)", l.Text())
-			if l.Alignment() != wui.AlignLeft {
-				do(".SetAlignment(wui.%s)", alignmentToString(l.Alignment()))
+			do(".SetText(%q)", c.Text())
+			if c.Alignment() != wui.AlignLeft {
+				do(".SetAlignment(wui.%s)", alignmentToString(c.Alignment()))
 			}
-			do(".SetBounds(%d, %d, %d, %d)", l.X(), l.Y(), l.Width(), l.Height())
-			h, v := l.Anchors()
+			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
+			h, v := c.Anchors()
 			if h != wui.Anchor(0) {
 				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
 			}
 			if v != wui.Anchor(0) {
 				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
 			}
-			if !l.Enabled() {
+			if !c.Enabled() {
 				do(".SetEnabled(false)")
 			}
-			if !l.Visible() {
+			if !c.Visible() {
 				do(".SetVisible(false)")
 			}
 			line("%s.Add(%s)", parent, name)
-		} else if p, ok := child.(*wui.PaintBox); ok {
+		case *wui.PaintBox:
 			do(" := wui.NewPaintBox()")
-			do(".SetBounds(%d, %d, %d, %d)", p.X(), p.Y(), p.Width(), p.Height())
-			h, v := p.Anchors()
+			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
+			h, v := c.Anchors()
 			if h != wui.Anchor(0) {
 				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
 			}
 			if v != wui.Anchor(0) {
 				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
 			}
-			if !p.Enabled() {
+			if !c.Enabled() {
 				do(".SetEnabled(false)")
 			}
-			if !p.Visible() {
+			if !c.Visible() {
 				do(".SetVisible(false)")
 			}
 			line("%s.Add(%s)", parent, name)
-		} else {
+		default:
 			panic("unhandled child control")
 		}
 	}
