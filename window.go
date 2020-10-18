@@ -403,12 +403,6 @@ func (w *Window) SetSize(width, height int) {
 }
 
 func (w *Window) SetBounds(x, y, width, height int) {
-	if width < 0 {
-		width = 0
-	}
-	if height < 0 {
-		height = 0
-	}
 	if w.handle != 0 {
 		// The window will receive a WM_SIZE which will handle anchoring child
 		// controls.
