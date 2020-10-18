@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -1440,94 +1441,37 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 		do := func(format string, a ...interface{}) {
 			line(name+format, a...)
 		}
+		typeName := reflect.TypeOf(child).Elem().Name()
+		do(" := wui.New%s()", typeName)
+		x, y, width, height := child.Bounds()
+		do(".SetBounds(%d, %d, %d, %d)", x, y, width, height)
+		if e, ok := child.(enabler); ok && !e.Enabled() {
+			do(".SetEnabled(false)")
+		}
+		if v, ok := child.(visibler); ok && !v.Visible() {
+			do(".SetVisible(false)")
+		}
+		if a, ok := child.(anchorer); ok {
+			h, v := a.Anchors()
+			if h != wui.Anchor(0) {
+				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
+			}
+			if v != wui.Anchor(0) {
+				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
+			}
+		}
+		if t, ok := child.(texter); ok && t.Text() != "" {
+			do(".SetText(%q)", t.Text())
+		}
+		if c, ok := child.(checker); ok && c.Checked() {
+			do(".SetChecked(true)")
+		}
 		switch c := child.(type) {
-		case *wui.Button:
-			do(" := wui.NewButton()")
-			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
-			h, v := c.Anchors()
-			if h != wui.Anchor(0) {
-				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
-			}
-			if v != wui.Anchor(0) {
-				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
-			}
-			do(".SetText(%q)", c.Text())
-			if !c.Enabled() {
-				do(".SetEnabled(false)")
-			}
-			if !c.Visible() {
-				do(".SetVisible(false)")
-			}
-			line("%s.Add(%s)", parent, name)
 		case *wui.Panel:
-			do(" := wui.NewPanel()")
-			border := c.BorderStyle()
-			if border != wui.PanelBorderNone {
-				do(".SetBorderStyle(wui.%s)", panelBorderToString(border))
+			if c.BorderStyle() != wui.PanelBorderNone {
+				do(".SetBorderStyle(wui.%s)", panelBorderToString(c.BorderStyle()))
 			}
-			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
-			h, v := c.Anchors()
-			if h != wui.Anchor(0) {
-				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
-			}
-			if v != wui.Anchor(0) {
-				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
-			}
-			if !c.Enabled() {
-				do(".SetEnabled(false)")
-			}
-			if !c.Visible() {
-				do(".SetVisible(false)")
-			}
-			// TODO We would want to fill in the panel content here, before
-			// adding the panel to the parent, but there is a bug in Panel.Add,
-			// see the comment there.
-			line("%s.Add(%s)", parent, name)
-			writeContainer(c, name, line)
-		case *wui.RadioButton:
-			do(" := wui.NewRadioButton()")
-			do(".SetText(%q)", c.Text())
-			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
-			h, v := c.Anchors()
-			if h != wui.Anchor(0) {
-				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
-			}
-			if v != wui.Anchor(0) {
-				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
-			}
-			if !c.Enabled() {
-				do(".SetEnabled(false)")
-			}
-			if !c.Visible() {
-				do(".SetVisible(false)")
-			}
-			if c.Checked() {
-				do(".SetChecked(true)")
-			}
-			line("%s.Add(%s)", parent, name)
-		case *wui.CheckBox:
-			do(" := wui.NewCheckBox()")
-			do(".SetText(%q)", c.Text())
-			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
-			h, v := c.Anchors()
-			if h != wui.Anchor(0) {
-				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
-			}
-			if v != wui.Anchor(0) {
-				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
-			}
-			if !c.Enabled() {
-				do(".SetEnabled(false)")
-			}
-			if !c.Visible() {
-				do(".SetVisible(false)")
-			}
-			if c.Checked() {
-				do(".SetChecked(true)")
-			}
-			line("%s.Add(%s)", parent, name)
 		case *wui.Slider:
-			do(" := wui.NewSlider()")
 			do(".SetMinMax(%d, %d)", c.Min(), c.Max())
 			do(".SetCursor(%d)", c.Cursor())
 			do(".SetTickFrequency(%d)", c.TickFrequency())
@@ -1536,61 +1480,17 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 			do(".SetTicksVisible(%v)", c.TicksVisible())
 			do(".SetOrientation(wui.%s)", orientationString(c.Orientation()))
 			do(".SetTickPosition(wui.%s)", tickPosString(c.TickPosition()))
-			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
-			h, v := c.Anchors()
-			if h != wui.Anchor(0) {
-				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
-			}
-			if v != wui.Anchor(0) {
-				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
-			}
-			if !c.Enabled() {
-				do(".SetEnabled(false)")
-			}
-			if !c.Visible() {
-				do(".SetVisible(false)")
-			}
-			line("%s.Add(%s)", parent, name)
 		case *wui.Label:
-			do(" := wui.NewLabel()")
-			do(".SetText(%q)", c.Text())
 			if c.Alignment() != wui.AlignLeft {
 				do(".SetAlignment(wui.%s)", alignmentToString(c.Alignment()))
 			}
-			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
-			h, v := c.Anchors()
-			if h != wui.Anchor(0) {
-				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
-			}
-			if v != wui.Anchor(0) {
-				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
-			}
-			if !c.Enabled() {
-				do(".SetEnabled(false)")
-			}
-			if !c.Visible() {
-				do(".SetVisible(false)")
-			}
-			line("%s.Add(%s)", parent, name)
-		case *wui.PaintBox:
-			do(" := wui.NewPaintBox()")
-			do(".SetBounds(%d, %d, %d, %d)", c.X(), c.Y(), c.Width(), c.Height())
-			h, v := c.Anchors()
-			if h != wui.Anchor(0) {
-				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
-			}
-			if v != wui.Anchor(0) {
-				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
-			}
-			if !c.Enabled() {
-				do(".SetEnabled(false)")
-			}
-			if !c.Visible() {
-				do(".SetVisible(false)")
-			}
-			line("%s.Add(%s)", parent, name)
-		default:
-			panic("unhandled child control")
+		}
+		line("%s.Add(%s)", parent, name)
+		if p, ok := child.(*wui.Panel); ok {
+			// TODO We would want to fill in the panel content above, before
+			// adding the panel to the parent, but there is a bug in Panel.Add,
+			// see the comment there.
+			writeContainer(p, name, line)
 		}
 	}
 }
@@ -1677,6 +1577,18 @@ type enabler interface {
 type visibler interface {
 	Visible() bool
 	SetVisible(bool)
+}
+
+type anchorer interface {
+	Anchors() (horizontal, vertical wui.Anchor)
+}
+
+type texter interface {
+	Text() string
+}
+
+type checker interface {
+	Checked() bool
 }
 
 func findContainerAt(c wui.Container, x, y int) (innerMost wui.Container, atX, atY int) {
