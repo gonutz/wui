@@ -170,3 +170,37 @@ func (p *Panel) SetBounds(x, y, width, height int) {
 	_, _, newW, newH := p.InnerBounds()
 	repositionChidrenByAnchors(p, oldW, oldH, newW, newH)
 }
+
+// NOTE that we need to re-write all the Set... functions here to make them go
+// throught Panel's SetBounds. control's Set... functions go through control's
+// SetBounds which does not do what we want.
+
+func (p *Panel) SetX(x int) {
+	_, y, width, height := p.Bounds()
+	p.SetBounds(x, y, width, height)
+}
+
+func (p *Panel) SetY(y int) {
+	x, _, width, height := p.Bounds()
+	p.SetBounds(x, y, width, height)
+}
+
+func (p *Panel) SetPosition(x, y int) {
+	_, _, width, height := p.Bounds()
+	p.SetBounds(x, y, width, height)
+}
+
+func (p *Panel) SetWidth(width int) {
+	x, y, _, height := p.Bounds()
+	p.SetBounds(x, y, width, height)
+}
+
+func (p *Panel) SetHeight(height int) {
+	x, y, width, _ := p.Bounds()
+	p.SetBounds(x, y, width, height)
+}
+
+func (p *Panel) SetSize(width, height int) {
+	x, y, _, _ := p.Bounds()
+	p.SetBounds(x, y, width, height)
+}
