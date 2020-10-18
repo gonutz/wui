@@ -131,6 +131,9 @@ func main() {
 	labelTemplate.SetText("Text Label")
 	labelTemplate.SetBounds(10, 210, 50, 13)
 
+	paintBoxTemplate := wui.NewPaintBox()
+	paintBoxTemplate.SetBounds(10, 230, 150, 50)
+
 	allTemplates := []wui.Control{
 		buttonTemplate,
 		checkBoxTemplate,
@@ -138,6 +141,7 @@ func main() {
 		sliderTemplate,
 		panelTemplate,
 		labelTemplate,
+		paintBoxTemplate,
 	}
 
 	var highlightedTemplate, controlToAdd wui.Control
@@ -1026,6 +1030,8 @@ func drawControl(c wui.Control, d drawer) {
 		drawSlider(x, d)
 	case *wui.Label:
 		drawLabel(x, d)
+	case *wui.PaintBox:
+		drawPaintBox(x, d)
 	default:
 		panic("unhandled control type")
 	}
@@ -1267,6 +1273,14 @@ func drawLabel(l *wui.Label, d drawer) {
 	d.PushDrawRegion(x, y, w, h)
 	d.TextOut(textX, y+(h-textH)/2, l.Text(), wui.RGB(0, 0, 0))
 	d.PopDrawRegion()
+}
+
+func drawPaintBox(p *wui.PaintBox, d drawer) {
+	x, y, w, h := p.Bounds()
+	if w > 0 && h > 0 {
+		d.DrawRect(x, y, w, h, wui.RGB(0, 0, 0))
+		d.TextRectFormat(x, y, w, h, "Paint Box", wui.FormatCenter, wui.RGB(0, 0, 0))
+	}
 }
 
 func anchorToString(a wui.Anchor) string {
@@ -1557,6 +1571,23 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 				do(".SetVisible(false)")
 			}
 			line("%s.Add(%s)", parent, name)
+		} else if p, ok := child.(*wui.PaintBox); ok {
+			do(" := wui.NewPaintBox()")
+			do(".SetBounds(%d, %d, %d, %d)", p.X(), p.Y(), p.Width(), p.Height())
+			h, v := p.Anchors()
+			if h != wui.Anchor(0) {
+				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
+			}
+			if v != wui.Anchor(0) {
+				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
+			}
+			if !p.Enabled() {
+				do(".SetEnabled(false)")
+			}
+			if !p.Visible() {
+				do(".SetVisible(false)")
+			}
+			line("%s.Add(%s)", parent, name)
 		} else {
 			panic("unhandled child control")
 		}
@@ -1628,6 +1659,10 @@ func cloneControl(c wui.Control) wui.Control {
 		l.SetAlignment(x.Alignment())
 		l.SetBounds(0, 0, x.Width(), x.Height())
 		return l
+	case *wui.PaintBox:
+		p := wui.NewPaintBox()
+		p.SetBounds(0, 0, x.Width(), x.Height())
+		return p
 	default:
 		panic("unhandled control type in cloneControl")
 	}
