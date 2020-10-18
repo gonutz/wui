@@ -153,6 +153,36 @@ func (p *Panel) SetFont(f *Font) {
 	}
 }
 
+func (p *Panel) InnerX() int {
+	x, _, _, _ := p.InnerBounds()
+	return x
+}
+
+func (p *Panel) InnerY() int {
+	_, y, _, _ := p.InnerBounds()
+	return y
+}
+
+func (p *Panel) InnerPosition() (x, y int) {
+	x, y, _, _ = p.InnerBounds()
+	return
+}
+
+func (p *Panel) InnerWidth() int {
+	_, _, width, _ := p.InnerBounds()
+	return width
+}
+
+func (p *Panel) InnerHeight() int {
+	_, _, _, height := p.InnerBounds()
+	return height
+}
+
+func (p *Panel) InnerSize() (width, height int) {
+	_, _, width, height = p.InnerBounds()
+	return
+}
+
 func (p *Panel) InnerBounds() (x, y, width, height int) {
 	x, y, width, height = p.Bounds()
 	var r w32.RECT
