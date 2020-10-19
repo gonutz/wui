@@ -78,6 +78,10 @@ func (p *PaintBox) SetOnPaint(f func(*Canvas)) {
 	p.onPaint = f
 }
 
+func (p *PaintBox) OnPaint() func(*Canvas) {
+	return p.onPaint
+}
+
 func (p *PaintBox) Paint() {
 	if p.handle != 0 {
 		w32.InvalidateRect(p.handle, nil, true)
