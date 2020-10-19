@@ -31,7 +31,7 @@ type IntUpDown struct {
 func (n *IntUpDown) create(id int) {
 	// the main handle is for the edit field
 	n.text = strconv.Itoa(int(n.value))
-	n.textControl.create(
+	n.textEditControl.create(
 		id,
 		w32.WS_EX_CLIENTEDGE,
 		"EDIT",
@@ -85,7 +85,7 @@ func (n *IntUpDown) SetSize(width, height int) {
 }
 
 func (n *IntUpDown) SetBounds(x, y, width, height int) {
-	n.textControl.SetBounds(x, y, width, height)
+	n.textEditControl.SetBounds(x, y, width, height)
 	if n.upDownHandle != 0 {
 		w32.SetWindowPos(
 			n.upDownHandle, 0,
@@ -181,7 +181,7 @@ func (n *IntUpDown) SetOnValueChange(f func(value int)) {
 }
 
 func (n *IntUpDown) SetVisible(v bool) {
-	n.textControl.SetVisible(v)
+	n.textEditControl.SetVisible(v)
 	if n.upDownHandle != 0 {
 		if v {
 			w32.ShowWindow(n.upDownHandle, w32.SW_SHOW)

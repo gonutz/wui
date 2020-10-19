@@ -62,13 +62,13 @@ func (n *FloatUpDown) create(id int) {
 
 	// the main handle is for the edit field
 	n.text = strconv.FormatFloat(n.value, 'f', n.precision, 64)
-	n.textControl.create(
+	n.textEditControl.create(
 		id,
 		w32.WS_EX_CLIENTEDGE,
 		"EDIT",
 		w32.WS_TABSTOP,
 	)
-	w32.SetWindowSubclass(n.textControl.handle, syscall.NewCallback(func(
+	w32.SetWindowSubclass(n.textEditControl.handle, syscall.NewCallback(func(
 		window w32.HWND,
 		msg uint32,
 		wParam, lParam uintptr,
@@ -77,10 +77,10 @@ func (n *FloatUpDown) create(id int) {
 	) uintptr {
 		switch msg {
 		case w32.WM_KILLFOCUS:
-			text := n.textControl.Text()
+			text := n.textEditControl.Text()
 			newText := sanitize(text)
 			if newText != text {
-				n.textControl.SetText(newText)
+				n.textEditControl.SetText(newText)
 			}
 			return w32.DefSubclassProc(window, msg, wParam, lParam)
 		case w32.WM_CHAR:
@@ -147,7 +147,7 @@ func (n *FloatUpDown) SetSize(width, height int) {
 }
 
 func (n *FloatUpDown) SetBounds(x, y, width, height int) {
-	n.textControl.SetBounds(x, y, width, height)
+	n.textEditControl.SetBounds(x, y, width, height)
 	if n.upDownHandle != 0 {
 		w32.SetWindowPos(
 			n.upDownHandle, 0,
@@ -159,8 +159,8 @@ func (n *FloatUpDown) SetBounds(x, y, width, height int) {
 }
 
 func (n *FloatUpDown) Value() float64 {
-	if n.textControl.handle != 0 {
-		t := strings.Replace(n.textControl.Text(), ",", ".", 1)
+	if n.textEditControl.handle != 0 {
+		t := strings.Replace(n.textEditControl.Text(), ",", ".", 1)
 		n.value, _ = strconv.ParseFloat(t, 64)
 	}
 	return n.value
@@ -174,9 +174,9 @@ func (n *FloatUpDown) SetValue(f float64) {
 	if n.value > n.maxValue {
 		n.value = n.maxValue
 	}
-	if n.textControl.handle != 0 {
+	if n.textEditControl.handle != 0 {
 		w32.SetWindowText(
-			n.textControl.handle,
+			n.textEditControl.handle,
 			strconv.FormatFloat(n.value, 'f', n.precision, 64),
 		)
 	}

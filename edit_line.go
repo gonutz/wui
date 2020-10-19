@@ -17,7 +17,7 @@ type EditLine struct {
 }
 
 func (e *EditLine) create(id int) {
-	e.textControl.create(
+	e.textEditControl.create(
 		id,
 		w32.WS_EX_CLIENTEDGE,
 		"EDIT",

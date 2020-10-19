@@ -19,7 +19,7 @@ func (e *TextEdit) create(id int) {
 	if e.autoHScroll {
 		hScroll = w32.ES_AUTOHSCROLL | w32.WS_HSCROLL
 	}
-	e.textControl.create(
+	e.textEditControl.create(
 		id, w32.WS_EX_CLIENTEDGE, "EDIT",
 		w32.WS_TABSTOP|w32.WS_VSCROLL|
 			w32.ES_LEFT|w32.ES_MULTILINE|w32.ES_AUTOVSCROLL|hScroll|
