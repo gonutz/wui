@@ -25,7 +25,14 @@ var (
 	buildDir    = "."
 	buildPrefix = "wui_designer_preview_"
 	buildCount  = 0
+
+	events = make(map[event]string)
 )
+
+type event struct {
+	control interface{}
+	name    string
+}
 
 func main() {
 	// Create a temporary directory to save our preview builds in.
@@ -366,6 +373,11 @@ func main() {
 	white := wui.RGB(255, 255, 255)
 	black := wui.RGB(0, 0, 0)
 
+	editOnPaint := wui.NewButton()
+	editOnPaint.SetText("OnPaint")
+	editOnPaint.SetBounds(105, 300, 85, 25)
+	w.Add(editOnPaint)
+
 	var (
 		// The ResizeAreas are the size drag points of the window.
 		xResizeArea, yResizeArea, xyResizeArea rectangle
@@ -492,6 +504,53 @@ func main() {
 			panic("text alignment only for labels")
 		}
 	})
+	editOnPaint.SetOnClick(func() {
+		p, valid := active.(*wui.PaintBox)
+		if !valid {
+			panic("OnPaint only valid for paint boxes")
+		}
+
+		dlg := wui.NewWindow()
+		dlg.SetPosition(w32.ClientToScreen(w32.HWND(preview.Handle()), 0, 0))
+		dlg.SetSize(preview.Size())
+
+		code := wui.NewTextEdit()
+		font, _ := wui.NewFont(wui.FontDesc{Name: "Courier New", Height: -15})
+		code.SetFont(font)
+		// TODO code.SetWriteTabs(true)
+		// TODO code.SetLineBreaks("\n")
+		code.SetBounds(0, 0, dlg.InnerWidth(), dlg.InnerHeight()-30)
+		code.SetAnchors(wui.AnchorMinAndMax, wui.AnchorMinAndMax)
+		dlg.Add(code)
+
+		onPaint := event{p, "OnPaint"}
+		if events[onPaint] == "" {
+			events[onPaint] = "func(canvas *wui.Canvas) {\n\t\n}"
+		}
+		code.SetText(strings.Replace(events[onPaint], "\n", "\r\n", -1))
+		code.SetCursorPosition(29)
+
+		ok := wui.NewButton()
+		ok.SetText("OK")
+		ok.SetBounds(dlg.InnerWidth()/2-87, dlg.InnerHeight()-28, 85, 25)
+		ok.SetAnchors(wui.AnchorCenter, wui.AnchorMax)
+		ok.SetOnClick(func() {
+			events[onPaint] = strings.Replace(code.Text(), "\r", "", -1)
+			dlg.Close()
+		})
+		dlg.Add(ok)
+
+		cancel := wui.NewButton()
+		cancel.SetText("Cancel")
+		cancel.SetBounds(dlg.InnerWidth()/2+2, dlg.InnerHeight()-28, 85, 25)
+		cancel.SetAnchors(wui.AnchorCenter, wui.AnchorMax)
+		cancel.SetOnClick(dlg.Close)
+		dlg.Add(cancel)
+
+		dlg.SetOnShow(code.Focus)
+
+		dlg.ShowModal()
+	})
 
 	activate := func(newActive node) {
 		active = newActive
@@ -503,6 +562,7 @@ func main() {
 		_, isPanel := active.(*wui.Panel)
 		_, isSlider := active.(*wui.Slider)
 		_, isLabel := active.(*wui.Label)
+		_, isPaintBox := active.(*wui.PaintBox)
 
 		alphaText.SetVisible(isWindow)
 		alpha.SetVisible(isWindow)
@@ -525,6 +585,7 @@ func main() {
 		cursor.SetVisible(isSlider)
 		labelAlignText.SetVisible(isLabel)
 		labelAlign.SetVisible(isLabel)
+		editOnPaint.SetVisible(isPaintBox)
 
 		x, y, width, height := active.Bounds()
 		xEdit.SetValue(x)
@@ -1483,6 +1544,11 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 		case *wui.Label:
 			if c.Alignment() != wui.AlignLeft {
 				do(".SetAlignment(wui.%s)", alignmentToString(c.Alignment()))
+			}
+		case *wui.PaintBox:
+			onPaint := event{c, "OnPaint"}
+			if events[onPaint] != "" {
+				do(".SetOnPaint(%s)", events[onPaint])
 			}
 		}
 		line("%s.Add(%s)", parent, name)
