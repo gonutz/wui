@@ -327,44 +327,56 @@ func (c *textEditControl) create(id int, exStyle uint, className string, style u
 	if c.cursorStart != 0 || c.cursorEnd != 0 {
 		c.setCursor(c.cursorStart, c.cursorEnd)
 	}
-	w32.SetWindowSubclass(c.handle, syscall.NewCallback(func(
-		window w32.HWND,
-		msg uint32,
-		wParam, lParam uintptr,
-		subclassID uintptr,
-		refData uintptr,
-	) uintptr {
-		switch msg {
-		case w32.WM_CHAR:
-			if wParam == 1 && w32.GetKeyState(w32.VK_CONTROL)&0x8000 != 0 {
-				// Ctrl+A was pressed - select all text.
-				c.SelectAll()
-				return 0
-			}
-			if wParam == 127 {
-				// Ctrl+Backspace was pressed, if there is currently a selected
-				// active, delete it. If there is just the cursor, delete the
-				// last word before the cursor.
-				text := []rune(c.Text())
-				start, end := c.CursorPosition()
-				if start != end {
-					// There is a selection, delete it.
-					c.SetText(string(append(text[:start], text[end:]...)))
-					c.SetCursorPosition(start)
-				} else {
-					// No selection, delete the last word before the cursor.
-					newText, newCursor := deleteWordBeforeCursor(text, start)
-					c.SetText(newText)
-					c.SetCursorPosition(newCursor)
-				}
-				return 0
-			}
-			return w32.DefSubclassProc(window, msg, wParam, lParam)
-		default:
-			return w32.DefSubclassProc(window, msg, wParam, lParam)
-		}
-	}), 0, 0)
+	w32.SetWindowSubclass(c.handle, textEditSubclassProc, 0, uintptr(unsafe.Pointer(c)))
 }
+
+var textEditSubclassProc = syscall.NewCallback(func(
+	window w32.HWND,
+	msg uint32,
+	wParam, lParam uintptr,
+	subclassID uintptr,
+	refData uintptr,
+) uintptr {
+	c := (*textEditControl)(unsafe.Pointer(refData))
+	switch msg {
+	case w32.WM_CHAR:
+		shift := w32.GetKeyState(w32.VK_SHIFT)&0x8000 != 0
+		if wParam == 1 {
+			// Ctrl+A was pressed - select all text.
+			c.SelectAll()
+			return 0
+		}
+		if wParam == 26 && !shift {
+			// TODO Ctrl+Z was pressed - undo the last action.
+			//return 0
+		}
+		if wParam == 25 || wParam == 26 && shift {
+			// TODO Ctrl+Y of Ctrl+Shift+Z was pressed - redo the last action.
+			//return 0
+		}
+		if wParam == 127 {
+			// Ctrl+Backspace was pressed, if there is currently a selection
+			// active, delete it. If there is just the cursor, delete the
+			// last word before the cursor.
+			text := []rune(c.Text())
+			start, end := c.CursorPosition()
+			if start != end {
+				// There is a selection, delete it.
+				c.SetText(string(append(text[:start], text[end:]...)))
+				c.SetCursorPosition(start)
+			} else {
+				// No selection, delete the last word before the cursor.
+				newText, newCursor := deleteWordBeforeCursor(text, start)
+				c.SetText(newText)
+				c.SetCursorPosition(newCursor)
+			}
+			return 0
+		}
+		return w32.DefSubclassProc(window, msg, wParam, lParam)
+	default:
+		return w32.DefSubclassProc(window, msg, wParam, lParam)
+	}
+})
 
 // CursorPosition returns the current cursor position, respectively the current
 // selection.
