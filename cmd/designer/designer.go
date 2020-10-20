@@ -937,7 +937,7 @@ func main() {
 	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'R'}, func() {
 		// We place the window such that it lies exactly over our drawing.
 		x, y := w32.ClientToScreen(w32.HWND(w.Handle()), preview.X(), preview.Y())
-		showPreview(theWindow, x+xOffset, y+yOffset)
+		showPreview(w, theWindow, x+xOffset, y+yOffset)
 	})
 	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'O'}, fileOpenMenu.OnClick())
 	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'S'}, fileSaveMenu.OnClick())
@@ -1400,32 +1400,57 @@ type node interface {
 	SetBounds(x, y, width, height int)
 }
 
-func showPreview(w *wui.Window, x, y int) {
-	code := generatePreviewCode(w, x, y)
+func showPreview(parent, w *wui.Window, x, y int) {
+	// Create a centered progress dialog that cannot be closed until the preview
+	// is shown.
+	canClose := make(chan bool, 1)
+	progress := wui.NewDialogWindow()
+	progress.SetTitle("Generating Preview...")
+	progress.DisableAltF4()
+	progress.SetOnCanClose(func() bool {
+		return <-canClose
+	})
+	progress.SetInnerSize(420, 50)
+	progress.SetX(parent.X() + (parent.Width()-progress.Width())/2)
+	progress.SetY(parent.Y() + (parent.Height()-progress.Height())/2)
+	p := wui.NewProgressBar()
+	p.MoveForever()
+	p.SetBounds(10, 10, 400, 30)
+	progress.Add(p)
 
-	// Write the Go file to our temporary build dir.
-	goFile := filepath.Join(buildDir, "wui_designer_temp_file.go")
-	err := ioutil.WriteFile(goFile, code, 0666)
-	if err != nil {
-		wui.MessageBoxError("Error", err.Error())
-		return
-	}
-	defer os.Remove(goFile)
+	// Generate the code in a different go routine while the progress bar is
+	// showing.
+	go func() {
+		code := generatePreviewCode(w, x, y)
 
-	// Build the executable into our temporary build dir.
-	exeFile := filepath.Join(buildDir, buildPrefix+strconv.Itoa(buildCount)+".exe")
-	buildCount++
+		// Write the Go file to our temporary build dir.
+		goFile := filepath.Join(buildDir, "wui_designer_temp_file.go")
+		err := ioutil.WriteFile(goFile, code, 0666)
+		if err != nil {
+			wui.MessageBoxError("Error", err.Error())
+			return
+		}
+		defer os.Remove(goFile)
 
-	// Do the build synchronously and report any build errors.
-	output, err := exec.Command("go", "build", "-o", exeFile, goFile).CombinedOutput()
-	if err != nil {
-		wui.MessageBoxError("Error", err.Error()+"\r\n"+string(output))
-		return
-	}
+		// Build the executable into our temporary build dir.
+		exeFile := filepath.Join(buildDir, buildPrefix+strconv.Itoa(buildCount)+".exe")
+		buildCount++
 
-	// Start the program in parallel so we can have multiple previews open at
-	// once.
-	exec.Command(exeFile).Start()
+		// Do the build synchronously and report any build errors.
+		output, err := exec.Command("go", "build", "-o", exeFile, goFile).CombinedOutput()
+		if err != nil {
+			wui.MessageBoxError("Error", err.Error()+"\r\n"+string(output))
+			return
+		}
+
+		// Start the program in parallel so we can have multiple previews open at
+		// once.
+		exec.Command(exeFile).Start()
+		canClose <- true
+		progress.Close()
+	}()
+
+	progress.ShowModal()
 }
 
 func generatePreviewCode(w *wui.Window, x, y int) []byte {
