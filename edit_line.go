@@ -5,14 +5,15 @@ package wui
 import "github.com/gonutz/w32"
 
 func NewEditLine() *EditLine {
-	return &EditLine{}
+	return &EditLine{limit: 0x7FFFFFFE}
 }
 
 type EditLine struct {
 	textEditControl
-	isPass       bool
-	passChar     uintptr
+	isPassword   bool
+	passwordChar uintptr
 	limit        int
+	readOnly     bool
 	onTextChange func()
 }
 
@@ -23,18 +24,17 @@ func (e *EditLine) create(id int) {
 		"EDIT",
 		w32.WS_TABSTOP|w32.ES_AUTOHSCROLL|w32.ES_PASSWORD,
 	)
-	e.passChar = w32.SendMessage(e.handle, w32.EM_GETPASSWORDCHAR, 0, 0)
-	e.SetPassword(e.isPass)
-	if e.limit != 0 {
-		e.SetCharacterLimit(e.limit)
-	}
+	e.passwordChar = w32.SendMessage(e.handle, w32.EM_GETPASSWORDCHAR, 0, 0)
+	e.SetIsPassword(e.isPassword)
+	e.SetCharacterLimit(e.limit)
+	e.SetReadOnly(e.readOnly)
 }
 
-func (e *EditLine) SetPassword(isPass bool) {
-	e.isPass = isPass
+func (e *EditLine) SetIsPassword(isPassword bool) {
+	e.isPassword = isPassword
 	if e.handle != 0 {
-		if e.isPass {
-			w32.SendMessage(e.handle, w32.EM_SETPASSWORDCHAR, e.passChar, 0)
+		if e.isPassword {
+			w32.SendMessage(e.handle, w32.EM_SETPASSWORDCHAR, e.passwordChar, 0)
 		} else {
 			w32.SendMessage(e.handle, w32.EM_SETPASSWORDCHAR, 0, 0)
 		}
@@ -43,10 +43,13 @@ func (e *EditLine) SetPassword(isPass bool) {
 }
 
 func (e *EditLine) IsPassword() bool {
-	return e.isPass
+	return e.isPassword
 }
 
 func (e *EditLine) SetCharacterLimit(count int) {
+	if count <= 0 || count > 0x7FFFFFFE {
+		count = 0x7FFFFFFE
+	}
 	e.limit = count
 	if e.handle != 0 {
 		w32.SendMessage(e.handle, w32.EM_SETLIMITTEXT, uintptr(e.limit), 0)
@@ -58,6 +61,21 @@ func (e *EditLine) CharacterLimit() int {
 		e.limit = int(w32.SendMessage(e.handle, w32.EM_GETLIMITTEXT, 0, 0))
 	}
 	return e.limit
+}
+
+func (e *EditLine) SetReadOnly(readOnly bool) {
+	e.readOnly = readOnly
+	if e.handle != 0 {
+		if readOnly {
+			w32.SendMessage(e.handle, w32.EM_SETREADONLY, 1, 0)
+		} else {
+			w32.SendMessage(e.handle, w32.EM_SETREADONLY, 0, 0)
+		}
+	}
+}
+
+func (e *EditLine) ReadOnly() bool {
+	return e.readOnly
 }
 
 func (e *EditLine) SetOnTextChange(f func()) {
