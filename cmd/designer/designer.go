@@ -1421,6 +1421,11 @@ func showPreview(parent, w *wui.Window, x, y int) {
 	// Generate the code in a different go routine while the progress bar is
 	// showing.
 	go func() {
+		defer func() {
+			canClose <- true
+			progress.Close()
+		}()
+
 		code := generatePreviewCode(w, x, y)
 
 		// Write the Go file to our temporary build dir.
@@ -1446,8 +1451,6 @@ func showPreview(parent, w *wui.Window, x, y int) {
 		// Start the program in parallel so we can have multiple previews open at
 		// once.
 		exec.Command(exeFile).Start()
-		canClose <- true
-		progress.Close()
 	}()
 
 	progress.ShowModal()
