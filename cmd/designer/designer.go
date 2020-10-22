@@ -137,10 +137,14 @@ func main() {
 
 	labelTemplate := wui.NewLabel()
 	labelTemplate.SetText("Text Label")
-	labelTemplate.SetBounds(10, 210, 50, 13)
+	labelTemplate.SetBounds(10, 210, 150, 13)
 
 	paintBoxTemplate := wui.NewPaintBox()
 	paintBoxTemplate.SetBounds(10, 230, 150, 50)
+
+	editLineTemplate := wui.NewEditLine()
+	editLineTemplate.SetBounds(10, 290, 150, 20)
+	editLineTemplate.SetText("Text Edit Line")
 
 	allTemplates := []wui.Control{
 		buttonTemplate,
@@ -150,6 +154,7 @@ func main() {
 		panelTemplate,
 		labelTemplate,
 		paintBoxTemplate,
+		editLineTemplate,
 	}
 
 	var highlightedTemplate, controlToAdd wui.Control
@@ -1094,6 +1099,8 @@ func drawControl(c wui.Control, d drawer) {
 		drawLabel(x, d)
 	case *wui.PaintBox:
 		drawPaintBox(x, d)
+	case *wui.EditLine:
+		drawEditLine(x, d)
 	default:
 		panic("unhandled control type")
 	}
@@ -1345,6 +1352,17 @@ func drawPaintBox(p *wui.PaintBox, d drawer) {
 	}
 }
 
+func drawEditLine(e *wui.EditLine, d drawer) {
+	x, y, w, h := e.Bounds()
+	if w > 0 && h > 0 {
+		d.PushDrawRegion(x, y, w, h)
+		d.DrawRect(x, y, w, h, wui.RGB(122, 122, 122))
+		d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(255, 255, 255))
+		d.TextOut(x+6, y+3, e.Text(), wui.RGB(0, 0, 0))
+		d.PopDrawRegion()
+	}
+}
+
 func anchorToString(a wui.Anchor) string {
 	switch a {
 	case wui.AnchorMin:
@@ -1578,6 +1596,17 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 			if events[onPaint] != "" {
 				do(".SetOnPaint(%s)", events[onPaint])
 			}
+		case *wui.EditLine:
+			if c.IsPassword() {
+				do(".SetIsPassword(true)")
+			}
+			// TODO Do not create new edit lines every time the code is saved?
+			if c.CharacterLimit() != wui.NewEditLine().CharacterLimit() {
+				do(".SetCharacterLimit(%d)", c.CharacterLimit())
+			}
+			if c.ReadOnly() {
+				do(".SetReadOnly(true)")
+			}
 		}
 		line("%s.Add(%s)", parent, name)
 		if p, ok := child.(*wui.Panel); ok {
@@ -1658,6 +1687,14 @@ func cloneControl(c wui.Control) wui.Control {
 		p := wui.NewPaintBox()
 		p.SetBounds(0, 0, x.Width(), x.Height())
 		return p
+	case *wui.EditLine:
+		e := wui.NewEditLine()
+		e.SetBounds(0, 0, x.Width(), x.Height())
+		e.SetText(x.Text())
+		e.SetIsPassword(x.IsPassword())
+		e.SetCharacterLimit(x.CharacterLimit())
+		e.SetReadOnly(x.ReadOnly())
+		return e
 	default:
 		panic("unhandled control type in cloneControl")
 	}
