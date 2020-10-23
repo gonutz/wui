@@ -253,7 +253,6 @@ func main() {
 		newBoolProp("Checked", "Checked"),
 		newIntProp("Arrow Increment", "ArrowIncrement"),
 		newIntProp("Mouse Increment", "MouseIncrement"),
-		newIntProp("Cursor Position", "CursorPosition"),
 		newIntProp("Min", "Min"),
 		newIntProp("Max", "Max"),
 		newEnumProp("Orientation", "Orientation",
@@ -1186,6 +1185,9 @@ func drawEditLine(e *wui.EditLine, d drawer) {
 		d.PushDrawRegion(x, y, w, h)
 		d.DrawRect(x, y, w, h, wui.RGB(122, 122, 122))
 		d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(255, 255, 255))
+		if e.ReadOnly() {
+			d.FillRect(x+2, y+2, w-4, h-4, wui.RGB(240, 240, 240))
+		}
 		text := e.Text()
 		if e.IsPassword() {
 			text = strings.Repeat("●", utf8.RuneCountInString(text))
