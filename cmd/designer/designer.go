@@ -131,9 +131,12 @@ func main() {
 		return uiProp{panel: p, setter: setterFunc, update: update}
 	}
 
-	newIntProp := func(name, getterFunc string) uiProp {
+	newIntProp := func(name, getterFunc string, min, max int) uiProp {
 		setterFunc := "Set" + getterFunc // By convention.
 		n := wui.NewIntUpDown()
+		if min != max {
+			n.SetMinMaxValues(min, max)
+		}
 		n.SetBounds(100, propMargin, 90, 22)
 		l := wui.NewLabel()
 		l.SetText(name)
@@ -153,16 +156,17 @@ func main() {
 			if active == nil {
 				return
 			}
-			if _, ok := reflect.TypeOf(active).MethodByName(setterFunc); ok {
+			if m, ok := reflect.TypeOf(active).MethodByName(setterFunc); ok {
 				reflect.ValueOf(active).MethodByName(setterFunc).Call(
-					[]reflect.Value{reflect.ValueOf(v)},
+					[]reflect.Value{reflect.ValueOf(v).Convert(m.Type.In(1))},
 				)
 				preview.Paint()
 			}
 		})
 		update := func() {
-			v := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0].Int()
-			n.SetValue(int(v))
+			v := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0]
+			i := v.Convert(reflect.TypeOf(0)).Int()
+			n.SetValue(int(i))
 		}
 		return uiProp{panel: p, setter: setterFunc, update: update}
 	}
@@ -234,6 +238,8 @@ func main() {
 	}
 
 	uiProps := []uiProp{
+		newStringProp("Title", "Title"),
+		newIntProp("Alpha", "Alpha", 0, 255),
 		newBoolProp("Enabled", "Enabled"),
 		newBoolProp("Visible", "Visible"),
 		newEnumProp("Horizontal Anchor", "HorizontalAnchor",
@@ -242,23 +248,23 @@ func main() {
 		newEnumProp("Vertical Anchor", "VerticalAnchor",
 			"Top", "Bottom", "Center", "Top+Bottom", "Top+Center", "Bottom+Center",
 		),
-		newIntProp("X", "X"),
-		newIntProp("Y", "Y"),
-		newIntProp("Width", "Width"),
-		newIntProp("Height", "Height"),
+		newIntProp("X", "X", 0, 0),
+		newIntProp("Y", "Y", 0, 0),
+		newIntProp("Width", "Width", 0, 0),
+		newIntProp("Height", "Height", 0, 0),
 		newStringProp("Text", "Text"),
 		newEnumProp("Alignment", "Alignment",
 			"Left", "Center", "Right",
 		),
 		newBoolProp("Checked", "Checked"),
-		newIntProp("Arrow Increment", "ArrowIncrement"),
-		newIntProp("Mouse Increment", "MouseIncrement"),
-		newIntProp("Min", "Min"),
-		newIntProp("Max", "Max"),
+		newIntProp("Arrow Increment", "ArrowIncrement", 0, 0),
+		newIntProp("Mouse Increment", "MouseIncrement", 0, 0),
+		newIntProp("Min", "Min", 0, 0),
+		newIntProp("Max", "Max", 0, 0),
 		newEnumProp("Orientation", "Orientation",
 			"Horizontal", "Vertical",
 		),
-		newIntProp("Tick Frequency", "TickFrequency"),
+		newIntProp("Tick Frequency", "TickFrequency", 0, 0),
 		newEnumProp("Tick Position", "TickPosition",
 			"Right/Bottom", "Left/Top", "Both Sides",
 		),
@@ -266,7 +272,7 @@ func main() {
 		newEnumProp("Border Style", "BorderStyle",
 			"None", "Single Line", "Sunken", "Sunken Thick", "Raised",
 		),
-		newIntProp("Character Limit", "CharacterLimit"),
+		newIntProp("Character Limit", "CharacterLimit", 0, 0x7FFFFFFE),
 		newBoolProp("Is Password", "IsPassword"),
 		newBoolProp("Read Only", "ReadOnly"),
 	}
