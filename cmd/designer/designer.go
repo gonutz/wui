@@ -56,6 +56,21 @@ func main() {
 		}
 	}()
 
+	var (
+		// The ResizeAreas are the size drag points of the window.
+		xResizeArea, yResizeArea, xyResizeArea rectangle
+		// innerX and Y is the top-left corner of where theWindow's inner
+		// rectangle is drawn, relative to the application window. This means we
+		// can use innerX and Y in the application window's mouse events to find
+		// the relative mouse position inside theWindow.
+		innerX, innerY int
+		// active is the highlighted control whose properties are shown in the
+		// tool bar.
+		active node
+		// TODO Move preview somewhere else.
+		preview = wui.NewPaintBox()
+	)
+
 	const (
 		idleMouse = iota
 		addingControl
@@ -85,6 +100,176 @@ func main() {
 
 	// TODO Doing this after the menu does not work.
 	//w.SetInnerSize(800, 600)
+
+	type uiProp struct {
+		panel  *wui.Panel
+		setter string
+		update func()
+	}
+
+	const propMargin = 2
+	newBoolProp := func(name, getterFunc string) uiProp {
+		setterFunc := "Set" + getterFunc // By convention.
+		c := wui.NewCheckBox()
+		c.SetText(name)
+		c.SetBounds(100, propMargin, 95, 17)
+		p := wui.NewPanel()
+		p.SetSize(195, c.Height()+2*propMargin)
+		w.Add(p)
+		p.Add(c)
+		c.SetOnChange(func(on bool) {
+			reflect.ValueOf(active).MethodByName(setterFunc).Call(
+				[]reflect.Value{reflect.ValueOf(on)},
+			)
+			preview.Paint()
+		})
+		update := func() {
+			on := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0].Bool()
+			c.SetChecked(on)
+		}
+		return uiProp{panel: p, setter: setterFunc, update: update}
+	}
+
+	newIntProp := func(name, getterFunc string) uiProp {
+		setterFunc := "Set" + getterFunc // By convention.
+		n := wui.NewIntUpDown()
+		n.SetBounds(100, propMargin, 90, 22)
+		l := wui.NewLabel()
+		l.SetText(name)
+		l.SetAlignment(wui.AlignRight)
+		// TODO This -1 might have to do with the below TODO about the IntUpDown
+		// height.
+		l.SetBounds(0, propMargin-1, 95, n.Height())
+		p := wui.NewPanel()
+		// TODO We add +2 to the height because for some reason setting the
+		// height of an IntUpDown does not include the borders. Fix this in the
+		// wui library.
+		p.SetSize(195, n.Height()+2+2*propMargin)
+		w.Add(p)
+		p.Add(l)
+		p.Add(n)
+		n.SetOnValueChange(func(v int) {
+			if active == nil {
+				return
+			}
+			if _, ok := reflect.TypeOf(active).MethodByName(setterFunc); ok {
+				reflect.ValueOf(active).MethodByName(setterFunc).Call(
+					[]reflect.Value{reflect.ValueOf(v)},
+				)
+				preview.Paint()
+			}
+		})
+		update := func() {
+			v := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0].Int()
+			n.SetValue(int(v))
+		}
+		return uiProp{panel: p, setter: setterFunc, update: update}
+	}
+
+	newStringProp := func(name, getterFunc string) uiProp {
+		setterFunc := "Set" + getterFunc // By convention.
+		t := wui.NewEditLine()
+		t.SetBounds(100, propMargin, 90, 22)
+		l := wui.NewLabel()
+		l.SetText(name)
+		l.SetAlignment(wui.AlignRight)
+		l.SetBounds(0, propMargin-1, 95, t.Height())
+		p := wui.NewPanel()
+		p.SetSize(195, t.Height()+2*propMargin)
+		w.Add(p)
+		p.Add(l)
+		p.Add(t)
+		t.SetOnTextChange(func() {
+			if active == nil {
+				return
+			}
+			if _, ok := reflect.TypeOf(active).MethodByName(setterFunc); ok {
+				reflect.ValueOf(active).MethodByName(setterFunc).Call(
+					[]reflect.Value{reflect.ValueOf(t.Text())},
+				)
+				preview.Paint()
+			}
+		})
+		update := func() {
+			text := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0].String()
+			t.SetText(text)
+		}
+		return uiProp{panel: p, setter: setterFunc, update: update}
+	}
+
+	// enumNames must correspond to the respective const, the order is important
+	// and the consts must be iota'd, i.e. start with 0 and increment by 1.
+	newEnumProp := func(name, getterFunc string, enumNames ...string) uiProp {
+		setterFunc := "Set" + getterFunc // By convention.
+		c := wui.NewComboBox()
+		for _, name := range enumNames {
+			c.Add(name)
+		}
+		c.SetBounds(100, propMargin, 90, 22)
+		l := wui.NewLabel()
+		l.SetText(name)
+		l.SetAlignment(wui.AlignRight)
+		l.SetBounds(0, propMargin-1, 95, c.Height())
+		p := wui.NewPanel()
+		p.SetSize(195, c.Height()+2*propMargin)
+		w.Add(p)
+		p.Add(l)
+		p.Add(c)
+		c.SetOnChange(func(index int) {
+			m, ok := reflect.TypeOf(active).MethodByName(setterFunc)
+			if ok {
+				reflect.ValueOf(active).MethodByName(setterFunc).Call(
+					[]reflect.Value{reflect.ValueOf(index).Convert(m.Type.In(1))},
+				)
+				preview.Paint()
+			}
+		})
+		update := func() {
+			v := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0]
+			index := v.Convert(reflect.TypeOf(0)).Int()
+			c.SetSelectedIndex(int(index))
+		}
+		return uiProp{panel: p, setter: setterFunc, update: update}
+	}
+
+	uiProps := []uiProp{
+		newBoolProp("Enabled", "Enabled"),
+		newBoolProp("Visible", "Visible"),
+		newEnumProp("Horizontal Anchor", "HorizontalAnchor",
+			"Left", "Right", "Center", "Left+Right", "Left+Center", "Right+Center",
+		),
+		newEnumProp("Vertical Anchor", "VerticalAnchor",
+			"Top", "Bottom", "Center", "Top+Bottom", "Top+Center", "Bottom+Center",
+		),
+		newIntProp("X", "X"),
+		newIntProp("Y", "Y"),
+		newIntProp("Width", "Width"),
+		newIntProp("Height", "Height"),
+		newStringProp("Text", "Text"),
+		newEnumProp("Alignment", "Alignment",
+			"Left", "Center", "Right",
+		),
+		newBoolProp("Checked", "Checked"),
+		newIntProp("Arrow Increment", "ArrowIncrement"),
+		newIntProp("Mouse Increment", "MouseIncrement"),
+		newIntProp("Cursor Position", "CursorPosition"),
+		newIntProp("Min", "Min"),
+		newIntProp("Max", "Max"),
+		newEnumProp("Orientation", "Orientation",
+			"Horizontal", "Vertical",
+		),
+		newIntProp("Tick Frequency", "TickFrequency"),
+		newEnumProp("Tick Position", "TickPosition",
+			"Right/Bottom", "Left/Top", "Both Sides",
+		),
+		newBoolProp("Ticks Visible", "TicksVisible"),
+		newEnumProp("Border Style", "BorderStyle",
+			"None", "Single Line", "Sunken", "Sunken Thick", "Raised",
+		),
+		newIntProp("Character Limit", "CharacterLimit"),
+		newBoolProp("Is Password", "IsPassword"),
+		newBoolProp("Read Only", "ReadOnly"),
+	}
 
 	appIcon := w32.LoadIcon(0, w32.MakeIntResource(w32.IDI_APPLICATION))
 	appIconWidth := w32.GetSystemMetrics(w32.SM_CXICON)
@@ -194,181 +379,9 @@ func main() {
 	nameText.SetBounds(10, 10, 85, 20)
 	w.Add(nameText)
 	name := wui.NewEditLine()
-	name.SetBounds(105, 10, 85, 25)
+	name.SetBounds(100, 10, 90, 22)
 	w.Add(name)
 
-	makeIntEdit := func(text string, y int) (*wui.Label, *wui.IntUpDown) {
-		l := wui.NewLabel()
-		l.SetText(text)
-		l.SetAlignment(wui.AlignRight)
-		l.SetBounds(10, y, 85, 20)
-		w.Add(l)
-		edit := wui.NewIntUpDown()
-		edit.SetBounds(105, y, 85, 25)
-		w.Add(edit)
-		return l, edit
-	}
-
-	alphaText, alpha := makeIntEdit("Alpha", 40)
-	alpha.SetMinMaxValues(0, 255)
-
-	anchorToIndex := map[wui.Anchor]int{
-		wui.AnchorMin:          0,
-		wui.AnchorMax:          1,
-		wui.AnchorCenter:       2,
-		wui.AnchorMinAndMax:    3,
-		wui.AnchorMinAndCenter: 4,
-		wui.AnchorMaxAndCenter: 5,
-	}
-	indexToAnchor := make(map[int]wui.Anchor)
-	for a, i := range anchorToIndex {
-		indexToAnchor[i] = a
-	}
-
-	hAnchorText := wui.NewLabel()
-	hAnchorText.SetText("Horizontal Anchor")
-	hAnchorText.SetAlignment(wui.AlignRight)
-	hAnchorText.SetBounds(10, 40, 85, 20)
-	w.Add(hAnchorText)
-	hAnchor := wui.NewComboBox()
-	hAnchor.Add("Left")
-	hAnchor.Add("Right")
-	hAnchor.Add("Center")
-	hAnchor.Add("Left+Right")
-	hAnchor.Add("Left+Center")
-	hAnchor.Add("Right+Center")
-	hAnchor.SetBounds(105, 40, 85, 25)
-	w.Add(hAnchor)
-
-	vAnchorText := wui.NewLabel()
-	vAnchorText.SetText("Vertical Anchor")
-	vAnchorText.SetAlignment(wui.AlignRight)
-	vAnchorText.SetBounds(10, 70, 85, 20)
-	w.Add(vAnchorText)
-	vAnchor := wui.NewComboBox()
-	vAnchor.Add("Top")
-	vAnchor.Add("Bottom")
-	vAnchor.Add("Center")
-	vAnchor.Add("Top+Bottom")
-	vAnchor.Add("Top+Center")
-	vAnchor.Add("Bottom+Center")
-	vAnchor.SetBounds(105, 70, 85, 25)
-	w.Add(vAnchor)
-
-	_, xEdit := makeIntEdit("X", 100)
-	_, yEdit := makeIntEdit("Y", 130)
-	_, widthEdit := makeIntEdit("Width", 160)
-	_, heightEdit := makeIntEdit("Height", 190)
-
-	enabled := wui.NewCheckBox()
-	enabled.SetText("Enabled")
-	enabled.SetBounds(105, 220, 85, 17)
-	w.Add(enabled)
-
-	visible := wui.NewCheckBox()
-	visible.SetText("Visible")
-	visible.SetBounds(105, 240, 85, 17)
-	w.Add(visible)
-
-	minText, minEdit := makeIntEdit("Min Value", 260)
-	maxText, maxEdit := makeIntEdit("Max Value", 290)
-
-	orientationToIndex := map[wui.SliderOrientation]int{
-		wui.HorizontalSlider: 0,
-		wui.VerticalSlider:   1,
-	}
-	indexToOrientation := make(map[int]wui.SliderOrientation)
-	for o, i := range orientationToIndex {
-		indexToOrientation[i] = o
-	}
-	orientationText := wui.NewLabel()
-	orientationText.SetText("Orientation")
-	orientationText.SetAlignment(wui.AlignRight)
-	orientationText.SetBounds(10, 320, 85, 20)
-	w.Add(orientationText)
-	orientation := wui.NewComboBox()
-	orientation.Add("Horizontal")
-	orientation.Add("Vertical")
-	orientation.SetBounds(105, 320, 85, 25)
-	w.Add(orientation)
-
-	tickPosToIndex := map[wui.TickPosition]int{
-		wui.TicksBottomOrRight: 0,
-		wui.TicksTopOrLeft:     1,
-		wui.TicksOnBothSides:   2,
-	}
-	indexToTickPos := make(map[int]wui.TickPosition)
-	for p, i := range tickPosToIndex {
-		indexToTickPos[i] = p
-	}
-	tickPosText := wui.NewLabel()
-	tickPosText.SetText("Tick Position")
-	tickPosText.SetAlignment(wui.AlignRight)
-	tickPosText.SetBounds(10, 350, 85, 20)
-	w.Add(tickPosText)
-	tickPos := wui.NewComboBox()
-	tickPos.Add("Bottom/Right")
-	tickPos.Add("Top/Left")
-	tickPos.Add("Both Sides")
-	tickPos.SetBounds(105, 350, 85, 25)
-	w.Add(tickPos)
-
-	cursorText, cursor := makeIntEdit("Cursor Position", 380)
-
-	checked := wui.NewCheckBox()
-	checked.SetText("Checked")
-	checked.SetBounds(105, 100, 85, 17)
-	w.Add(checked)
-
-	alignmentToIndex := map[wui.TextAlignment]int{
-		wui.AlignLeft:   0,
-		wui.AlignCenter: 1,
-		wui.AlignRight:  2,
-	}
-	indexToAlignment := make(map[int]wui.TextAlignment)
-	for a, i := range alignmentToIndex {
-		indexToAlignment[i] = a
-	}
-
-	labelAlignText := wui.NewLabel()
-	labelAlignText.SetText("Alignment")
-	labelAlignText.SetAlignment(wui.AlignRight)
-	labelAlignText.SetBounds(10, 260, 85, 17)
-	w.Add(labelAlignText)
-	labelAlign := wui.NewComboBox()
-	labelAlign.Add("Left")
-	labelAlign.Add("Center")
-	labelAlign.Add("Right")
-	labelAlign.SetBounds(105, 260, 85, 25)
-	w.Add(labelAlign)
-
-	panelBorderToIndex := map[wui.PanelBorderStyle]int{
-		wui.PanelBorderNone:        0,
-		wui.PanelBorderSingleLine:  1,
-		wui.PanelBorderRaised:      2,
-		wui.PanelBorderSunken:      3,
-		wui.PanelBorderSunkenThick: 4,
-	}
-	indexToPanelBorder := make(map[int]wui.PanelBorderStyle)
-	for a, i := range panelBorderToIndex {
-		indexToPanelBorder[i] = a
-	}
-
-	panelBorderStyleText := wui.NewLabel()
-	panelBorderStyleText.SetText("Border Style")
-	panelBorderStyleText.SetAlignment(wui.AlignRight)
-	panelBorderStyleText.SetBounds(10, 266, 85, 20)
-	w.Add(panelBorderStyleText)
-	panelBorderStyle := wui.NewComboBox()
-	panelBorderStyle.Add("None")
-	panelBorderStyle.Add("Single")
-	panelBorderStyle.Add("Raised")
-	panelBorderStyle.Add("Sunken")
-	panelBorderStyle.Add("Sunken Thick")
-	panelBorderStyle.SetBounds(105, 265, 85, 25)
-	w.Add(panelBorderStyle)
-
-	preview := wui.NewPaintBox()
 	preview.SetBounds(200, 0, 400, 600)
 	preview.SetHorizontalAnchor(wui.AnchorMinAndMax)
 	preview.SetVerticalAnchor(wui.AnchorMinAndMax)
@@ -377,134 +390,12 @@ func main() {
 
 	editOnPaint := wui.NewButton()
 	editOnPaint.SetText("OnPaint")
-	editOnPaint.SetBounds(105, 300, 85, 25)
+	editOnPaint.SetBounds(105, 500, 85, 25)
+	editOnPaint.SetVisible(false) // TODO Bring this back.
 	w.Add(editOnPaint)
-
-	var (
-		// The ResizeAreas are the size drag points of the window.
-		xResizeArea, yResizeArea, xyResizeArea rectangle
-		// innerX and Y is the top-left corner of where theWindow's inner
-		// rectangle is drawn, relative to the application window. This means we
-		// can use innerX and Y in the application window's mouse events to find
-		// the relative mouse position inside theWindow.
-		innerX, innerY int
-		// active is the highlighted control whose properties are shown in the
-		// tool bar.
-		active node
-	)
 
 	name.SetOnTextChange(func() {
 		names[active] = name.Text()
-	})
-	alpha.SetOnValueChange(func(n int) {
-		if w, ok := active.(*wui.Window); ok {
-			w.SetAlpha(uint8(n))
-		} else {
-			panic("alpha value changed for non-Window")
-		}
-	})
-	hAnchor.SetOnChange(func(i int) {
-		if c, ok := active.(wui.Control); ok {
-			c.SetHorizontalAnchor(indexToAnchor[i])
-		} else {
-			panic("anchor set on non-Control")
-		}
-	})
-	vAnchor.SetOnChange(func(i int) {
-		if c, ok := active.(wui.Control); ok {
-			c.SetVerticalAnchor(indexToAnchor[i])
-		} else {
-			panic("anchor set on non-Control")
-		}
-	})
-	xEdit.SetOnValueChange(func(x int) {
-		_, y, w, h := active.Bounds()
-		active.SetBounds(x, y, w, h)
-		preview.Paint()
-	})
-	yEdit.SetOnValueChange(func(y int) {
-		x, _, w, h := active.Bounds()
-		active.SetBounds(x, y, w, h)
-		preview.Paint()
-	})
-	widthEdit.SetOnValueChange(func(w int) {
-		x, y, _, h := active.Bounds()
-		active.SetBounds(x, y, w, h)
-		preview.Paint()
-	})
-	heightEdit.SetOnValueChange(func(h int) {
-		x, y, w, _ := active.Bounds()
-		active.SetBounds(x, y, w, h)
-		preview.Paint()
-	})
-	enabled.SetOnChange(func(enabled bool) {
-		if e, ok := active.(enabler); ok {
-			e.SetEnabled(enabled)
-		}
-	})
-	visible.SetOnChange(func(visible bool) {
-		if v, ok := active.(visibler); ok {
-			v.SetVisible(visible)
-		}
-	})
-	minEdit.SetOnValueChange(func(min int) {
-		if s, ok := active.(*wui.Slider); ok {
-			s.SetMin(min)
-			cursor.SetValue(s.Cursor())
-			preview.Paint()
-		}
-	})
-	maxEdit.SetOnValueChange(func(max int) {
-		if s, ok := active.(*wui.Slider); ok {
-			s.SetMax(max)
-			cursor.SetValue(s.Cursor())
-			preview.Paint()
-		}
-	})
-	orientation.SetOnChange(func(index int) {
-		if s, ok := active.(*wui.Slider); ok {
-			s.SetOrientation(indexToOrientation[index])
-			preview.Paint()
-		}
-	})
-	tickPos.SetOnChange(func(index int) {
-		if s, ok := active.(*wui.Slider); ok {
-			s.SetTickPosition(indexToTickPos[index])
-			preview.Paint()
-		}
-	})
-	cursor.SetOnValueChange(func(cursor int) {
-		if s, ok := active.(*wui.Slider); ok {
-			s.SetCursor(cursor)
-			preview.Paint()
-		}
-	})
-	checked.SetOnChange(func(check bool) {
-		if r, ok := active.(*wui.RadioButton); ok {
-			r.SetChecked(check)
-			preview.Paint()
-		} else if c, ok := active.(*wui.CheckBox); ok {
-			c.SetChecked(check)
-			preview.Paint()
-		} else {
-			panic("check is for radio buttons and check boxes only")
-		}
-	})
-	panelBorderStyle.SetOnChange(func(i int) {
-		if p, ok := active.(*wui.Panel); ok {
-			p.SetBorderStyle(indexToPanelBorder[i])
-			preview.Paint()
-		} else {
-			panic("panel border style only for panels")
-		}
-	})
-	labelAlign.SetOnChange(func(i int) {
-		if l, ok := active.(*wui.Label); ok {
-			l.SetAlignment(indexToAlignment[i])
-			preview.Paint()
-		} else {
-			panic("text alignment only for labels")
-		}
 	})
 	editOnPaint.SetOnClick(func() {
 		p, valid := active.(*wui.PaintBox)
@@ -556,85 +447,18 @@ func main() {
 
 	activate := func(newActive node) {
 		active = newActive
+
 		name.SetText(names[active])
-
-		_, isWindow := active.(*wui.Window)
-		_, isCheckBox := active.(*wui.CheckBox)
-		_, isRadioButton := active.(*wui.RadioButton)
-		_, isPanel := active.(*wui.Panel)
-		_, isSlider := active.(*wui.Slider)
-		_, isLabel := active.(*wui.Label)
-		_, isPaintBox := active.(*wui.PaintBox)
-
-		alphaText.SetVisible(isWindow)
-		alpha.SetVisible(isWindow)
-		hAnchorText.SetVisible(!isWindow)
-		hAnchor.SetVisible(!isWindow)
-		vAnchorText.SetVisible(!isWindow)
-		vAnchor.SetVisible(!isWindow)
-		checked.SetVisible(isCheckBox || isRadioButton)
-		panelBorderStyleText.SetVisible(isPanel)
-		panelBorderStyle.SetVisible(isPanel)
-		minText.SetVisible(isSlider)
-		minEdit.SetVisible(isSlider)
-		maxText.SetVisible(isSlider)
-		maxEdit.SetVisible(isSlider)
-		orientationText.SetVisible(isSlider)
-		orientation.SetVisible(isSlider)
-		tickPosText.SetVisible(isSlider)
-		tickPos.SetVisible(isSlider)
-		cursorText.SetVisible(isSlider)
-		cursor.SetVisible(isSlider)
-		labelAlignText.SetVisible(isLabel)
-		labelAlign.SetVisible(isLabel)
-		editOnPaint.SetVisible(isPaintBox)
-
-		x, y, width, height := active.Bounds()
-		xEdit.SetValue(x)
-		yEdit.SetValue(y)
-		widthEdit.SetValue(width)
-		heightEdit.SetValue(height)
-
-		if e, ok := active.(enabler); ok {
-			enabled.SetChecked(e.Enabled())
+		y := name.Y() + name.Height() + propMargin
+		for _, prop := range uiProps {
+			_, ok := reflect.TypeOf(active).MethodByName(prop.setter)
+			prop.panel.SetVisible(ok)
+			if ok {
+				prop.panel.SetY(y)
+				y += prop.panel.Height()
+				prop.update()
+			}
 		}
-		if v, ok := active.(visibler); ok {
-			visible.SetChecked(v.Visible())
-		}
-
-		if isWindow {
-			alpha.SetValue(int(active.(*wui.Window).Alpha()))
-		} else {
-			h, v := active.(wui.Control).Anchors()
-			hAnchor.SetSelectedIndex(anchorToIndex[h])
-			vAnchor.SetSelectedIndex(anchorToIndex[v])
-		}
-		if isCheckBox {
-			checked.SetChecked(active.(*wui.CheckBox).Checked())
-		}
-		if isRadioButton {
-			checked.SetChecked(active.(*wui.RadioButton).Checked())
-		}
-		if isPanel {
-			b := active.(*wui.Panel).BorderStyle()
-			panelBorderStyle.SetSelectedIndex(panelBorderToIndex[b])
-		}
-		if isSlider {
-			s := active.(*wui.Slider)
-			min, max := s.MinMax()
-			minEdit.SetValue(min)
-			maxEdit.SetValue(max)
-			orientation.SetSelectedIndex(orientationToIndex[s.Orientation()])
-			tickPos.SetSelectedIndex(tickPosToIndex[s.TickPosition()])
-			cursor.SetValue(s.Cursor())
-			cursor.SetMinMaxValues(s.MinMax())
-		}
-		if isLabel {
-			l := active.(*wui.Label)
-			labelAlign.SetSelectedIndex(alignmentToIndex[l.Alignment()])
-		}
-
-		preview.Paint()
 	}
 	activate(theWindow)
 
@@ -746,7 +570,7 @@ func main() {
 		outlineSquare(xyResizeArea)
 
 		// Highlight the currently selected child control.
-		if active != theWindow {
+		if active != nil && active != theWindow {
 			x, y, w, h := active.Bounds()
 			parent := active.Parent()
 			for parent != theWindow {
@@ -781,7 +605,13 @@ func main() {
 
 	var dragStartX, dragStartY, dragStartWidth, dragStartHeight int
 
+	lastX, lastY := -999, -999
 	w.SetOnMouseMove(func(x, y int) {
+		if x == lastX && y == lastY {
+			return
+		}
+		lastX, lastY = x, y
+
 		if mouseMode == addingControl {
 			if contains(preview, x, y) {
 				_, _, w, h := controlToAdd.Bounds()
@@ -1217,7 +1047,7 @@ func drawSlider(s *wui.Slider, d drawer) {
 	min, max := s.MinMax()
 	innerTickCount := max - min - 1
 	freq := s.TickFrequency()
-	relCursor := s.Cursor() - min
+	relCursor := s.CursorPosition() - min
 
 	if s.Orientation() == wui.HorizontalSlider {
 		xLeft := x + 13
@@ -1545,7 +1375,7 @@ func cloneControl(c wui.Control) wui.Control {
 	case *wui.Slider:
 		s := wui.NewSlider()
 		s.SetMinMax(x.MinMax())
-		s.SetCursor(x.Cursor())
+		s.SetCursorPosition(x.CursorPosition())
 		s.SetTickFrequency(x.TickFrequency())
 		s.SetArrowIncrement(x.ArrowIncrement())
 		s.SetMouseIncrement(x.MouseIncrement())

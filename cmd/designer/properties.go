@@ -58,7 +58,7 @@ var properties = map[interface{}][]property{
 	wui.NewSlider(): commonPropertiesPlus(
 		prop("ArrowIncrement"),
 		prop("MouseIncrement"),
-		prop("Cursor"),
+		prop("CursorPosition"),
 		prop("Min"),
 		prop("Max"),
 		prop("MinMax", "Min", "Max"),
