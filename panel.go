@@ -29,6 +29,26 @@ const (
 	PanelBorderRaised
 )
 
+func (s PanelBorderStyle) String() string {
+	// NOTE that these strings are used in the designer to get their
+	// representations as Go code so they must always correspond to their
+	// constant names and be prefixed with the package name.
+	switch s {
+	case PanelBorderNone:
+		return "wui.PanelBorderNone"
+	case PanelBorderSingleLine:
+		return "wui.PanelBorderSingleLine"
+	case PanelBorderSunken:
+		return "wui.PanelBorderSunken"
+	case PanelBorderSunkenThick:
+		return "wui.PanelBorderSunkenThick"
+	case PanelBorderRaised:
+		return "wui.PanelBorderRaised"
+	default:
+		return "unknown PanelBorderStyle"
+	}
+}
+
 func borderStyleEx(b PanelBorderStyle) uint {
 	if b == PanelBorderSunken {
 		return w32.WS_EX_STATICEDGE

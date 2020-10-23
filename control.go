@@ -46,6 +46,28 @@ const (
 	AnchorMaxAndCenter
 )
 
+func (a Anchor) String() string {
+	// NOTE that these strings are used in the designer to get their
+	// representations as Go code so they must always correspond to their
+	// constant names and be prefixed with the package name.
+	switch a {
+	case AnchorMin:
+		return "wui.AnchorMin"
+	case AnchorMax:
+		return "wui.AnchorMax"
+	case AnchorCenter:
+		return "wui.AnchorCenter"
+	case AnchorMinAndMax:
+		return "wui.AnchorMinAndMax"
+	case AnchorMinAndCenter:
+		return "wui.AnchorMinAndCenter"
+	case AnchorMaxAndCenter:
+		return "wui.AnchorMaxAndCenter"
+	default:
+		return "unknown Anchor"
+	}
+}
+
 type control struct {
 	handle   w32.HWND
 	x        int

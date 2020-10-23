@@ -129,10 +129,7 @@ func main() {
 	panelText := wui.NewLabel()
 	panelText.SetText("Panel")
 	panelText.SetAlignment(wui.AlignCenter)
-	{
-		_, _, w, h := panelTemplate.InnerBounds()
-		panelText.SetBounds(0, 0, w, h)
-	}
+	panelText.SetSize(panelTemplate.InnerWidth(), panelTemplate.InnerHeight())
 	panelTemplate.Add(panelText)
 
 	labelTemplate := wui.NewLabel()
@@ -1363,55 +1360,6 @@ func drawEditLine(e *wui.EditLine, d drawer) {
 	}
 }
 
-func anchorToString(a wui.Anchor) string {
-	switch a {
-	case wui.AnchorMin:
-		return "AnchorMin"
-	case wui.AnchorMax:
-		return "AnchorMax"
-	case wui.AnchorCenter:
-		return "AnchorCenter"
-	case wui.AnchorMinAndMax:
-		return "AnchorMinAndMax"
-	case wui.AnchorMinAndCenter:
-		return "AnchorMinAndCenter"
-	case wui.AnchorMaxAndCenter:
-		return "AnchorMaxAndCenter"
-	default:
-		panic("unhandled anchor type")
-	}
-}
-
-func panelBorderToString(s wui.PanelBorderStyle) string {
-	switch s {
-	case wui.PanelBorderNone:
-		return "PanelBorderNone"
-	case wui.PanelBorderSingleLine:
-		return "PanelBorderSingleLine"
-	case wui.PanelBorderSunken:
-		return "PanelBorderSunken"
-	case wui.PanelBorderSunkenThick:
-		return "PanelBorderSunkenThick"
-	case wui.PanelBorderRaised:
-		return "PanelBorderRaised"
-	default:
-		panic("unhandled panel border style")
-	}
-}
-
-func alignmentToString(a wui.TextAlignment) string {
-	switch a {
-	case wui.AlignLeft:
-		return "AlignLeft"
-	case wui.AlignCenter:
-		return "AlignCenter"
-	case wui.AlignRight:
-		return "AlignRight"
-	default:
-		panic("unhandled text alignment")
-	}
-}
-
 type node interface {
 	Parent() wui.Container
 	Bounds() (x, y, width, height int)
@@ -1548,97 +1496,31 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 		do := func(format string, a ...interface{}) {
 			line(name+format, a...)
 		}
+
 		typeName := reflect.TypeOf(child).Elem().Name()
 		do(" := wui.New%s()", typeName)
-		x, y, width, height := child.Bounds()
-		do(".SetBounds(%d, %d, %d, %d)", x, y, width, height)
-		if e, ok := child.(enabler); ok && !e.Enabled() {
-			do(".SetEnabled(false)")
+
+		setters := generateProperties(name, child)
+		for _, setter := range setters {
+			line("\t" + setter)
 		}
-		if v, ok := child.(visibler); ok && !v.Visible() {
-			do(".SetVisible(false)")
-		}
-		if a, ok := child.(anchorer); ok {
-			h, v := a.Anchors()
-			if h != wui.Anchor(0) {
-				do(".SetHorizontalAnchor(wui.%s)", anchorToString(h))
-			}
-			if v != wui.Anchor(0) {
-				do(".SetVerticalAnchor(wui.%s)", anchorToString(v))
-			}
-		}
-		if t, ok := child.(texter); ok && t.Text() != "" {
-			do(".SetText(%q)", t.Text())
-		}
-		if c, ok := child.(checker); ok && c.Checked() {
-			do(".SetChecked(true)")
-		}
-		switch c := child.(type) {
-		case *wui.Panel:
-			if c.BorderStyle() != wui.PanelBorderNone {
-				do(".SetBorderStyle(wui.%s)", panelBorderToString(c.BorderStyle()))
-			}
-		case *wui.Slider:
-			do(".SetMinMax(%d, %d)", c.Min(), c.Max())
-			do(".SetCursor(%d)", c.Cursor())
-			do(".SetTickFrequency(%d)", c.TickFrequency())
-			do(".SetArrowIncrement(%d)", c.ArrowIncrement())
-			do(".SetMouseIncrement(%d)", c.MouseIncrement())
-			do(".SetTicksVisible(%v)", c.TicksVisible())
-			do(".SetOrientation(wui.%s)", orientationString(c.Orientation()))
-			do(".SetTickPosition(wui.%s)", tickPosString(c.TickPosition()))
-		case *wui.Label:
-			if c.Alignment() != wui.AlignLeft {
-				do(".SetAlignment(wui.%s)", alignmentToString(c.Alignment()))
-			}
-		case *wui.PaintBox:
-			onPaint := event{c, "OnPaint"}
+
+		// TODO Generate ALL events.
+		if p, ok := child.(*wui.PaintBox); ok {
+			onPaint := event{p, "OnPaint"}
 			if events[onPaint] != "" {
 				do(".SetOnPaint(%s)", events[onPaint])
 			}
-		case *wui.EditLine:
-			if c.IsPassword() {
-				do(".SetIsPassword(true)")
-			}
-			// TODO Do not create new edit lines every time the code is saved?
-			if c.CharacterLimit() != wui.NewEditLine().CharacterLimit() {
-				do(".SetCharacterLimit(%d)", c.CharacterLimit())
-			}
-			if c.ReadOnly() {
-				do(".SetReadOnly(true)")
-			}
 		}
+
 		line("%s.Add(%s)", parent, name)
+
 		if p, ok := child.(*wui.Panel); ok {
 			// TODO We would want to fill in the panel content above, before
 			// adding the panel to the parent, but there is a bug in Panel.Add,
 			// see the comment there.
 			writeContainer(p, name, line)
 		}
-	}
-}
-
-func orientationString(o wui.SliderOrientation) string {
-	switch o {
-	case wui.HorizontalSlider:
-		return "HorizontalSlider"
-	case wui.VerticalSlider:
-		return "VerticalSlider"
-	default:
-		panic("unhandled orientation")
-	}
-}
-
-func tickPosString(p wui.TickPosition) string {
-	switch p {
-	case wui.TicksBottomOrRight:
-		return "TicksBottomOrRight"
-	case wui.TicksTopOrLeft:
-		return "TicksTopOrLeft"
-	case wui.TicksOnBothSides:
-		return "TicksOnBothSides"
-	default:
-		panic("unhandled tick position")
 	}
 }
 
@@ -1708,18 +1590,6 @@ type enabler interface {
 type visibler interface {
 	Visible() bool
 	SetVisible(bool)
-}
-
-type anchorer interface {
-	Anchors() (horizontal, vertical wui.Anchor)
-}
-
-type texter interface {
-	Text() string
-}
-
-type checker interface {
-	Checked() bool
 }
 
 func findContainerAt(c wui.Container, x, y int) (innerMost wui.Container, atX, atY int) {

@@ -21,6 +21,22 @@ const (
 	AlignRight
 )
 
+func (a TextAlignment) String() string {
+	// NOTE that these strings are used in the designer to get their
+	// representations as Go code so they must always correspond to their
+	// constant names and be prefixed with the package name.
+	switch a {
+	case AlignLeft:
+		return "wui.AlignLeft"
+	case AlignCenter:
+		return "wui.AlignCenter"
+	case AlignRight:
+		return "wui.AlignRight"
+	default:
+		return "unknown TextAlignment"
+	}
+}
+
 func (l *Label) create(id int) {
 	l.textControl.create(id, 0, "STATIC", w32.SS_CENTERIMAGE|alignStyle(l.alignment))
 }

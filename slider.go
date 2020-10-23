@@ -34,6 +34,20 @@ const (
 	VerticalSlider
 )
 
+func (o SliderOrientation) String() string {
+	// NOTE that these strings are used in the designer to get their
+	// representations as Go code so they must always correspond to their
+	// constant names and be prefixed with the package name.
+	switch o {
+	case HorizontalSlider:
+		return "wui.HorizontalSlider"
+	case VerticalSlider:
+		return "wui.VerticalSlider"
+	default:
+		return "unknown SliderOrientation"
+	}
+}
+
 type TickPosition int
 
 const (
@@ -41,6 +55,22 @@ const (
 	TicksTopOrLeft
 	TicksOnBothSides
 )
+
+func (p TickPosition) String() string {
+	// NOTE that these strings are used in the designer to get their
+	// representations as Go code so they must always correspond to their
+	// constant names and be prefixed with the package name.
+	switch p {
+	case TicksBottomOrRight:
+		return "wui.TicksBottomOrRight"
+	case TicksTopOrLeft:
+		return "wui.TicksTopOrLeft"
+	case TicksOnBothSides:
+		return "wui.TicksOnBothSides"
+	default:
+		return "unknown TickPosition"
+	}
+}
 
 func (s *Slider) create(id int) {
 	var style uint = w32.WS_TABSTOP
