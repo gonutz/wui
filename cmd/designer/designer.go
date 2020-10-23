@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/gonutz/w32"
 	"github.com/gonutz/wui"
@@ -1185,7 +1186,11 @@ func drawEditLine(e *wui.EditLine, d drawer) {
 		d.PushDrawRegion(x, y, w, h)
 		d.DrawRect(x, y, w, h, wui.RGB(122, 122, 122))
 		d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(255, 255, 255))
-		d.TextOut(x+6, y+3, e.Text(), wui.RGB(0, 0, 0))
+		text := e.Text()
+		if e.IsPassword() {
+			text = strings.Repeat("●", utf8.RuneCountInString(text))
+		}
+		d.TextOut(x+6, y+3, text, wui.RGB(0, 0, 0))
 		d.PopDrawRegion()
 	}
 }
