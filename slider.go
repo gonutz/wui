@@ -99,7 +99,7 @@ func (s *Slider) create(id int) {
 	s.control.create(id, 0, "msctls_trackbar32", style)
 
 	if s.cursor != 0 {
-		s.SetCursor(s.cursor)
+		s.SetCursorPosition(s.cursor)
 	}
 	if s.tickFrequency != 1 {
 		s.SetTickFrequency(s.tickFrequency)
@@ -150,9 +150,9 @@ func (s *Slider) Max() int {
 	return max
 }
 
-// SetCursor sets the position of the cursor. It clamps it to the Slider's
-// min/max values.
-func (s *Slider) SetCursor(cursor int) {
+// SetCursorPosition sets the position of the cursor. It clamps it to the
+// Slider's min/max values.
+func (s *Slider) SetCursorPosition(cursor int) {
 	if cursor < s.min {
 		cursor = s.min
 	}
@@ -166,8 +166,8 @@ func (s *Slider) SetCursor(cursor int) {
 	}
 }
 
-// Cursor returns the current position of the Slider.
-func (s *Slider) Cursor() int {
+// CursorPosition returns the current position of the Slider.
+func (s *Slider) CursorPosition() int {
 	if s.handle != 0 {
 		s.cursor = int(w32.SendMessage(s.handle, w32.TBM_GETPOS, 0, 0))
 	}
@@ -262,6 +262,6 @@ func (s *Slider) OnChange() func(cursor int) {
 func (s *Slider) handleChange(reason uintptr) {
 	if s.onChange != nil &&
 		reason != w32.TB_ENDTRACK && reason != w32.TB_THUMBPOSITION {
-		s.onChange(s.Cursor())
+		s.onChange(s.CursorPosition())
 	}
 }
