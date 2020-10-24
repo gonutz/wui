@@ -135,7 +135,7 @@ func main() {
 		setterFunc := "Set" + getterFunc // By convention.
 		n := wui.NewIntUpDown()
 		if min != max {
-			n.SetMinMaxValues(min, max)
+			n.SetMinMax(min, max)
 		}
 		n.SetBounds(100, propMargin, 90, 22)
 		l := wui.NewLabel()
@@ -264,6 +264,7 @@ func main() {
 		newIntProp("Mouse Increment", "MouseIncrement", 0, 0),
 		newIntProp("Min", "Min", 0, 0),
 		newIntProp("Max", "Max", 0, 0),
+		newIntProp("Value", "Value", 0, 0),
 		newEnumProp("Orientation", "Orientation",
 			"Horizontal", "Vertical",
 		),
@@ -337,6 +338,9 @@ func main() {
 	editLineTemplate.SetBounds(10, 290, 150, 20)
 	editLineTemplate.SetText("Text Edit Line")
 
+	intTemplate := wui.NewIntUpDown()
+	intTemplate.SetBounds(10, 320, 80, 22)
+
 	allTemplates := []wui.Control{
 		buttonTemplate,
 		checkBoxTemplate,
@@ -346,6 +350,7 @@ func main() {
 		labelTemplate,
 		paintBoxTemplate,
 		editLineTemplate,
+		intTemplate,
 	}
 
 	var highlightedTemplate, controlToAdd wui.Control
@@ -937,6 +942,8 @@ func drawControl(c wui.Control, d drawer) {
 		drawPaintBox(x, d)
 	case *wui.EditLine:
 		drawEditLine(x, d)
+	case *wui.IntUpDown:
+		drawIntUpDown(x, d)
 	default:
 		panic("unhandled control type")
 	}
@@ -1188,6 +1195,33 @@ func drawPaintBox(p *wui.PaintBox, d drawer) {
 	}
 }
 
+func drawIntUpDown(e *wui.IntUpDown, d drawer) {
+	x, y, w, h := e.Bounds()
+	if w > 0 && h > 0 {
+		d.PushDrawRegion(x, y, w, h)
+		d.DrawRect(x, y, w, h, wui.RGB(122, 122, 122))
+		d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(255, 255, 255))
+
+		text := strconv.Itoa(e.Value())
+		color := wui.RGB(0, 0, 0)
+		d.TextOut(x+6, y+3, text, color)
+
+		d.FillRect(x+w-19, y, 19, h, wui.RGB(231, 231, 231))
+		d.DrawRect(x+w-19, y, 19, h, wui.RGB(172, 172, 172))
+		d.DrawRect(x+w-19+2, y+2, 19-4, h-4, wui.RGB(172, 172, 172))
+		d.DrawRect(x+w-19+2, y+h/2-1, 19-4, 2, wui.RGB(172, 172, 172))
+		y1 := y + h/4
+		d.Line(x+w-12, y1+2, x+w-12+5, y1+2, wui.RGB(0, 0, 0))
+		d.Line(x+w-11, y1+1, x+w-11+3, y1+1, wui.RGB(0, 0, 0))
+		d.Line(x+w-10, y1+0, x+w-10+1, y1+0, wui.RGB(0, 0, 0))
+		y2 := y + 3*h/4 - 2
+		d.Line(x+w-12, y2+0, x+w-12+5, y2+0, wui.RGB(0, 0, 0))
+		d.Line(x+w-11, y2+1, x+w-11+3, y2+1, wui.RGB(0, 0, 0))
+		d.Line(x+w-10, y2+2, x+w-10+1, y2+2, wui.RGB(0, 0, 0))
+		d.PopDrawRegion()
+	}
+}
+
 func drawEditLine(e *wui.EditLine, d drawer) {
 	x, y, w, h := e.Bounds()
 	if w > 0 && h > 0 {
@@ -1383,6 +1417,7 @@ func writeContainer(c wui.Container, parent string, line func(format string, a .
 }
 
 func cloneControl(c wui.Control) wui.Control {
+	// TODO Use the properties for this.
 	switch x := c.(type) {
 	case *wui.Button:
 		b := wui.NewButton()
@@ -1435,6 +1470,12 @@ func cloneControl(c wui.Control) wui.Control {
 		e.SetCharacterLimit(x.CharacterLimit())
 		e.SetReadOnly(x.ReadOnly())
 		return e
+	case *wui.IntUpDown:
+		n := wui.NewIntUpDown()
+		n.SetBounds(0, 0, x.Width(), x.Height())
+		n.SetMinMax(x.MinMax())
+		n.SetValue(x.Value())
+		return n
 	default:
 		panic("unhandled control type in cloneControl")
 	}

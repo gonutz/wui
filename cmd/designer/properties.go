@@ -80,6 +80,13 @@ var properties = map[interface{}][]property{
 		prop("IsPassword"),
 		prop("ReadOnly"),
 	),
+
+	wui.NewIntUpDown(): commonPropertiesPlus(
+		prop("Value"),
+		prop("Min"),
+		prop("Max"),
+		prop("MinMax", "Min", "Max"),
+	),
 }
 
 func generateProperties(variable string, control interface{}) []string {
