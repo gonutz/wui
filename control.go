@@ -240,7 +240,7 @@ func (c *control) SetVisible(v bool) {
 		} else {
 			w32.ShowWindow(c.handle, w32.SW_HIDE)
 		}
-
+		w32.InvalidateRect(c.handle, nil, true)
 	}
 }
 

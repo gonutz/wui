@@ -188,6 +188,7 @@ func (n *IntUpDown) SetVisible(v bool) {
 		} else {
 			w32.ShowWindow(n.upDownHandle, w32.SW_HIDE)
 		}
+		w32.InvalidateRect(n.upDownHandle, nil, true)
 	}
 }
 

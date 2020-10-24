@@ -57,12 +57,14 @@ const (
 
 func (s WindowState) String() string {
 	switch s {
+	case WindowNormal:
+		return "wui.WindowNormal"
 	case WindowMaximized:
-		return "WindowMaximized"
+		return "wui.WindowMaximized"
 	case WindowMinimized:
-		return "WindowMinimized"
+		return "wui.WindowMinimized"
 	default:
-		return "WindowNormal"
+		return "unknown WindowState"
 	}
 }
 
