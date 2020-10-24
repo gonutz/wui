@@ -239,6 +239,9 @@ func main() {
 
 	uiProps := []uiProp{
 		newStringProp("Title", "Title"),
+		newEnumProp("Window State", "State",
+			"Normal", "Maximized", "Minimized",
+		),
 		newIntProp("Alpha", "Alpha", 0, 255),
 		newBoolProp("Enabled", "Enabled"),
 		newBoolProp("Visible", "Visible"),
@@ -1292,12 +1295,16 @@ func main() {`)
 	if name == "" {
 		name = "w"
 	}
+	// TODO Use reflection for the window as well, like the other controls.
 	line(name + " := wui.NewWindow()")
 	line(name+".SetTitle(%q)", w.Title())
 	line(name+".SetPosition(%d, %d)", x, y)
 	line(name+".SetSize(%d, %d)", w.Width(), w.Height())
 	if w.Alpha() != 255 {
 		line(name+".SetAlpha(%d)", w.Alpha())
+	}
+	if w.State() != wui.WindowNormal {
+		line(name+".SetState(%s)", w.State().String())
 	}
 	font := w.Font()
 	if font != nil {
