@@ -12,6 +12,10 @@ import (
 // TODO Typing + or - into an IntUpDown shows an error. The same might be true
 // for FloatUpDowns.
 
+// TODO IntUpDown should not expose Text() and SetText().
+
+// TODO Have ReadOnly and SetReadOnly.
+
 func NewIntUpDown() *IntUpDown {
 	return &IntUpDown{
 		minValue: math.MinInt32,
@@ -116,11 +120,11 @@ func (n *IntUpDown) SetValue(v int) {
 	}
 }
 
-func (n *IntUpDown) MinValue() int {
+func (n *IntUpDown) Min() int {
 	return int(n.minValue)
 }
 
-func (n *IntUpDown) SetMinValue(min int) {
+func (n *IntUpDown) SetMin(min int) {
 	if n.Value() < min {
 		n.SetValue(min)
 	}
@@ -135,11 +139,11 @@ func (n *IntUpDown) SetMinValue(min int) {
 	}
 }
 
-func (n *IntUpDown) MaxValue() int {
+func (n *IntUpDown) Max() int {
 	return int(n.maxValue)
 }
 
-func (n *IntUpDown) SetMaxValue(max int) {
+func (n *IntUpDown) SetMax(max int) {
 	if n.Value() > max {
 		n.SetValue(max)
 	}
@@ -154,11 +158,11 @@ func (n *IntUpDown) SetMaxValue(max int) {
 	}
 }
 
-func (n *IntUpDown) MinMaxValues() (min, max int) {
+func (n *IntUpDown) MinMax() (min, max int) {
 	return int(n.minValue), int(n.maxValue)
 }
 
-func (n *IntUpDown) SetMinMaxValues(min, max int) {
+func (n *IntUpDown) SetMinMax(min, max int) {
 	if n.Value() < min {
 		n.SetValue(min)
 	} else if n.Value() > max {
