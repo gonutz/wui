@@ -221,13 +221,13 @@ const (
 func (b MouseButton) String() string {
 	switch b {
 	case MouseButtonLeft:
-		return "MouseButtonLeft"
+		return "wui.MouseButtonLeft"
 	case MouseButtonMiddle:
-		return "MouseButtonLeft"
+		return "wui.MouseButtonLeft"
 	case MouseButtonRight:
-		return "MouseButtonRight"
+		return "wui.MouseButtonRight"
 	}
-	return "unknown mouse button"
+	return "unknown MouseButton"
 }
 
 type Control interface {
