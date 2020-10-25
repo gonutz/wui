@@ -33,7 +33,7 @@ func (e *ComboBox) create(id int) {
 	e.SetSelectedIndex(e.selected)
 }
 
-func (e *ComboBox) Add(s string) {
+func (e *ComboBox) AddItem(s string) {
 	e.items = append(e.items, s)
 	if e.handle != 0 {
 		e.addItem(s)
