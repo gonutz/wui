@@ -381,7 +381,7 @@ func main() {
 	intTemplate.SetBounds(10, 320, 80, 22)
 
 	comboTemplate := wui.NewComboBox()
-	comboTemplate.SetBounds(10, 350, 140, 21)
+	comboTemplate.SetBounds(10, 350, 150, 21)
 	comboTemplate.AddItem("Combo Box")
 	comboTemplate.SetSelectedIndex(0)
 
