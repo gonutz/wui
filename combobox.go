@@ -56,6 +56,16 @@ func (e *ComboBox) Items() []string {
 	return e.items
 }
 
+func (e *ComboBox) SetItems(items []string) {
+	e.items = items
+	if e.handle != 0 {
+		w32.SendMessage(e.handle, w32.CB_RESETCONTENT, 0, 0)
+		for _, s := range e.items {
+			e.addItem(s)
+		}
+	}
+}
+
 func (e *ComboBox) SelectedIndex() int {
 	if e.handle != 0 {
 		e.selected = int(w32.SendMessage(e.handle, w32.CB_GETCURSEL, 0, 0))
