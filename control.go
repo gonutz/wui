@@ -392,6 +392,18 @@ var textEditSubclassProc = syscall.NewCallback(func(
 				c.SetText(newText)
 				c.SetCursorPosition(newCursor)
 			}
+			// Since we will return 0 from this message, no EN_CHANGE will be
+			// sent for us as this is usually done by DefSubclassProc. We have
+			// to send it ourselves.
+			if c.parent != nil {
+				id := w32.GetDlgCtrlID(c.handle)
+				w32.SendMessage(
+					c.parent.getHandle(),
+					w32.WM_COMMAND,
+					uintptr(id)&0xFFFF|(w32.EN_CHANGE<<16),
+					uintptr(c.handle),
+				)
+			}
 			return 0
 		}
 		return w32.DefSubclassProc(window, msg, wParam, lParam)
