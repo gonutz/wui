@@ -180,6 +180,10 @@ func (n *IntUpDown) SetMinMax(min, max int) {
 	}
 }
 
+func (n *IntUpDown) OnValueChange() func(value int) {
+	return n.onValueChange
+}
+
 func (n *IntUpDown) SetOnValueChange(f func(value int)) {
 	n.onValueChange = f
 }
