@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go/format"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -202,13 +203,49 @@ func main() {
 		return uiProp{panel: p, setter: setterFunc, update: update}
 	}
 
+	newStringListProp := func(name, getterFunc string) uiProp {
+		setterFunc := "Set" + getterFunc // By convention.
+		l := wui.NewLabel()
+		l.SetBounds(10, 5, 180, 13)
+		l.SetText(name)
+		l.SetAlignment(wui.AlignCenter)
+		list := wui.NewTextEdit()
+		list.SetBounds(10, 20, 180, 80)
+		list.SetAnchors(wui.AnchorMinAndMax, wui.AnchorMinAndMax)
+		p := wui.NewPanel()
+		p.SetSize(195, list.Height()+2*propMargin)
+		w.Add(p)
+		p.Add(l)
+		p.Add(list)
+		list.SetOnTextChange(func() {
+			if active == nil {
+				return
+			}
+			if _, ok := reflect.TypeOf(active).MethodByName(setterFunc); ok {
+				items := strings.Split(list.Text(), "\r\n")
+				items = removeEmptyStrings(items)
+				l.SetText(fmt.Sprintf("%s (%d)", name, len(items)))
+				reflect.ValueOf(active).MethodByName(setterFunc).Call(
+					[]reflect.Value{reflect.ValueOf(items)},
+				)
+				preview.Paint()
+			}
+		})
+		update := func() {
+			items := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0].Interface().([]string)
+			l.SetText(fmt.Sprintf("%s (%d)", name, len(items)))
+			list.SetText(strings.Join(items, "\r\n") + "\r\n")
+		}
+		return uiProp{panel: p, setter: setterFunc, update: update}
+	}
+
 	// enumNames must correspond to the respective const, the order is important
 	// and the consts must be iota'd, i.e. start with 0 and increment by 1.
 	newEnumProp := func(name, getterFunc string, enumNames ...string) uiProp {
 		setterFunc := "Set" + getterFunc // By convention.
 		c := wui.NewComboBox()
 		for _, name := range enumNames {
-			c.Add(name)
+			c.AddItem(name)
 		}
 		c.SetBounds(100, propMargin, 90, 22)
 		l := wui.NewLabel()
@@ -279,6 +316,8 @@ func main() {
 		newIntProp("Character Limit", "CharacterLimit", 1, 0x7FFFFFFE),
 		newBoolProp("Is Password", "IsPassword"),
 		newBoolProp("Read Only", "ReadOnly"),
+		newStringListProp("Items", "Items"),
+		newIntProp("Selected Index", "SelectedIndex", -1, math.MaxInt32),
 	}
 
 	appIcon := w32.LoadIcon(0, w32.MakeIntResource(w32.IDI_APPLICATION))
@@ -341,6 +380,11 @@ func main() {
 	intTemplate := wui.NewIntUpDown()
 	intTemplate.SetBounds(10, 320, 80, 22)
 
+	comboTemplate := wui.NewComboBox()
+	comboTemplate.SetBounds(10, 350, 140, 21)
+	comboTemplate.AddItem("Combo Box")
+	comboTemplate.SetSelectedIndex(0)
+
 	allTemplates := []wui.Control{
 		buttonTemplate,
 		checkBoxTemplate,
@@ -351,6 +395,7 @@ func main() {
 		paintBoxTemplate,
 		editLineTemplate,
 		intTemplate,
+		comboTemplate,
 	}
 
 	var highlightedTemplate, controlToAdd wui.Control
@@ -944,6 +989,8 @@ func drawControl(c wui.Control, d drawer) {
 		drawEditLine(x, d)
 	case *wui.IntUpDown:
 		drawIntUpDown(x, d)
+	case *wui.ComboBox:
+		drawComboBox(x, d)
 	default:
 		panic("unhandled control type")
 	}
@@ -1222,6 +1269,30 @@ func drawIntUpDown(e *wui.IntUpDown, d drawer) {
 	}
 }
 
+func drawComboBox(c *wui.ComboBox, d drawer) {
+	x, y, w, h := c.Bounds()
+	if w > 0 && h > 0 {
+		d.PushDrawRegion(x, y, w, h)
+		d.DrawRect(x, y, w, h, wui.RGB(173, 173, 173))
+		d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(225, 225, 225))
+		arrowX := x + w - 13
+		arrowY := y + 9
+		d.Line(arrowX, arrowY, arrowX+4, arrowY+4, wui.RGB(86, 86, 86))
+		d.Line(arrowX+4, arrowY+3, arrowX+8, arrowY-1, wui.RGB(86, 86, 86))
+		if w > 20 {
+			i := c.SelectedIndex()
+			items := c.Items()
+			if 0 <= i && i < len(items) {
+				text := items[i]
+				d.PushDrawRegion(x, y, w-20, h)
+				d.TextOut(x+4, y+4, text, wui.RGB(0, 0, 0))
+				d.PopDrawRegion()
+			}
+		}
+		d.PopDrawRegion()
+	}
+}
+
 func drawEditLine(e *wui.EditLine, d drawer) {
 	x, y, w, h := e.Bounds()
 	if w > 0 && h > 0 {
@@ -1476,6 +1547,12 @@ func cloneControl(c wui.Control) wui.Control {
 		n.SetMinMax(x.MinMax())
 		n.SetValue(x.Value())
 		return n
+	case *wui.ComboBox:
+		c := wui.NewComboBox()
+		c.SetItems(x.Items())
+		c.SetSelectedIndex(x.SelectedIndex())
+		c.SetBounds(0, 0, x.Width(), x.Height())
+		return c
 	default:
 		panic("unhandled control type in cloneControl")
 	}
@@ -1501,4 +1578,16 @@ func findContainerAt(c wui.Container, x, y int) (innerMost wui.Container, atX, a
 		}
 	}
 	return c, x, y
+}
+
+// removeEmptyStrings changes the given input slice.
+func removeEmptyStrings(items []string) []string {
+	n := 0
+	for i := range items {
+		if items[i] != "" {
+			items[n] = items[i]
+			n++
+		}
+	}
+	return items[:n]
 }

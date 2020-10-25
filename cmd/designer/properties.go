@@ -87,6 +87,11 @@ var properties = map[interface{}][]property{
 		prop("Max"),
 		prop("MinMax", "Min", "Max"),
 	),
+
+	wui.NewComboBox(): commonPropertiesPlus(
+		prop("Items"),
+		prop("SelectedIndex"),
+	),
 }
 
 func generateProperties(variable string, control interface{}) []string {
@@ -156,9 +161,27 @@ func toGo(args []reflect.Value) string {
 	var asGo []string
 	for _, arg := range args {
 		var s string
-		if arg.Kind() == reflect.String {
+		switch arg.Kind() {
+		case reflect.Slice:
+			if list, ok := arg.Interface().([]string); ok {
+				switch len(list) {
+				case 0:
+					s = "[]string{}"
+				case 1:
+					s = fmt.Sprintf("[]string{%q}", list[0])
+				default:
+					s = "[]string{\n"
+					for i := range list {
+						s += fmt.Sprintf("%q,\n", list[i])
+					}
+					s += "}"
+				}
+			} else {
+				panic("TODO slices of types other than string not handled")
+			}
+		case reflect.String:
 			s = fmt.Sprintf("%q", arg.String())
-		} else {
+		default:
 			s = fmt.Sprint(arg)
 		}
 		asGo = append(asGo, s)
