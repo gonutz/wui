@@ -131,11 +131,11 @@ func main() {
 		return uiProp{panel: p, setter: setterFunc, update: update}
 	}
 
-	newIntProp := func(name, getterFunc string, min, max int) uiProp {
+	newIntProp := func(name, getterFunc string, minmax ...int) uiProp {
 		setterFunc := "Set" + getterFunc // By convention.
 		n := wui.NewIntUpDown()
-		if min != max {
-			n.SetMinMax(min, max)
+		if len(minmax) == 2 {
+			n.SetMinMax(minmax[0], minmax[1])
 		}
 		n.SetBounds(100, propMargin, 90, 22)
 		l := wui.NewLabel()
@@ -251,24 +251,24 @@ func main() {
 		newEnumProp("Vertical Anchor", "VerticalAnchor",
 			"Top", "Bottom", "Center", "Top+Bottom", "Top+Center", "Bottom+Center",
 		),
-		newIntProp("X", "X", 0, 0),
-		newIntProp("Y", "Y", 0, 0),
-		newIntProp("Width", "Width", 0, 0),
-		newIntProp("Height", "Height", 0, 0),
+		newIntProp("X", "X"),
+		newIntProp("Y", "Y"),
+		newIntProp("Width", "Width"),
+		newIntProp("Height", "Height"),
 		newStringProp("Text", "Text"),
 		newEnumProp("Alignment", "Alignment",
 			"Left", "Center", "Right",
 		),
 		newBoolProp("Checked", "Checked"),
-		newIntProp("Arrow Increment", "ArrowIncrement", 0, 0),
-		newIntProp("Mouse Increment", "MouseIncrement", 0, 0),
-		newIntProp("Min", "Min", 0, 0),
-		newIntProp("Max", "Max", 0, 0),
-		newIntProp("Value", "Value", 0, 0),
+		newIntProp("Arrow Increment", "ArrowIncrement"),
+		newIntProp("Mouse Increment", "MouseIncrement"),
+		newIntProp("Min", "Min"),
+		newIntProp("Max", "Max"),
+		newIntProp("Value", "Value"),
 		newEnumProp("Orientation", "Orientation",
 			"Horizontal", "Vertical",
 		),
-		newIntProp("Tick Frequency", "TickFrequency", 0, 0),
+		newIntProp("Tick Frequency", "TickFrequency"),
 		newEnumProp("Tick Position", "TickPosition",
 			"Right/Bottom", "Left/Top", "Both Sides",
 		),
@@ -276,7 +276,7 @@ func main() {
 		newEnumProp("Border Style", "BorderStyle",
 			"None", "Single Line", "Sunken", "Sunken Thick", "Raised",
 		),
-		newIntProp("Character Limit", "CharacterLimit", 0, 0x7FFFFFFE),
+		newIntProp("Character Limit", "CharacterLimit", 1, 0x7FFFFFFE),
 		newBoolProp("Is Password", "IsPassword"),
 		newBoolProp("Read Only", "ReadOnly"),
 	}
