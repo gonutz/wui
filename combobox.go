@@ -73,18 +73,19 @@ func (e *ComboBox) SelectedIndex() int {
 	return e.selected
 }
 
+// SetSelectedIndex sets the current index. Set -1 to remove any selection and
+// make the combo box empty. If you pass a value < -1 it will be set to -1
+// instead. The index is not clamped to the number of items, you may set the
+// index 10 where only 5 items are set. This lets you set the index and items at
+// design time without one invalidating the other. At runtime though,
+// SelectedIndex() will return -1 if you set an invalid index.
 func (e *ComboBox) SetSelectedIndex(i int) {
-	oldI := e.selected
-	if 0 <= i && i < len(e.items) {
-		e.selected = i
-	} else {
-		e.selected = -1
+	if i < -1 {
+		i = -1
 	}
+	e.selected = i
 	if e.handle != 0 {
 		w32.SendMessage(e.handle, w32.CB_SETCURSEL, uintptr(i), 0)
-	}
-	if i != oldI && e.onChange != nil {
-		e.onChange(i)
 	}
 }
 
