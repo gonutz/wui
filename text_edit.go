@@ -10,8 +10,9 @@ func NewTextEdit() *TextEdit {
 
 type TextEdit struct {
 	textEditControl
-	limit       int
-	autoHScroll bool
+	limit        int
+	autoHScroll  bool
+	onTextChange func()
 }
 
 func (e *TextEdit) create(id int) {
@@ -53,4 +54,18 @@ func (e *TextEdit) SetWordWrap(wrap bool) {
 
 func (e *TextEdit) WordWrap() bool {
 	return !e.autoHScroll
+}
+
+func (e *TextEdit) SetOnTextChange(f func()) {
+	e.onTextChange = f
+}
+
+func (e *TextEdit) OnTextChange() func() {
+	return e.onTextChange
+}
+
+func (e *TextEdit) handleNotification(cmd uintptr) {
+	if cmd == w32.EN_CHANGE && e.onTextChange != nil {
+		e.onTextChange()
+	}
 }
