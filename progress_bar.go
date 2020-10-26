@@ -46,6 +46,10 @@ func (p *ProgressBar) recreate() {
 	}
 }
 
+func (p *ProgressBar) Vertical() bool {
+	return p.vertical
+}
+
 func (p *ProgressBar) SetVertical(v bool) {
 	if v != p.vertical {
 		p.vertical = v
@@ -55,17 +59,13 @@ func (p *ProgressBar) SetVertical(v bool) {
 	}
 }
 
-func (p *ProgressBar) Vertical() bool {
-	return p.vertical
-}
-
 func (p *ProgressBar) MovesForever() bool {
 	return p.movesForever
 }
 
-func (p *ProgressBar) MoveForever() {
-	if !p.movesForever {
-		p.movesForever = true
+func (p *ProgressBar) SetMovesForever(move bool) {
+	if p.movesForever != move {
+		p.movesForever = move
 		if p.handle != 0 {
 			p.recreate()
 		}
@@ -77,12 +77,6 @@ func (p *ProgressBar) Value() float64 {
 }
 
 func (p *ProgressBar) SetValue(v float64) {
-	if p.movesForever {
-		p.movesForever = false
-		if p.handle != 0 {
-			p.recreate()
-		}
-	}
 	if v < 0 {
 		v = 0
 	}
@@ -90,7 +84,8 @@ func (p *ProgressBar) SetValue(v float64) {
 		v = 1
 	}
 	p.value = v
-	if p.handle != 0 {
+
+	if !p.movesForever && p.handle != 0 {
 		pos := int(v*maxProgressBarValue + 0.5)
 		w32.SendMessage(p.handle, w32.PBM_SETPOS, uintptr(pos), 0)
 	}
