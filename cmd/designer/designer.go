@@ -111,7 +111,7 @@ func main() {
 	}
 
 	const propMargin = 2
-	newBoolProp := func(name, getterFunc string) uiProp {
+	boolProp := func(name, getterFunc string) uiProp {
 		setterFunc := "Set" + getterFunc // By convention.
 		c := wui.NewCheckBox()
 		c.SetText(name)
@@ -141,7 +141,7 @@ func main() {
 		}
 	}
 
-	newIntProp := func(name, getterFunc string, minmax ...int) uiProp {
+	intProp := func(name, getterFunc string, minmax ...int) uiProp {
 		setterFunc := "Set" + getterFunc // By convention.
 		n := wui.NewIntUpDown()
 		if len(minmax) == 2 {
@@ -189,7 +189,7 @@ func main() {
 		}
 	}
 
-	newFloatProp := func(name, getterFunc string, minmax ...float64) uiProp {
+	floatProp := func(name, getterFunc string, minmax ...float64) uiProp {
 		setterFunc := "Set" + getterFunc // By convention.
 		n := wui.NewFloatUpDown()
 		if len(minmax) == 2 {
@@ -238,7 +238,7 @@ func main() {
 		}
 	}
 
-	newStringProp := func(name, getterFunc string) uiProp {
+	stringProp := func(name, getterFunc string) uiProp {
 		setterFunc := "Set" + getterFunc // By convention.
 		t := wui.NewEditLine()
 		t.SetBounds(100, propMargin, 90, 22)
@@ -277,7 +277,7 @@ func main() {
 		}
 	}
 
-	newStringListProp := func(name, getterFunc string) uiProp {
+	stringListProp := func(name, getterFunc string) uiProp {
 		setterFunc := "Set" + getterFunc // By convention.
 		l := wui.NewLabel()
 		l.SetBounds(10, 5, 180, 13)
@@ -326,7 +326,7 @@ func main() {
 
 	// enumNames must correspond to the respective const, the order is important
 	// and the consts must be iota'd, i.e. start with 0 and increment by 1.
-	newEnumProp := func(name, getterFunc string, enumNames ...string) uiProp {
+	enumProp := func(name, getterFunc string, enumNames ...string) uiProp {
 		setterFunc := "Set" + getterFunc // By convention.
 		c := wui.NewComboBox()
 		for _, name := range enumNames {
@@ -368,55 +368,55 @@ func main() {
 	}
 
 	uiProps := []uiProp{
-		newStringProp("Title", "Title"),
-		newEnumProp("Window State", "State",
+		stringProp("Title", "Title"),
+		enumProp("Window State", "State",
 			"Normal", "Maximized", "Minimized",
 		),
-		newIntProp("Alpha", "Alpha", 0, 255),
-		newBoolProp("Enabled", "Enabled"),
-		newBoolProp("Visible", "Visible"),
-		newEnumProp("Horizontal Anchor", "HorizontalAnchor",
+		intProp("Alpha", "Alpha", 0, 255),
+		boolProp("Enabled", "Enabled"),
+		boolProp("Visible", "Visible"),
+		enumProp("Horizontal Anchor", "HorizontalAnchor",
 			"Left", "Right", "Center", "Left+Right", "Left+Center", "Right+Center",
 		),
-		newEnumProp("Vertical Anchor", "VerticalAnchor",
+		enumProp("Vertical Anchor", "VerticalAnchor",
 			"Top", "Bottom", "Center", "Top+Bottom", "Top+Center", "Bottom+Center",
 		),
-		newIntProp("X", "X"),
-		newIntProp("Y", "Y"),
-		newIntProp("Width", "Width"),
-		newIntProp("Height", "Height"),
-		newStringProp("Text", "Text"),
-		newEnumProp("Alignment", "Alignment",
+		intProp("X", "X"),
+		intProp("Y", "Y"),
+		intProp("Width", "Width"),
+		intProp("Height", "Height"),
+		stringProp("Text", "Text"),
+		enumProp("Alignment", "Alignment",
 			"Left", "Center", "Right",
 		),
-		newBoolProp("Checked", "Checked"),
-		newIntProp("Arrow Increment", "ArrowIncrement"),
-		newIntProp("Mouse Increment", "MouseIncrement"),
-		newIntProp("Min", "Min"),
-		newIntProp("Max", "Max"),
-		newIntProp("Value", "Value"),
-		newFloatProp("Min", "Min"),
-		newFloatProp("Max", "Max"),
-		newFloatProp("Value", "Value"),
-		newFloatProp("Precision", "Precision"),
-		newEnumProp("Orientation", "Orientation",
+		boolProp("Checked", "Checked"),
+		intProp("Arrow Increment", "ArrowIncrement"),
+		intProp("Mouse Increment", "MouseIncrement"),
+		intProp("Min", "Min"),
+		intProp("Max", "Max"),
+		intProp("Value", "Value"),
+		floatProp("Min", "Min"),
+		floatProp("Max", "Max"),
+		floatProp("Value", "Value"),
+		floatProp("Precision", "Precision"),
+		enumProp("Orientation", "Orientation",
 			"Horizontal", "Vertical",
 		),
-		newIntProp("Tick Frequency", "TickFrequency"),
-		newEnumProp("Tick Position", "TickPosition",
+		intProp("Tick Frequency", "TickFrequency"),
+		enumProp("Tick Position", "TickPosition",
 			"Right/Bottom", "Left/Top", "Both Sides",
 		),
-		newBoolProp("Ticks Visible", "TicksVisible"),
-		newEnumProp("Border Style", "BorderStyle",
+		boolProp("Ticks Visible", "TicksVisible"),
+		enumProp("Border Style", "BorderStyle",
 			"None", "Single Line", "Sunken", "Sunken Thick", "Raised",
 		),
-		newIntProp("Character Limit", "CharacterLimit", 1, 0x7FFFFFFE),
-		newBoolProp("Is Password", "IsPassword"),
-		newBoolProp("Read Only", "ReadOnly"),
-		newStringListProp("Items", "Items"),
-		newIntProp("Selected Index", "SelectedIndex", -1, math.MaxInt32),
-		newBoolProp("Vertical", "Vertical"),
-		newBoolProp("Moves Forever", "MovesForever"),
+		intProp("Character Limit", "CharacterLimit", 1, 0x7FFFFFFE),
+		boolProp("Is Password", "IsPassword"),
+		boolProp("Read Only", "ReadOnly"),
+		stringListProp("Items", "Items"),
+		intProp("Selected Index", "SelectedIndex", -1, math.MaxInt32),
+		boolProp("Vertical", "Vertical"),
+		boolProp("Moves Forever", "MovesForever"),
 	}
 
 	appIcon := w32.LoadIcon(0, w32.MakeIntResource(w32.IDI_APPLICATION))
