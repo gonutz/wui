@@ -98,6 +98,14 @@ var properties = map[interface{}][]property{
 		prop("MovesForever"),
 		prop("Value"),
 	),
+
+	wui.NewFloatUpDown(): commonPropertiesPlus(
+		prop("Value"),
+		prop("Min"),
+		prop("Max"),
+		prop("MinMax", "Min", "Max"),
+		prop("Precision"),
+	),
 }
 
 func generateProperties(variable string, control interface{}) []string {

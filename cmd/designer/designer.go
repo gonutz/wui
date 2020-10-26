@@ -195,7 +195,7 @@ func main() {
 		if len(minmax) == 2 {
 			n.SetMinMax(minmax[0], minmax[1])
 		}
-		n.SetPrecision(3)
+		n.SetPrecision(6)
 		n.SetBounds(100, propMargin, 90, 22)
 		l := wui.NewLabel()
 		l.SetText(name)
@@ -398,7 +398,7 @@ func main() {
 		floatProp("Min", "Min"),
 		floatProp("Max", "Max"),
 		floatProp("Value", "Value"),
-		floatProp("Precision", "Precision"),
+		intProp("Precision", "Precision", 1, 6),
 		enumProp("Orientation", "Orientation",
 			"Horizontal", "Vertical",
 		),
@@ -488,6 +488,9 @@ func main() {
 	progressTemplate.SetBounds(10, 380, 150, 25)
 	progressTemplate.SetValue(0.5)
 
+	floatTemplate := wui.NewFloatUpDown()
+	floatTemplate.SetBounds(10, 410, 80, 22)
+
 	allTemplates := []wui.Control{
 		buttonTemplate,
 		checkBoxTemplate,
@@ -500,6 +503,7 @@ func main() {
 		intTemplate,
 		comboTemplate,
 		progressTemplate,
+		floatTemplate,
 	}
 
 	var highlightedTemplate, controlToAdd wui.Control
@@ -1098,6 +1102,8 @@ func drawControl(c wui.Control, d drawer) {
 		drawComboBox(x, d)
 	case *wui.ProgressBar:
 		drawProgressBar(x, d)
+	case *wui.FloatUpDown:
+		drawFloatUpDown(x, d)
 	default:
 		panic("unhandled control type")
 	}
@@ -1357,6 +1363,33 @@ func drawIntUpDown(e *wui.IntUpDown, d drawer) {
 		d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(255, 255, 255))
 
 		text := strconv.Itoa(e.Value())
+		color := wui.RGB(0, 0, 0)
+		d.TextOut(x+6, y+3, text, color)
+
+		d.FillRect(x+w-19, y, 19, h, wui.RGB(231, 231, 231))
+		d.DrawRect(x+w-19, y, 19, h, wui.RGB(172, 172, 172))
+		d.DrawRect(x+w-19+2, y+2, 19-4, h-4, wui.RGB(172, 172, 172))
+		d.DrawRect(x+w-19+2, y+h/2-1, 19-4, 2, wui.RGB(172, 172, 172))
+		y1 := y + h/4
+		d.Line(x+w-12, y1+2, x+w-12+5, y1+2, wui.RGB(0, 0, 0))
+		d.Line(x+w-11, y1+1, x+w-11+3, y1+1, wui.RGB(0, 0, 0))
+		d.Line(x+w-10, y1+0, x+w-10+1, y1+0, wui.RGB(0, 0, 0))
+		y2 := y + 3*h/4 - 2
+		d.Line(x+w-12, y2+0, x+w-12+5, y2+0, wui.RGB(0, 0, 0))
+		d.Line(x+w-11, y2+1, x+w-11+3, y2+1, wui.RGB(0, 0, 0))
+		d.Line(x+w-10, y2+2, x+w-10+1, y2+2, wui.RGB(0, 0, 0))
+		d.PopDrawRegion()
+	}
+}
+
+func drawFloatUpDown(e *wui.FloatUpDown, d drawer) {
+	x, y, w, h := e.Bounds()
+	if w > 0 && h > 0 {
+		d.PushDrawRegion(x, y, w, h)
+		d.DrawRect(x, y, w, h, wui.RGB(122, 122, 122))
+		d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(255, 255, 255))
+
+		text := fmt.Sprintf("%."+strconv.Itoa(e.Precision())+"f", e.Value())
 		color := wui.RGB(0, 0, 0)
 		d.TextOut(x+6, y+3, text, color)
 
@@ -1679,6 +1712,13 @@ func cloneControl(c wui.Control) wui.Control {
 		p.SetMovesForever(x.MovesForever())
 		p.SetBounds(0, 0, x.Width(), x.Height())
 		return p
+	case *wui.FloatUpDown:
+		f := wui.NewFloatUpDown()
+		f.SetBounds(0, 0, x.Width(), x.Height())
+		f.SetMinMax(x.MinMax())
+		f.SetPrecision(x.Precision())
+		f.SetValue(x.Value())
+		return f
 	default:
 		panic("unhandled control type in cloneControl")
 	}
