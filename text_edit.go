@@ -5,7 +5,10 @@ package wui
 import "github.com/gonutz/w32"
 
 func NewTextEdit() *TextEdit {
-	return &TextEdit{autoHScroll: true}
+	return &TextEdit{
+		autoHScroll: true,
+		limit:       0x7FFFFFFE,
+	}
 }
 
 type TextEdit struct {
@@ -32,6 +35,9 @@ func (e *TextEdit) create(id int) {
 }
 
 func (e *TextEdit) SetCharacterLimit(count int) {
+	if count <= 0 || count > 0x7FFFFFFE {
+		count = 0x7FFFFFFE
+	}
 	e.limit = count
 	if e.handle != 0 {
 		w32.SendMessage(e.handle, w32.EM_SETLIMITTEXT, uintptr(e.limit), 0)

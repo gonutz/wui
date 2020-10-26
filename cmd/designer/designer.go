@@ -417,6 +417,7 @@ func main() {
 		intProp("Selected Index", "SelectedIndex", -1, math.MaxInt32),
 		boolProp("Vertical", "Vertical"),
 		boolProp("Moves Forever", "MovesForever"),
+		boolProp("Word Wrap", "WordWrap"),
 	}
 
 	appIcon := w32.LoadIcon(0, w32.MakeIntResource(w32.IDI_APPLICATION))
@@ -491,6 +492,10 @@ func main() {
 	floatTemplate := wui.NewFloatUpDown()
 	floatTemplate.SetBounds(10, 410, 80, 22)
 
+	textEditTemplate := wui.NewTextEdit()
+	textEditTemplate.SetBounds(10, 440, 150, 50)
+	textEditTemplate.SetText("Text Edit")
+
 	allTemplates := []wui.Control{
 		buttonTemplate,
 		checkBoxTemplate,
@@ -504,6 +509,7 @@ func main() {
 		comboTemplate,
 		progressTemplate,
 		floatTemplate,
+		textEditTemplate,
 	}
 
 	var highlightedTemplate, controlToAdd wui.Control
@@ -1104,6 +1110,8 @@ func drawControl(c wui.Control, d drawer) {
 		drawProgressBar(x, d)
 	case *wui.FloatUpDown:
 		drawFloatUpDown(x, d)
+	case *wui.TextEdit:
+		drawTextEdit(x, d)
 	default:
 		panic("unhandled control type")
 	}
@@ -1471,6 +1479,32 @@ func drawEditLine(e *wui.EditLine, d drawer) {
 	}
 }
 
+func drawTextEdit(t *wui.TextEdit, d drawer) {
+	x, y, w, h := t.Bounds()
+	if w > 0 && h > 0 {
+		d.PushDrawRegion(x, y, w, h)
+		if t.Enabled() {
+			d.DrawRect(x, y, w, h, wui.RGB(122, 122, 122))
+		} else {
+			d.DrawRect(x, y, w, h, wui.RGB(204, 204, 204))
+		}
+		d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(255, 255, 255))
+		if !t.Enabled() {
+			d.FillRect(x+2, y+2, w-4, h-4, wui.RGB(240, 240, 240))
+		}
+		color := wui.RGB(0, 0, 0)
+		if !t.Enabled() {
+			color = wui.RGB(109, 109, 109)
+		}
+		if t.WordWrap() {
+			d.TextRectFormat(x+6, y+3, w-6, h-3, t.Text(), wui.FormatTopLeft, color)
+		} else {
+			d.TextOut(x+6, y+3, t.Text(), color)
+		}
+		d.PopDrawRegion()
+	}
+}
+
 type node interface {
 	Parent() wui.Container
 	Bounds() (x, y, width, height int)
@@ -1719,6 +1753,13 @@ func cloneControl(c wui.Control) wui.Control {
 		f.SetPrecision(x.Precision())
 		f.SetValue(x.Value())
 		return f
+	case *wui.TextEdit:
+		t := wui.NewTextEdit()
+		t.SetBounds(0, 0, x.Width(), x.Height())
+		t.SetCharacterLimit(x.CharacterLimit())
+		t.SetWordWrap(x.WordWrap())
+		t.SetText(x.Text())
+		return t
 	default:
 		panic("unhandled control type in cloneControl")
 	}

@@ -106,6 +106,12 @@ var properties = map[interface{}][]property{
 		prop("MinMax", "Min", "Max"),
 		prop("Precision"),
 	),
+
+	wui.NewTextEdit(): commonPropertiesPlus(
+		prop("Text"),
+		prop("WordWrap"),
+		prop("CharacterLimit"),
+	),
 }
 
 func generateProperties(variable string, control interface{}) []string {
