@@ -914,14 +914,9 @@ func (w *Window) Show() error {
 
 	var msg w32.MSG
 	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
-		// TODO this eats VK_ESCAPE and VK_RETURN and makes escape press a
-		// focused button?!
-		if w.accelTable == 0 ||
-			!w32.TranslateAccelerator(w.handle, w.accelTable, &msg) {
-			if !w32.IsDialogMessage(w.handle, &msg) {
-				w32.TranslateMessage(&msg)
-				w32.DispatchMessage(&msg)
-			}
+		if w.accelTable == 0 || !w32.TranslateAccelerator(w.handle, w.accelTable, &msg) {
+			w32.TranslateMessage(&msg)
+			w32.DispatchMessage(&msg)
 		}
 	}
 	return nil
