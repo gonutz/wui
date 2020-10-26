@@ -13,19 +13,20 @@ import (
 
 func NewFloatUpDown() *FloatUpDown {
 	return &FloatUpDown{
-		minValue:  math.Inf(-1),
-		maxValue:  math.Inf(1),
+		min:       math.Inf(-1),
+		max:       math.Inf(1),
 		precision: 1,
 	}
 }
 
 type FloatUpDown struct {
 	textEditControl
-	upDownHandle w32.HWND
-	value        float64
-	minValue     float64
-	maxValue     float64
-	precision    int
+	upDownHandle  w32.HWND
+	value         float64
+	min           float64
+	max           float64
+	precision     int
+	onValueChange func(value float64)
 }
 
 func (n *FloatUpDown) create(id int) {
@@ -161,18 +162,22 @@ func (n *FloatUpDown) SetBounds(x, y, width, height int) {
 func (n *FloatUpDown) Value() float64 {
 	if n.textEditControl.handle != 0 {
 		t := strings.Replace(n.textEditControl.Text(), ",", ".", 1)
-		n.value, _ = strconv.ParseFloat(t, 64)
+		if x, err := strconv.ParseFloat(t, 64); err == nil {
+			n.value = x
+		}
 	}
+	withRightPrecision := strconv.FormatFloat(n.value, 'f', n.precision, 64)
+	n.value, _ = strconv.ParseFloat(withRightPrecision, 64)
 	return n.value
 }
 
 func (n *FloatUpDown) SetValue(f float64) {
 	n.value = f
-	if n.value < n.minValue {
-		n.value = n.minValue
+	if n.value < n.min {
+		n.value = n.min
 	}
-	if n.value > n.maxValue {
-		n.value = n.maxValue
+	if n.value > n.max {
+		n.value = n.max
 	}
 	if n.textEditControl.handle != 0 {
 		w32.SetWindowText(
@@ -182,40 +187,40 @@ func (n *FloatUpDown) SetValue(f float64) {
 	}
 }
 
-func (n *FloatUpDown) MinValue() float64 {
-	return n.minValue
+func (n *FloatUpDown) Min() float64 {
+	return n.min
 }
 
-func (n *FloatUpDown) SetMinValue(min float64) {
+func (n *FloatUpDown) SetMin(min float64) {
 	if n.Value() < min {
 		n.SetValue(min)
 	}
-	n.minValue = min
+	n.min = min
 }
 
-func (n *FloatUpDown) MaxValue() float64 {
-	return n.maxValue
+func (n *FloatUpDown) Max() float64 {
+	return n.max
 }
 
-func (n *FloatUpDown) SetMaxValue(max float64) {
+func (n *FloatUpDown) SetMax(max float64) {
 	if n.Value() > max {
 		n.SetValue(max)
 	}
-	n.maxValue = max
+	n.max = max
 }
 
-func (n *FloatUpDown) MinMaxValues() (min, max int) {
-	return int(n.minValue), int(n.maxValue)
+func (n *FloatUpDown) MinMax() (min, max float64) {
+	return n.min, n.max
 }
 
-func (n *FloatUpDown) SetMinMaxValues(min, max float64) {
+func (n *FloatUpDown) SetMinMax(min, max float64) {
 	if n.Value() < min {
 		n.SetValue(min)
 	} else if n.Value() > max {
 		n.SetValue(max)
 	}
-	n.minValue = min
-	n.maxValue = max
+	n.min = min
+	n.max = max
 }
 
 func (n *FloatUpDown) Precision() int {
@@ -232,6 +237,16 @@ func (n *FloatUpDown) SetPrecision(p int) {
 	n.precision = p
 }
 
+func (n *FloatUpDown) OnValueChange() func(value float64) {
+	return n.onValueChange
+}
+
+func (n *FloatUpDown) SetOnValueChange(f func(value float64)) {
+	n.onValueChange = f
+}
+
 func (n *FloatUpDown) handleNotification(cmd uintptr) {
-	// TODO Handle EN_CHANGE in handleNotification to inform of change.
+	if cmd == w32.EN_CHANGE && n.onValueChange != nil {
+		n.onValueChange(n.Value())
+	}
 }
