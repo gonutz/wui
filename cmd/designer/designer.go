@@ -104,9 +104,10 @@ func main() {
 	//w.SetInnerSize(800, 600)
 
 	type uiProp struct {
-		panel  *wui.Panel
-		setter string
-		update func()
+		panel     *wui.Panel
+		setter    string
+		update    func()
+		rightType func(t reflect.Type) bool
 	}
 
 	const propMargin = 2
@@ -129,7 +130,15 @@ func main() {
 			on := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0].Bool()
 			c.SetChecked(on)
 		}
-		return uiProp{panel: p, setter: setterFunc, update: update}
+		rightType := func(t reflect.Type) bool {
+			return t.Kind() == reflect.Bool
+		}
+		return uiProp{
+			panel:     p,
+			setter:    setterFunc,
+			update:    update,
+			rightType: rightType,
+		}
 	}
 
 	newIntProp := func(name, getterFunc string, minmax ...int) uiProp {
@@ -169,7 +178,64 @@ func main() {
 			i := v.Convert(reflect.TypeOf(0)).Int()
 			n.SetValue(int(i))
 		}
-		return uiProp{panel: p, setter: setterFunc, update: update}
+		rightType := func(t reflect.Type) bool {
+			return t.Kind() == reflect.Int || t.Kind() == reflect.Uint8
+		}
+		return uiProp{
+			panel:     p,
+			setter:    setterFunc,
+			update:    update,
+			rightType: rightType,
+		}
+	}
+
+	newFloatProp := func(name, getterFunc string, minmax ...float64) uiProp {
+		setterFunc := "Set" + getterFunc // By convention.
+		n := wui.NewFloatUpDown()
+		if len(minmax) == 2 {
+			n.SetMinMax(minmax[0], minmax[1])
+		}
+		n.SetPrecision(3)
+		n.SetBounds(100, propMargin, 90, 22)
+		l := wui.NewLabel()
+		l.SetText(name)
+		l.SetAlignment(wui.AlignRight)
+		// TODO This -1 might have to do with the below TODO about the
+		// FloatUpDown height.
+		l.SetBounds(0, propMargin-1, 95, n.Height())
+		p := wui.NewPanel()
+		// TODO We add +2 to the height because for some reason setting the
+		// height of an FloatUpDown does not include the borders. Fix this in
+		// the wui library.
+		p.SetSize(195, n.Height()+2+2*propMargin)
+		w.Add(p)
+		p.Add(l)
+		p.Add(n)
+		n.SetOnValueChange(func(v float64) {
+			if active == nil {
+				return
+			}
+			if m, ok := reflect.TypeOf(active).MethodByName(setterFunc); ok {
+				reflect.ValueOf(active).MethodByName(setterFunc).Call(
+					[]reflect.Value{reflect.ValueOf(v).Convert(m.Type.In(1))},
+				)
+				preview.Paint()
+			}
+		})
+		update := func() {
+			v := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0]
+			i := v.Convert(reflect.TypeOf(0.0)).Float()
+			n.SetValue(i)
+		}
+		rightType := func(t reflect.Type) bool {
+			return t.Kind() == reflect.Float32 || t.Kind() == reflect.Float64
+		}
+		return uiProp{
+			panel:     p,
+			setter:    setterFunc,
+			update:    update,
+			rightType: rightType,
+		}
 	}
 
 	newStringProp := func(name, getterFunc string) uiProp {
@@ -200,7 +266,15 @@ func main() {
 			text := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0].String()
 			t.SetText(text)
 		}
-		return uiProp{panel: p, setter: setterFunc, update: update}
+		rightType := func(t reflect.Type) bool {
+			return t.Kind() == reflect.String
+		}
+		return uiProp{
+			panel:     p,
+			setter:    setterFunc,
+			update:    update,
+			rightType: rightType,
+		}
 	}
 
 	newStringListProp := func(name, getterFunc string) uiProp {
@@ -236,7 +310,18 @@ func main() {
 			l.SetText(fmt.Sprintf("%s (%d)", name, len(items)))
 			list.SetText(strings.Join(items, "\r\n") + "\r\n")
 		}
-		return uiProp{panel: p, setter: setterFunc, update: update}
+		rightType := func(t reflect.Type) bool {
+			// NOTE that currently there is only []string, we might have to
+			// check for the underlying slice type if we support others in the
+			// future.
+			return t.Kind() == reflect.Slice
+		}
+		return uiProp{
+			panel:     p,
+			setter:    setterFunc,
+			update:    update,
+			rightType: rightType,
+		}
 	}
 
 	// enumNames must correspond to the respective const, the order is important
@@ -271,7 +356,15 @@ func main() {
 			index := v.Convert(reflect.TypeOf(0)).Int()
 			c.SetSelectedIndex(int(index))
 		}
-		return uiProp{panel: p, setter: setterFunc, update: update}
+		rightType := func(t reflect.Type) bool {
+			return true
+		}
+		return uiProp{
+			panel:     p,
+			setter:    setterFunc,
+			update:    update,
+			rightType: rightType,
+		}
 	}
 
 	uiProps := []uiProp{
@@ -302,6 +395,10 @@ func main() {
 		newIntProp("Min", "Min"),
 		newIntProp("Max", "Max"),
 		newIntProp("Value", "Value"),
+		newFloatProp("Min", "Min"),
+		newFloatProp("Max", "Max"),
+		newFloatProp("Value", "Value"),
+		newFloatProp("Precision", "Precision"),
 		newEnumProp("Orientation", "Orientation",
 			"Horizontal", "Vertical",
 		),
@@ -318,6 +415,8 @@ func main() {
 		newBoolProp("Read Only", "ReadOnly"),
 		newStringListProp("Items", "Items"),
 		newIntProp("Selected Index", "SelectedIndex", -1, math.MaxInt32),
+		newBoolProp("Vertical", "Vertical"),
+		newBoolProp("Moves Forever", "MovesForever"),
 	}
 
 	appIcon := w32.LoadIcon(0, w32.MakeIntResource(w32.IDI_APPLICATION))
@@ -385,6 +484,10 @@ func main() {
 	comboTemplate.AddItem("Combo Box")
 	comboTemplate.SetSelectedIndex(0)
 
+	progressTemplate := wui.NewProgressBar()
+	progressTemplate.SetBounds(10, 380, 150, 25)
+	progressTemplate.SetValue(0.5)
+
 	allTemplates := []wui.Control{
 		buttonTemplate,
 		checkBoxTemplate,
@@ -396,6 +499,7 @@ func main() {
 		editLineTemplate,
 		intTemplate,
 		comboTemplate,
+		progressTemplate,
 	}
 
 	var highlightedTemplate, controlToAdd wui.Control
@@ -510,9 +614,10 @@ func main() {
 		name.SetText(names[active])
 		y := name.Y() + name.Height() + propMargin
 		for _, prop := range uiProps {
-			_, ok := reflect.TypeOf(active).MethodByName(prop.setter)
-			prop.panel.SetVisible(ok)
-			if ok {
+			m, hasProp := reflect.TypeOf(active).MethodByName(prop.setter)
+			show := hasProp && prop.rightType(m.Type.In(1))
+			prop.panel.SetVisible(show)
+			if show {
 				prop.panel.SetY(y)
 				y += prop.panel.Height()
 				prop.update()
@@ -991,6 +1096,8 @@ func drawControl(c wui.Control, d drawer) {
 		drawIntUpDown(x, d)
 	case *wui.ComboBox:
 		drawComboBox(x, d)
+	case *wui.ProgressBar:
+		drawProgressBar(x, d)
 	default:
 		panic("unhandled control type")
 	}
@@ -1293,6 +1400,18 @@ func drawComboBox(c *wui.ComboBox, d drawer) {
 	}
 }
 
+func drawProgressBar(p *wui.ProgressBar, d drawer) {
+	x, y, w, h := p.Bounds()
+	if w > 0 && h > 0 {
+		d.PushDrawRegion(x, y, w, h)
+		d.DrawRect(x, y, w, h, wui.RGB(188, 188, 188))
+		d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(230, 230, 230))
+		filledW := int(float64(w-2)*p.Value() + 0.5)
+		d.FillRect(x+1, y+1, filledW, h-2, wui.RGB(0, 180, 40))
+		d.PopDrawRegion()
+	}
+}
+
 func drawEditLine(e *wui.EditLine, d drawer) {
 	x, y, w, h := e.Bounds()
 	if w > 0 && h > 0 {
@@ -1339,7 +1458,7 @@ func showPreview(parent, w *wui.Window, x, y int) {
 	progress.SetX(parent.X() + (parent.Width()-progress.Width())/2)
 	progress.SetY(parent.Y() + (parent.Height()-progress.Height())/2)
 	p := wui.NewProgressBar()
-	p.MoveForever()
+	p.SetMovesForever(true)
 	p.SetBounds(10, 10, 400, 30)
 	progress.Add(p)
 
@@ -1553,6 +1672,13 @@ func cloneControl(c wui.Control) wui.Control {
 		c.SetSelectedIndex(x.SelectedIndex())
 		c.SetBounds(0, 0, x.Width(), x.Height())
 		return c
+	case *wui.ProgressBar:
+		p := wui.NewProgressBar()
+		p.SetValue(x.Value())
+		p.SetVertical(x.Vertical())
+		p.SetMovesForever(x.MovesForever())
+		p.SetBounds(0, 0, x.Width(), x.Height())
+		return p
 	default:
 		panic("unhandled control type in cloneControl")
 	}

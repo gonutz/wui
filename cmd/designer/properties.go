@@ -92,6 +92,12 @@ var properties = map[interface{}][]property{
 		prop("Items"),
 		prop("SelectedIndex"),
 	),
+
+	wui.NewProgressBar(): commonPropertiesPlus(
+		prop("Vertical"),
+		prop("MovesForever"),
+		prop("Value"),
+	),
 }
 
 func generateProperties(variable string, control interface{}) []string {
@@ -113,6 +119,9 @@ func genProps(variable string, c, def interface{}, props []property) []string {
 			if !containsAll(wasSet, p.combines) {
 				continue
 			}
+		}
+		if _, ok := control.Type().MethodByName(p.name); !ok {
+			panic(fmt.Sprintf("%v does not have method %v", control.Type(), p.name))
 		}
 		ours := control.MethodByName(p.name).Call(nil)
 		defaults := reflect.ValueOf(def).MethodByName(p.name).Call(nil)
