@@ -166,44 +166,47 @@ func NewDialogWindow() *Window {
 }
 
 type Window struct {
-	handle          w32.HWND
-	parent          *Window
-	className       string
-	classStyle      uint32
-	title           string
-	style           uint
-	exStyle         uint
-	x               int
-	y               int
-	width           int
-	height          int
-	lastInnerWidth  int
-	lastInnerHeight int
-	state           WindowState
-	background      w32.HBRUSH
-	cursor          *Cursor
-	menu            *Menu
-	menuStrings     []*MenuString
-	font            *Font
-	controls        []Control
-	children        []Control
-	icon            uintptr
-	showConsole     bool
-	altF4disabled   bool
-	shortcuts       []shortcut
-	accelTable      w32.HACCEL
-	lastFocus       w32.HWND
-	alpha           uint8
-	onShow          func()
-	onClose         func()
-	onCanClose      func() bool
-	onMouseMove     func(x, y int)
-	onMouseWheel    func(x, y int, delta float64)
-	onMouseDown     func(button MouseButton, x, y int)
-	onMouseUp       func(button MouseButton, x, y int)
-	onKeyDown       func(key int)
-	onKeyUp         func(key int)
-	onResize        func()
+	handle           w32.HWND
+	parent           *Window
+	className        string
+	classStyle       uint32
+	title            string
+	style            uint
+	exStyle          uint
+	x                int
+	y                int
+	width            int
+	height           int
+	lastInnerWidth   int
+	lastInnerHeight  int
+	state            WindowState
+	hidesMinButton   bool
+	hidesMaxButton   bool
+	hidesCloseButton bool
+	background       w32.HBRUSH
+	cursor           *Cursor
+	menu             *Menu
+	menuStrings      []*MenuString
+	font             *Font
+	controls         []Control
+	children         []Control
+	icon             uintptr
+	showConsole      bool
+	altF4disabled    bool
+	shortcuts        []shortcut
+	accelTable       w32.HACCEL
+	lastFocus        w32.HWND
+	alpha            uint8
+	onShow           func()
+	onClose          func()
+	onCanClose       func() bool
+	onMouseMove      func(x, y int)
+	onMouseWheel     func(x, y int, delta float64)
+	onMouseDown      func(button MouseButton, x, y int)
+	onMouseUp        func(button MouseButton, x, y int)
+	onKeyDown        func(key int)
+	onKeyUp          func(key int)
+	onResize         func()
 }
 
 func (w *Window) Children() []Control {
@@ -886,6 +889,16 @@ func (w *Window) Show() error {
 	if w.alpha != 255 {
 		w.exStyle |= w32.WS_EX_LAYERED
 	}
+	if w.hidesMinButton {
+		w.style = w.style & ^uint(w32.WS_MINIMIZEBOX)
+	} else {
+		w.style = w.style | w32.WS_MINIMIZEBOX
+	}
+	if w.hidesMaxButton {
+		w.style = w.style & ^uint(w32.WS_MAXIMIZEBOX)
+	} else {
+		w.style = w.style | w32.WS_MAXIMIZEBOX
+	}
 	window := w32.CreateWindowEx(
 		w.exStyle,
 		syscall.StringToUTF16Ptr(w.className),
@@ -900,6 +913,13 @@ func (w *Window) Show() error {
 	w.handle = window
 	if w.alpha != 255 {
 		w32.SetLayeredWindowAttributes(w.handle, 0, w.alpha, w32.LWA_ALPHA)
+	}
+	if w.hidesCloseButton {
+		w32.EnableMenuItem(
+			w32.GetSystemMenu(w.handle, false),
+			w32.SC_CLOSE,
+			w32.MF_BYCOMMAND|w32.MF_DISABLED|w32.MF_GRAYED,
+		)
 	}
 
 	w.updateAccelerators()
@@ -1361,4 +1381,69 @@ func (w *Window) Parent() Container {
 
 func (w *Window) Handle() uintptr {
 	return uintptr(w.handle)
+}
+
+func (w *Window) HasMinButton() bool {
+	return !w.hidesMinButton
+}
+
+func (w *Window) SetHasMinButton(hasMin bool) {
+	w.hidesMinButton = !hasMin
+	if w.handle != 0 {
+		style := w32.GetWindowLong(w.handle, w32.GWL_STYLE)
+
+		if hasMin {
+			style = style | w32.WS_MINIMIZEBOX
+		} else {
+			style = style & ^w32.WS_MINIMIZEBOX
+		}
+
+		w32.SetWindowLong(w.handle, w32.GWL_STYLE, style)
+		w32.SetWindowPos(
+			w.handle,
+			0, 0, 0, 0, 0,
+			w32.SWP_FRAMECHANGED|w32.SWP_NOMOVE|w32.SWP_NOZORDER|
+				w32.SWP_NOSIZE|w32.SWP_NOACTIVATE,
+		)
+	}
+}
+
+func (w *Window) HasMaxButton() bool {
+	return !w.hidesMaxButton
+}
+
+func (w *Window) SetHasMaxButton(hasMax bool) {
+	w.hidesMaxButton = !hasMax
+	if w.handle != 0 {
+		style := w32.GetWindowLong(w.handle, w32.GWL_STYLE)
+
+		if hasMax {
+			style = style | w32.WS_MAXIMIZEBOX
+		} else {
+			style = style & ^w32.WS_MAXIMIZEBOX
+		}
+
+		w32.SetWindowLong(w.handle, w32.GWL_STYLE, style)
+		w32.SetWindowPos(
+			w.handle,
+			0, 0, 0, 0, 0,
+			w32.SWP_FRAMECHANGED|w32.SWP_NOMOVE|w32.SWP_NOZORDER|
+				w32.SWP_NOSIZE|w32.SWP_NOACTIVATE,
+		)
+	}
+}
+
+func (w *Window) HasCloseButton() bool {
+	return !w.hidesCloseButton
+}
+
+func (w *Window) SetHasCloseButton(hasClose bool) {
+	w.hidesCloseButton = !hasClose
+	if w.handle != 0 {
+		var state uint = w32.MF_BYCOMMAND | w32.MF_DISABLED | w32.MF_GRAYED
+		if hasClose {
+			state = w32.MF_BYCOMMAND | w32.MF_ENABLED
+		}
+		w32.EnableMenuItem(w32.GetSystemMenu(w.handle, false), w32.SC_CLOSE, state)
+	}
 }
