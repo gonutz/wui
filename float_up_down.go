@@ -34,8 +34,8 @@ func (n *FloatUpDown) create(id int) {
 		var newText string
 		dotPos := -1
 		for _, r := range text {
-			if r == '-' && len(newText) == 0 {
-				newText += "-"
+			if (r == '+' || r == '-') && len(newText) == 0 {
+				newText += string(r)
 			}
 			if r == '.' || r == ',' {
 				if dotPos == -1 {
@@ -50,7 +50,7 @@ func (n *FloatUpDown) create(id int) {
 				}
 			}
 		}
-		if newText == "" || newText == "-" {
+		if newText == "" || newText == "-" || newText == "+" {
 			newText += "0"
 		}
 		if dotPos == -1 {
@@ -93,8 +93,11 @@ func (n *FloatUpDown) create(id int) {
 				cut       = 24 // Ctrl+X
 			)
 			if '0' <= wParam && wParam <= '9' ||
-				wParam == '-' ||
+				wParam == '+' || wParam == '-' ||
 				wParam == '.' || wParam == ',' ||
+				wParam == 'i' || wParam == 'I' ||
+				wParam == 'n' || wParam == 'N' ||
+				wParam == 'f' || wParam == 'F' ||
 				wParam == w32.VK_RETURN ||
 				wParam == w32.VK_BACK ||
 				wParam == w32.VK_DELETE ||
@@ -161,9 +164,19 @@ func (n *FloatUpDown) SetBounds(x, y, width, height int) {
 
 func (n *FloatUpDown) Value() float64 {
 	if n.textEditControl.handle != 0 {
-		t := strings.Replace(n.textEditControl.Text(), ",", ".", 1)
+		text := n.textEditControl.Text()
+		t := strings.Replace(text, ",", ".", 1)
 		if x, err := strconv.ParseFloat(t, 64); err == nil {
 			n.value = x
+		} else {
+			lower := strings.ToLower(text)
+			if strings.HasSuffix(lower, "inf") {
+				if strings.Count(lower, "-")%2 == 0 {
+					n.value = math.Inf(1)
+				} else {
+					n.value = math.Inf(-1)
+				}
+			}
 		}
 	}
 	withRightPrecision := strconv.FormatFloat(n.value, 'f', n.precision, 64)
@@ -171,7 +184,12 @@ func (n *FloatUpDown) Value() float64 {
 	return n.value
 }
 
+// SetValue does not accept NaN (not a number). It does accept infinity, the
+// user can type "+inf" or "-inf".
 func (n *FloatUpDown) SetValue(f float64) {
+	if math.IsNaN(f) {
+		return
+	}
 	n.value = f
 	if n.value < n.min {
 		n.value = n.min
