@@ -372,6 +372,9 @@ func main() {
 		enumProp("Window State", "State",
 			"Normal", "Maximized", "Minimized",
 		),
+		boolProp("Min Button", "HasMinButton"),
+		boolProp("Max Button", "HasMaxButton"),
+		boolProp("Close Button", "HasCloseButton"),
 		intProp("Alpha", "Alpha", 0, 255),
 		boolProp("Enabled", "Enabled"),
 		boolProp("Visible", "Visible"),
@@ -687,8 +690,6 @@ func main() {
 			wui.RGB(0, 0, 0),
 		)
 
-		// TODO Handle combinations of borders and top-right corner buttons. For
-		// now we just draw minimize, maximize and close buttons.
 		{
 			w := topBorderSize
 			h := w - 8
@@ -698,22 +699,44 @@ func main() {
 			x1 := right - 2*w - 1
 			x2 := right - 1*w - 0
 			iconSize := h / 2
-			// Minimize button.
-			c.FillRect(x0, y, w, h, wui.RGB(240, 240, 240))
-			cx := x0 + (w-iconSize)/2
-			cy := y + h - 1 - (iconSize+1)/2
-			c.Line(cx, cy, cx+iconSize, cy, wui.RGB(0, 0, 0))
-			// Maximize button.
-			c.FillRect(x1, y, w, h, wui.RGB(240, 240, 240))
-			cx = x1 + (w-iconSize)/2
-			cy = y + (h-iconSize)/2
-			c.DrawRect(cx, cy, iconSize, iconSize, wui.RGB(0, 0, 0))
-			// Close button.
-			c.FillRect(x2, y, w, h, wui.RGB(255, 128, 128))
-			cx = x2 + (w-iconSize)/2
-			cy = y + (h-iconSize)/2
-			c.Line(cx, cy, cx+iconSize, cy+iconSize, wui.RGB(0, 0, 0))
-			c.Line(cx, cy+iconSize-1, cx+iconSize, cy-1, wui.RGB(0, 0, 0))
+			if theWindow.HasMinButton() || theWindow.HasMaxButton() {
+				{
+					// Minimize button.
+					c.FillRect(x0, y, w, h, wui.RGB(240, 240, 240))
+					cx := x0 + (w-iconSize)/2
+					cy := y + h - 1 - (iconSize+1)/2
+					color := wui.RGB(0, 0, 0)
+					if !theWindow.HasMinButton() {
+						color = wui.RGB(204, 204, 204)
+					}
+					c.Line(cx, cy, cx+iconSize, cy, color)
+				}
+				{
+					// Maximize button.
+					c.FillRect(x1, y, w, h, wui.RGB(240, 240, 240))
+					cx := x1 + (w-iconSize)/2
+					cy := y + (h-iconSize)/2
+					color := wui.RGB(0, 0, 0)
+					if !theWindow.HasMaxButton() {
+						color = wui.RGB(204, 204, 204)
+					}
+					c.DrawRect(cx, cy, iconSize, iconSize, color)
+				}
+			}
+			{
+				// Close button.
+				color := wui.RGB(0, 0, 0)
+				backColor := wui.RGB(255, 128, 128)
+				if !theWindow.HasCloseButton() {
+					color = wui.RGB(204, 204, 204)
+					backColor = wui.RGB(240, 240, 240)
+				}
+				c.FillRect(x2, y, w, h, backColor)
+				cx := x2 + (w-iconSize)/2
+				cy := y + (h-iconSize)/2
+				c.Line(cx, cy, cx+iconSize, cy+iconSize, color)
+				c.Line(cx, cy+iconSize-1, cx+iconSize, cy-1, color)
+			}
 		}
 
 		w32.DrawIconEx(
@@ -797,8 +820,9 @@ func main() {
 					// bug, relX is not in window client coordinates, it is
 					// relative to the preview paint box and thus we can never
 					// get to 0,0 with this.
-					relX = relX / 5 * 5
-					relY = relY / 5 * 5
+					const gridSize = 10
+					relX = relX / gridSize * gridSize
+					relY = relY / gridSize * gridSize
 				}
 				relX += templateDx
 				relY += templateDy
@@ -1593,6 +1617,15 @@ func main() {`)
 	line(name+".SetSize(%d, %d)", w.Width(), w.Height())
 	if w.Alpha() != 255 {
 		line(name+".SetAlpha(%d)", w.Alpha())
+	}
+	if !w.HasMinButton() {
+		line(name + ".SetHasMinButton(false)")
+	}
+	if !w.HasMaxButton() {
+		line(name + ".SetHasMaxButton(false)")
+	}
+	if !w.HasCloseButton() {
+		line(name + ".SetHasCloseButton(false)")
 	}
 	if w.State() != wui.WindowNormal {
 		line(name+".SetState(%s)", w.State().String())
