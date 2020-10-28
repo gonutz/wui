@@ -22,3 +22,11 @@ func main() {
 	wui.NewWindow().Show()
 }
 ```
+
+# The Designer
+
+I am currently working on a graphical designer. It is located under `cmd/designer`.
+
+At the moment it lets you place widgets graphically and generate a Go main file from it (using the `Save` menu). You can also run a preview with `Ctrl+R`.
+
+There is no way to read the generated code back in at the moment. Right now it is a tool to place things and generate code from it.
