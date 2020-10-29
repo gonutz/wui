@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/gonutz/w32"
@@ -80,7 +81,7 @@ func main() {
 	mouseMode := idleMouse
 
 	theWindow := defaultWindow()
-	names[theWindow] = "w"
+	names[theWindow] = "window"
 
 	font, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -11})
 	w := wui.NewWindow()
@@ -874,10 +875,13 @@ func main() {
 				// center of the new control to determine where to add it.
 				addToThis, x, y := findContainerAt(theWindow, relX+w/2, relY+h/2)
 				controlToAdd.SetBounds(x-w/2, y-h/2, w, h)
+				names[controlToAdd] = defaultName(controlToAdd)
 				addToThis.Add(controlToAdd)
 				activate(controlToAdd)
 				controlToAdd = nil
 				mouseMode = idleMouse
+				name.Focus()
+				name.SelectAll()
 				preview.Paint()
 			} else {
 				dragStartX = x
@@ -1608,55 +1612,12 @@ func main() {`)
 
 	name := names[w]
 	if name == "" {
-		name = "w"
+		name = defaultName(w)
 	}
-	// TODO Use reflection for the window as well, like the other controls.
-	line(name + " := wui.NewWindow()")
-	line(name+".SetTitle(%q)", w.Title())
-	line(name+".SetPosition(%d, %d)", x, y)
-	line(name+".SetSize(%d, %d)", w.Width(), w.Height())
-	if w.Alpha() != 255 {
-		line(name+".SetAlpha(%d)", w.Alpha())
-	}
-	if !w.HasMinButton() {
-		line(name + ".SetHasMinButton(false)")
-	}
-	if !w.HasMaxButton() {
-		line(name + ".SetHasMaxButton(false)")
-	}
-	if !w.HasCloseButton() {
-		line(name + ".SetHasCloseButton(false)")
-	}
-	if w.State() != wui.WindowNormal {
-		line(name+".SetState(%s)", w.State().String())
-	}
-	font := w.Font()
-	if font != nil {
-		line("font, _ := wui.NewFont(wui.FontDesc{")
-		if font.Desc.Name != "" {
-			line("Name: %q,", font.Desc.Name)
-		}
-		if font.Desc.Height != 0 {
-			line("Height: %d,", font.Desc.Height)
-		}
-		if font.Desc.Bold {
-			line("Bold: true,")
-		}
-		if font.Desc.Italic {
-			line("Italic: true,")
-		}
-		if font.Desc.Underlined {
-			line("Underlined: true,")
-		}
-		if font.Desc.StrikedOut {
-			line("StrikedOut: true,")
-		}
-		line("})")
-		line(name + ".SetFont(font)")
-	}
-
-	writeContainer(w, name, line)
-
+	oldX, oldY := w.Position()
+	w.SetPosition(x, y)
+	writeControl(w, name, line)
+	w.SetPosition(oldX, oldY)
 	line("")
 	line(name + ".Show()")
 	code.WriteString("\n}")
@@ -1668,40 +1629,36 @@ func main() {`)
 	return formatted
 }
 
-func writeContainer(c wui.Container, parent string, line func(format string, a ...interface{})) {
-	for i, child := range c.Children() {
-		line("")
-		name := names[child]
-		if name == "" {
-			name = fmt.Sprintf("%s_child%d", parent, i)
-		}
-		do := func(format string, a ...interface{}) {
-			line(name+format, a...)
-		}
+func writeControl(c interface{}, name string, line func(format string, a ...interface{})) {
+	do := func(format string, a ...interface{}) {
+		line(name+format, a...)
+	}
 
-		typeName := reflect.TypeOf(child).Elem().Name()
-		do(" := wui.New%s()", typeName)
+	typeName := reflect.TypeOf(c).Elem().Name()
+	do(" := wui.New%s()", typeName)
 
-		setters := generateProperties(name, child)
-		for _, setter := range setters {
-			line("\t" + setter)
+	setters := generateProperties(name, c)
+	for _, setter := range setters {
+		line("\t" + setter)
+	}
+
+	// TODO Generate ALL events.
+	if p, ok := c.(*wui.PaintBox); ok {
+		onPaint := event{p, "OnPaint"}
+		if events[onPaint] != "" {
+			do(".SetOnPaint(%s)", events[onPaint])
 		}
+	}
 
-		// TODO Generate ALL events.
-		if p, ok := child.(*wui.PaintBox); ok {
-			onPaint := event{p, "OnPaint"}
-			if events[onPaint] != "" {
-				do(".SetOnPaint(%s)", events[onPaint])
+	if con, ok := c.(wui.Container); ok {
+		for _, child := range con.Children() {
+			childName := names[child]
+			if childName == "" {
+				childName = defaultName(child)
 			}
-		}
-
-		line("%s.Add(%s)", parent, name)
-
-		if p, ok := child.(*wui.Panel); ok {
-			// TODO We would want to fill in the panel content above, before
-			// adding the panel to the parent, but there is a bug in Panel.Add,
-			// see the comment there.
-			writeContainer(p, name, line)
+			writeControl(child, childName, line)
+			line("")
+			line("%s.Add(%s)", name, childName)
 		}
 	}
 }
@@ -1830,4 +1787,31 @@ func removeEmptyStrings(items []string) []string {
 		}
 	}
 	return items[:n]
+}
+
+func defaultName(of interface{}) string {
+	typ := strings.TrimPrefix(reflect.TypeOf(of).String(), "*wui.")
+	prefix := decapitalize(typ)
+	i := 1
+	for {
+		name := prefix + strconv.Itoa(i)
+		if !nameUsed(name) {
+			return name
+		}
+		i++
+	}
+}
+
+func decapitalize(s string) string {
+	r, size := utf8.DecodeRuneInString(s)
+	return string(unicode.ToLower(r)) + s[size:]
+}
+
+func nameUsed(name string) bool {
+	for _, n := range names {
+		if name == n {
+			return true
+		}
+	}
+	return false
 }

@@ -36,6 +36,22 @@ func commonPropertiesPlus(plus ...property) []property {
 }
 
 var properties = map[interface{}][]property{
+	wui.NewWindow(): []property{
+		prop("X"),
+		prop("Y"),
+		prop("Position", "X", "Y"),
+		prop("Width"),
+		prop("Height"),
+		prop("Size", "Width", "Height"),
+		prop("Bounds", "Position", "Size"),
+		prop("Title"),
+		prop("Alpha"),
+		prop("HasMinButton"),
+		prop("HasMaxButton"),
+		prop("HasCloseButton"),
+		prop("State"),
+	},
+
 	wui.NewButton(): commonPropertiesPlus(
 		prop("Text"),
 	),
