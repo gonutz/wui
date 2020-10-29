@@ -942,7 +942,7 @@ func main() {
 	})
 
 	saveCodeTo := func(path string) {
-		code := generatePreviewCode(theWindow, theWindow.X(), theWindow.Y())
+		code := generateCode(theWindow)
 		err := ioutil.WriteFile(path, code, 0666)
 		if err != nil {
 			wui.MessageBoxError("Error", err.Error())
@@ -1565,7 +1565,12 @@ func showPreview(parent, w *wui.Window, x, y int) {
 			progress.Close()
 		}()
 
-		code := generatePreviewCode(w, x, y)
+		// For the preview we set a temporary window position to align it with
+		// the preview shown in the designer.
+		oldX, oldY := w.Position()
+		w.SetPosition(x, y)
+		code := generateCode(w)
+		w.SetPosition(oldX, oldY)
 
 		// Write the Go file to our temporary build dir.
 		goFile := filepath.Join(buildDir, "wui_designer_temp_file.go")
@@ -1595,7 +1600,7 @@ func showPreview(parent, w *wui.Window, x, y int) {
 	progress.ShowModal()
 }
 
-func generatePreviewCode(w *wui.Window, x, y int) []byte {
+func generateCode(w *wui.Window) []byte {
 	var code bytes.Buffer
 	code.WriteString(`//+build ignore
 
@@ -1614,10 +1619,7 @@ func main() {`)
 	if name == "" {
 		name = defaultName(w)
 	}
-	oldX, oldY := w.Position()
-	w.SetPosition(x, y)
 	writeControl(w, name, line)
-	w.SetPosition(oldX, oldY)
 	line("")
 	line(name + ".Show()")
 	code.WriteString("\n}")
