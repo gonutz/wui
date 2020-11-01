@@ -3,6 +3,7 @@ package w32
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"syscall"
 	"unsafe"
 )
@@ -347,6 +348,7 @@ var (
 	selectClipRgn             = gdi32.NewProc("SelectClipRgn")
 	createRectRgn             = gdi32.NewProc("CreateRectRgn")
 	combineRgn                = gdi32.NewProc("CombineRgn")
+	enumFontFamiliesEx        = gdi32.NewProc("EnumFontFamiliesExW")
 
 	getModuleHandle            = kernel32.NewProc("GetModuleHandleW")
 	getModuleFileName          = kernel32.NewProc("GetModuleFileNameW")
@@ -3476,6 +3478,46 @@ func CombineRgn(dest, src1, src2 HRGN, mode int) int {
 	return int(ret)
 }
 
+type FontType int
+
+const (
+	RASTER_FONTTYPE   FontType = 1
+	DEVICE_FONTTYPE   FontType = 2
+	TRUETYPE_FONTTYPE FontType = 4
+)
+
+func (t FontType) String() string {
+	switch t {
+	case RASTER_FONTTYPE:
+		return "RASTER_FONTTYPE"
+	case DEVICE_FONTTYPE:
+		return "DEVICE_FONTTYPE"
+	case TRUETYPE_FONTTYPE:
+		return "TRUETYPE_FONTTYPE"
+	}
+	return strconv.Itoa(int(t))
+}
+
+func EnumFontFamiliesEx(hdc HDC, font LOGFONT, f func(font *ENUMLOGFONTEX, metric *ENUMTEXTMETRIC, fontType FontType) bool) {
+	callback := syscall.NewCallback(func(font, metric uintptr, typ uint32, _ uintptr) uintptr {
+		if f(
+			(*ENUMLOGFONTEX)(unsafe.Pointer(font)),
+			(*ENUMTEXTMETRIC)(unsafe.Pointer(metric)),
+			FontType(typ),
+		) {
+			return 1
+		}
+		return 0
+	})
+	enumFontFamiliesEx.Call(
+		uintptr(hdc),
+		uintptr(unsafe.Pointer(&font)),
+		callback,
+		0,
+		0,
+	)
+}
+
 func GetModuleHandle(modulename string) HINSTANCE {
 	var mn uintptr
 	if modulename == "" {
@@ -3985,12 +4027,39 @@ func WglShareLists(hglrc1, hglrc2 HGLRC) bool {
 	return ret == TRUE
 }
 
-func EnumProcesses(processIds []uint32, cb uint32, bytesReturned *uint32) bool {
+// EnumAllProcesses retrieves the process identifier for each process object in
+// the system. It returns ok = true on success. If ok = false call GetLastError
+// to see why it failed.
+func EnumAllProcesses() (processIDs []uint32, ok bool) {
+	n := 128
+	for {
+		processIDs, ok = EnumProcesses(make([]uint32, n))
+		if !ok || len(processIDs) < n {
+			return
+		}
+		n *= 2
+	}
+}
+
+// EnumProcesses retrieves the process identifier for each process object in the
+// system. It takes a pre-sized slice to fill and returns the filled sub-slice
+// and an OK status to report success. If ok is false, call GetLastError to see
+// what the problem was.
+// If the given slice is filled completely, there might be more unenumerated
+// process IDs. In that case increase the buffer size and call EnumProcesses
+// again. You can also call EnumAllProcesses which does this automatically.
+func EnumProcesses(into []uint32) (processIDs []uint32, ok bool) {
+	if len(into) == 0 {
+		return nil, true
+	}
+	var writtenBytes uint32
 	ret, _, _ := enumProcesses.Call(
-		uintptr(unsafe.Pointer(&processIds[0])),
-		uintptr(cb),
-		uintptr(unsafe.Pointer(bytesReturned)))
-	return ret != 0
+		uintptr(unsafe.Pointer(&into[0])),
+		uintptr(len(into)*4),
+		uintptr(unsafe.Pointer(&writtenBytes)),
+	)
+	writtenIDs := writtenBytes / 4
+	return into[:writtenIDs], ret != 0
 }
 
 func SHBrowseForFolder(bi *BROWSEINFO) uintptr {
