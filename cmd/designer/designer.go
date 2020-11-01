@@ -84,6 +84,7 @@ func main() {
 	names[theWindow] = "window"
 
 	font, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -11})
+	bold, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -11, Bold: true})
 	w := wui.NewWindow()
 	w.SetFont(font)
 	w.SetTitle("wui Designer")
@@ -112,15 +113,21 @@ func main() {
 	}
 
 	const propMargin = 2
-	boolProp := func(name, getterFunc string) uiProp {
-		setterFunc := "Set" + getterFunc // By convention.
+
+	boolPanel := func(parent wui.Container, name string) (*wui.CheckBox, *wui.Panel) {
 		c := wui.NewCheckBox()
 		c.SetText(name)
 		c.SetBounds(100, propMargin, 95, 17)
 		p := wui.NewPanel()
 		p.SetSize(195, c.Height()+2*propMargin)
-		w.Add(p)
+		parent.Add(p)
 		p.Add(c)
+		return c, p
+	}
+
+	boolProp := func(name, getterFunc string) uiProp {
+		c, p := boolPanel(w, name)
+		setterFunc := "Set" + getterFunc // By convention.
 		c.SetOnChange(func(on bool) {
 			reflect.ValueOf(active).MethodByName(setterFunc).Call(
 				[]reflect.Value{reflect.ValueOf(on)},
@@ -142,8 +149,7 @@ func main() {
 		}
 	}
 
-	intProp := func(name, getterFunc string, minmax ...int) uiProp {
-		setterFunc := "Set" + getterFunc // By convention.
+	intPanel := func(parent wui.Container, name string, minmax ...int) (*wui.IntUpDown, *wui.Panel) {
 		n := wui.NewIntUpDown()
 		if len(minmax) == 2 {
 			n.SetMinMax(minmax[0], minmax[1])
@@ -160,9 +166,15 @@ func main() {
 		// height of an IntUpDown does not include the borders. Fix this in the
 		// wui library.
 		p.SetSize(195, n.Height()+2+2*propMargin)
-		w.Add(p)
+		parent.Add(p)
 		p.Add(l)
 		p.Add(n)
+		return n, p
+	}
+
+	intProp := func(name, getterFunc string, minmax ...int) uiProp {
+		n, p := intPanel(w, name, minmax...)
+		setterFunc := "Set" + getterFunc // By convention.
 		n.SetOnValueChange(func(v int) {
 			if active == nil {
 				return
@@ -239,8 +251,7 @@ func main() {
 		}
 	}
 
-	stringProp := func(name, getterFunc string) uiProp {
-		setterFunc := "Set" + getterFunc // By convention.
+	stringPanel := func(parent wui.Container, name string) (*wui.EditLine, *wui.Panel) {
 		t := wui.NewEditLine()
 		t.SetBounds(100, propMargin, 90, 22)
 		l := wui.NewLabel()
@@ -249,9 +260,15 @@ func main() {
 		l.SetBounds(0, propMargin-1, 95, t.Height())
 		p := wui.NewPanel()
 		p.SetSize(195, t.Height()+2*propMargin)
-		w.Add(p)
+		parent.Add(p)
 		p.Add(l)
 		p.Add(t)
+		return t, p
+	}
+
+	stringProp := func(name, getterFunc string) uiProp {
+		t, p := stringPanel(w, name)
+		setterFunc := "Set" + getterFunc // By convention.
 		t.SetOnTextChange(func() {
 			if active == nil {
 				return
@@ -423,6 +440,90 @@ func main() {
 		boolProp("Moves Forever", "MovesForever"),
 		boolProp("Word Wrap", "WordWrap"),
 	}
+
+	fontProps := wui.NewPanel()
+	w.Add(fontProps)
+	useParentFont, useParentFontPanel := boolPanel(fontProps, "Use Parent Font")
+	fontName, fontNamePanel := stringPanel(fontProps, "Name")
+	fontName.SetCharacterLimit(31)
+	fontHeight, fontHeightPanel := intPanel(fontProps, "Height")
+	fontBold, fontBoldPanel := boolPanel(fontProps, "Bold")
+	fontItalic, fontItalicPanel := boolPanel(fontProps, "Italic")
+	fontUnderlined, fontUnderlinedPanel := boolPanel(fontProps, "Underlined")
+	fontStrikedOut, fontStrikedOutPanel := boolPanel(fontProps, "StrikedOut")
+	for _, p := range []*wui.Panel{
+		useParentFontPanel,
+		fontNamePanel,
+		fontHeightPanel,
+		fontBoldPanel,
+		fontItalicPanel,
+		fontUnderlinedPanel,
+		fontStrikedOutPanel,
+	} {
+		p.SetX(p.X() - 40)
+	}
+	fontProps.SetBorderStyle(wui.PanelBorderSunken)
+	{
+		fontLabel := wui.NewLabel()
+		fontLabel.SetText("Font")
+		fontLabel.SetY(propMargin + 5)
+		fontLabel.SetHeight(13)
+		fontLabel.SetAlignment(wui.AlignCenter)
+		fontLabel.SetFont(bold)
+		fontProps.Add(fontLabel)
+
+		y := fontLabel.Y() + fontLabel.Height() + 10
+		for _, panel := range []*wui.Panel{
+			useParentFontPanel,
+			fontNamePanel,
+			fontHeightPanel,
+			fontBoldPanel,
+			fontItalicPanel,
+			fontUnderlinedPanel,
+			fontStrikedOutPanel,
+		} {
+			panel.SetY(y)
+			y += panel.Height()
+		}
+		fontProps.SetBounds(15, 0, 180, y+5)
+		fontLabel.SetWidth(fontProps.InnerWidth())
+	}
+	updateFont := func() {
+		f, ok := active.(fonter)
+		if !ok {
+			return
+		}
+		useParent := useParentFont.Checked()
+		fontName.SetEnabled(!useParent)
+		fontHeight.SetEnabled(!useParent)
+		fontBold.SetEnabled(!useParent)
+		fontItalic.SetEnabled(!useParent)
+		fontUnderlined.SetEnabled(!useParent)
+		fontStrikedOut.SetEnabled(!useParent)
+		if useParent {
+			f.SetFont(nil)
+		} else {
+			font, err := wui.NewFont(wui.FontDesc{
+				Name:       fontName.Text(),
+				Height:     fontHeight.Value(),
+				Bold:       fontBold.Checked(),
+				Italic:     fontItalic.Checked(),
+				Underlined: fontUnderlined.Checked(),
+				StrikedOut: fontStrikedOut.Checked(),
+			})
+			if err == nil {
+				f.SetFont(font)
+			}
+		}
+		preview.Paint()
+	}
+	useParentFont.SetOnChange(func(disable bool) { updateFont() })
+	fontName.SetOnTextChange(func() { updateFont() })
+	fontHeight.SetOnValueChange(func(int) { updateFont() })
+	fontBold.SetOnChange(func(bool) { updateFont() })
+	fontItalic.SetOnChange(func(bool) { updateFont() })
+	fontUnderlined.SetOnChange(func(bool) { updateFont() })
+	fontStrikedOut.SetOnChange(func(bool) { updateFont() })
 
 	appIcon := w32.LoadIcon(0, w32.MakeIntResource(w32.IDI_APPLICATION))
 	appIconWidth := w32.GetSystemMetrics(w32.SM_CXICON)
@@ -627,6 +728,7 @@ func main() {
 
 		name.SetText(names[active])
 		y := name.Y() + name.Height() + propMargin
+
 		for _, prop := range uiProps {
 			m, hasProp := reflect.TypeOf(active).MethodByName(prop.setter)
 			show := hasProp && prop.rightType(m.Type.In(1))
@@ -635,6 +737,29 @@ func main() {
 				prop.panel.SetY(y)
 				y += prop.panel.Height()
 				prop.update()
+			}
+		}
+
+		f, hasFont := active.(fonter)
+		fontProps.SetVisible(hasFont)
+		if hasFont {
+			fontProps.SetY(y)
+			y += fontProps.Height()
+			font := f.Font()
+			if _, isWindow := active.(*wui.Window); isWindow {
+				useParentFont.SetEnabled(false)
+				useParentFont.SetChecked(false)
+			} else {
+				useParentFont.SetEnabled(true)
+				useParentFont.SetChecked(font == nil)
+			}
+			if font != nil {
+				fontName.SetText(font.Desc.Name)
+				fontHeight.SetValue(font.Desc.Height)
+				fontBold.SetChecked(font.Desc.Bold)
+				fontItalic.SetChecked(font.Desc.Italic)
+				fontUnderlined.SetChecked(font.Desc.Underlined)
+				fontStrikedOut.SetChecked(font.Desc.StrikedOut)
 			}
 		}
 	}
@@ -1042,6 +1167,7 @@ type drawer interface {
 	TextExtent(s string) (width, height int)
 	TextOut(x, y int, s string, color wui.Color)
 	Polygon(p []w32.POINT, color wui.Color)
+	SetFont(*wui.Font)
 }
 
 func makeOffsetDrawer(base drawer, dx, dy int) drawer {
@@ -1103,6 +1229,10 @@ func (d *offsetDrawer) Line(x1, y1, x2, y2 int, color wui.Color) {
 	d.base.Line(x1+d.dx, y1+d.dy, x2+d.dx, y2+d.dy, color)
 }
 
+func (d *offsetDrawer) SetFont(f *wui.Font) {
+	d.base.SetFont(f)
+}
+
 func drawContainer(container wui.Container, d drawer) {
 	_, _, w, h := container.InnerBounds()
 	d.PushDrawRegion(0, 0, w, h)
@@ -1157,6 +1287,7 @@ func drawButton(b *wui.Button, d drawer) {
 		d.FillRect(x+2, y+2, w-4, h-4, wui.RGB(225, 225, 225))
 	}
 	if w > 6 && h > 6 {
+		d.SetFont(getFont(b))
 		textW, textH := d.TextExtent(b.Text())
 		d.PushDrawRegion(x+3, y+3, w-6, h-6)
 		d.TextOut(x+(w-textW)/2, y+(h-textH)/2, b.Text(), wui.RGB(0, 0, 0))
@@ -1767,6 +1898,11 @@ type visibler interface {
 	SetVisible(bool)
 }
 
+type fonter interface {
+	Font() *wui.Font
+	SetFont(*wui.Font)
+}
+
 func findContainerAt(c wui.Container, x, y int) (innerMost wui.Container, atX, atY int) {
 	for _, child := range c.Children() {
 		if container, ok := child.(wui.Container); ok {
@@ -1816,4 +1952,20 @@ func nameUsed(name string) bool {
 		}
 	}
 	return false
+}
+
+type fontControl interface {
+	Font() *wui.Font
+	Parent() wui.Container
+}
+
+func getFont(f fontControl) *wui.Font {
+	if f == nil {
+		return nil
+	}
+	font := f.Font()
+	if font != nil {
+		return font
+	}
+	return getFont(f.Parent())
 }

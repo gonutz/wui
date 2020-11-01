@@ -4,11 +4,16 @@ package wui
 
 import (
 	"errors"
-	"unicode/utf16"
 
 	"github.com/gonutz/w32"
 )
 
+var NoExactFontMatch = errors.New("wui.NewFont: the desired font was not found in the system, a replacement is used")
+
+// NewFont returns a font according to the given description and an error. The
+// error might be NoExactFontMatch in which case the returned Font is valid, but
+// the system did not find an exact match. In case the creation fails, the
+// returned Font is nil and the error gives the reason.
 func NewFont(desc FontDesc) (*Font, error) {
 	var weight int32 = w32.FW_NORMAL
 	if desc.Bold {
@@ -35,12 +40,24 @@ func NewFont(desc FontDesc) (*Font, error) {
 		Quality:        w32.DEFAULT_QUALITY,
 		PitchAndFamily: w32.DEFAULT_PITCH | w32.FF_DONTCARE,
 	}
-	copy(logfont.FaceName[:], utf16.Encode([]rune(desc.Name)))
+	logfont.SetFaceName(desc.Name)
+
+	found := false
+	w32.EnumFontFamiliesEx(w32.GetDC(0), logfont, func(*w32.ENUMLOGFONTEX, *w32.ENUMTEXTMETRIC, w32.FontType) bool {
+		found = true
+		return false
+	})
+	var err error
+	if !found {
+		err = NoExactFontMatch
+	}
+
 	handle := w32.CreateFontIndirect(&logfont)
 	if handle == 0 {
 		return nil, errors.New("wui.NewFont: unable to create font, please check your description")
 	}
-	return &Font{Desc: desc, handle: handle}, nil
+
+	return &Font{Desc: desc, handle: handle}, err
 }
 
 type FontDesc struct {

@@ -254,6 +254,7 @@ type Container interface {
 	Bounds() (x, y, width, height int)
 	SetBounds(x, y, width, height int)
 	InnerBounds() (x, y, width, height int)
+	Font() *Font
 }
 
 type container interface {
@@ -261,7 +262,6 @@ type container interface {
 	setParent(parent container)
 	getHandle() w32.HWND
 	getInstance() w32.HINSTANCE
-	Font() *Font
 	registerControl(c Control)
 	onWM_COMMAND(w, l uintptr)
 	onWM_DRAWITEM(w, l uintptr)
