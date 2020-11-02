@@ -552,25 +552,8 @@ func main() {
 	rightSlider.SetHorizontalAnchor(wui.AnchorMax)
 	w.Add(rightSlider)
 
-	buttonTemplate := wui.NewButton()
-	buttonTemplate.SetText("Button")
-	buttonTemplate.SetBounds(9, 11, 85, 25)
-
-	checkBoxTemplate := wui.NewCheckBox()
-	checkBoxTemplate.SetText("Check Box")
-	checkBoxTemplate.SetChecked(true)
-	checkBoxTemplate.SetBounds(10, 44, 100, 17)
-
-	radioButtonTemplate := wui.NewRadioButton()
-	radioButtonTemplate.SetText("Radio Button")
-	radioButtonTemplate.SetChecked(true)
-	radioButtonTemplate.SetBounds(10, 67, 100, 17)
-
-	sliderTemplate := wui.NewSlider()
-	sliderTemplate.SetBounds(10, 95, 150, 45)
-
 	panelTemplate := wui.NewPanel()
-	panelTemplate.SetBounds(10, 150, 150, 50)
+	panelTemplate.SetBounds(20, 10, 150, 50)
 	panelTemplate.SetBorderStyle(wui.PanelBorderSingleLine)
 	panelText := wui.NewLabel()
 	panelText.SetText("Panel")
@@ -578,50 +561,67 @@ func main() {
 	panelText.SetSize(panelTemplate.InnerWidth(), panelTemplate.InnerHeight())
 	panelTemplate.Add(panelText)
 
-	labelTemplate := wui.NewLabel()
-	labelTemplate.SetText("Text Label")
-	labelTemplate.SetBounds(10, 210, 150, 13)
-
 	paintBoxTemplate := wui.NewPaintBox()
-	paintBoxTemplate.SetBounds(10, 230, 150, 50)
+	paintBoxTemplate.SetBounds(20, 67, 150, 50)
+
+	textEditTemplate := wui.NewTextEdit()
+	textEditTemplate.SetBounds(20, 124, 150, 50)
+	textEditTemplate.SetText("Text Edit")
 
 	editLineTemplate := wui.NewEditLine()
-	editLineTemplate.SetBounds(10, 290, 150, 20)
+	editLineTemplate.SetBounds(20, 181, 150, 20)
 	editLineTemplate.SetText("Text Edit Line")
 
-	intTemplate := wui.NewIntUpDown()
-	intTemplate.SetBounds(10, 320, 80, 22)
-
 	comboTemplate := wui.NewComboBox()
-	comboTemplate.SetBounds(10, 350, 150, 21)
+	comboTemplate.SetBounds(20, 210, 150, 21)
 	comboTemplate.AddItem("Combo Box")
 	comboTemplate.SetSelectedIndex(0)
 
+	sliderTemplate := wui.NewSlider()
+	sliderTemplate.SetBounds(20, 245, 150, 45)
+
 	progressTemplate := wui.NewProgressBar()
-	progressTemplate.SetBounds(10, 380, 150, 25)
+	progressTemplate.SetBounds(20, 295, 150, 25)
 	progressTemplate.SetValue(0.5)
 
-	floatTemplate := wui.NewFloatUpDown()
-	floatTemplate.SetBounds(10, 410, 80, 22)
+	buttonTemplate := wui.NewButton()
+	buttonTemplate.SetText("Button")
+	buttonTemplate.SetBounds(20, 329, 85, 25)
 
-	textEditTemplate := wui.NewTextEdit()
-	textEditTemplate.SetBounds(10, 440, 150, 50)
-	textEditTemplate.SetText("Text Edit")
+	intTemplate := wui.NewIntUpDown()
+	intTemplate.SetBounds(20, 362, 80, 22)
+
+	floatTemplate := wui.NewFloatUpDown()
+	floatTemplate.SetBounds(20, 392, 80, 22)
+
+	checkBoxTemplate := wui.NewCheckBox()
+	checkBoxTemplate.SetText("Check Box")
+	checkBoxTemplate.SetChecked(true)
+	checkBoxTemplate.SetBounds(20, 423, 100, 17)
+
+	radioButtonTemplate := wui.NewRadioButton()
+	radioButtonTemplate.SetText("Radio Button")
+	radioButtonTemplate.SetChecked(true)
+	radioButtonTemplate.SetBounds(20, 448, 100, 17)
+
+	labelTemplate := wui.NewLabel()
+	labelTemplate.SetText("Text Label")
+	labelTemplate.SetBounds(20, 473, 150, 13)
 
 	allTemplates := []wui.Control{
+		panelTemplate,
+		paintBoxTemplate,
+		textEditTemplate,
+		editLineTemplate,
+		comboTemplate,
+		sliderTemplate,
+		progressTemplate,
 		buttonTemplate,
+		intTemplate,
+		floatTemplate,
 		checkBoxTemplate,
 		radioButtonTemplate,
-		sliderTemplate,
-		panelTemplate,
 		labelTemplate,
-		paintBoxTemplate,
-		editLineTemplate,
-		intTemplate,
-		comboTemplate,
-		progressTemplate,
-		floatTemplate,
-		textEditTemplate,
 	}
 
 	var highlightedTemplate, controlToAdd wui.Control
