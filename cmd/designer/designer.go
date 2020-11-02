@@ -1245,6 +1245,9 @@ func drawContainer(container wui.Container, d drawer) {
 	_, _, w, h := container.InnerBounds()
 	d.PushDrawRegion(0, 0, w, h)
 	for _, child := range container.Children() {
+		if f, ok := child.(fontControl); ok {
+			d.SetFont(getFont(f))
+		}
 		drawControl(child, d)
 	}
 	d.PopDrawRegion()
