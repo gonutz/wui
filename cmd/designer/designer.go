@@ -1089,6 +1089,7 @@ func main() {
 		save.AddFilter("Go file", ".go")
 		if accept, path := save.Execute(w); accept {
 			saveCodeTo(path)
+			w32.ShellExecute(0, "open", path, "", "", w32.SW_SHOWNORMAL)
 		}
 	})
 
