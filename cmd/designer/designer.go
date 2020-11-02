@@ -85,6 +85,9 @@ func main() {
 
 	font, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -11})
 	bold, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -11, Bold: true})
+	italic, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -11, Italic: true})
+	underlined, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -11, Underlined: true})
+	strikedOut, _ := wui.NewFont(wui.FontDesc{Name: "Tahoma", Height: -11, StrikedOut: true})
 	w := wui.NewWindow()
 	w.SetFont(font)
 	w.SetTitle("wui Designer")
@@ -448,9 +451,13 @@ func main() {
 	fontName.SetCharacterLimit(31)
 	fontHeight, fontHeightPanel := intPanel(fontProps, "Height")
 	fontBold, fontBoldPanel := boolPanel(fontProps, "Bold")
+	fontBold.SetFont(bold)
 	fontItalic, fontItalicPanel := boolPanel(fontProps, "Italic")
+	fontItalic.SetFont(italic)
 	fontUnderlined, fontUnderlinedPanel := boolPanel(fontProps, "Underlined")
+	fontUnderlined.SetFont(underlined)
 	fontStrikedOut, fontStrikedOutPanel := boolPanel(fontProps, "StrikedOut")
+	fontStrikedOut.SetFont(strikedOut)
 	for _, p := range []*wui.Panel{
 		useParentFontPanel,
 		fontNamePanel,
@@ -1769,6 +1776,34 @@ func writeControl(c interface{}, name string, line func(format string, a ...inte
 
 	typeName := reflect.TypeOf(c).Elem().Name()
 	do(" := wui.New%s()", typeName)
+
+	if f, ok := c.(fonter); ok {
+		font := f.Font()
+		if font != nil {
+			fontName := name + "Font"
+			line(fontName + ", _ := wui.NewFont(wui.FontDesc{")
+			if font.Desc.Name != "" {
+				line("Name: %q,", font.Desc.Name)
+			}
+			if font.Desc.Height != 0 {
+				line("Height: %d,", font.Desc.Height)
+			}
+			if font.Desc.Bold {
+				line("Bold: true,")
+			}
+			if font.Desc.Italic {
+				line("Italic: true,")
+			}
+			if font.Desc.Underlined {
+				line("Underlined: true,")
+			}
+			if font.Desc.StrikedOut {
+				line("StrikedOut: true,")
+			}
+			line("})")
+			do(".SetFont(%s)", fontName)
+		}
+	}
 
 	setters := generateProperties(name, c)
 	for _, setter := range setters {
