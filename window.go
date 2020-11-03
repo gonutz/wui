@@ -75,7 +75,6 @@ func (s WindowState) toCmd() int {
 
 func NewWindow() *Window {
 	return &Window{
-		className:  "wui_window_class",
 		x:          100,
 		y:          50,
 		width:      600,
@@ -89,7 +88,6 @@ func NewWindow() *Window {
 
 func NewDialogWindow() *Window {
 	return &Window{
-		className:  "wui_window_class",
 		x:          100,
 		y:          50,
 		width:      600,
@@ -104,7 +102,6 @@ func NewDialogWindow() *Window {
 type Window struct {
 	handle           w32.HWND
 	parent           *Window
-	className        string
 	classStyle       uint32
 	title            string
 	style            uint
@@ -215,21 +212,6 @@ func (w *Window) getHandle() w32.HWND {
 
 func (w *Window) getInstance() w32.HINSTANCE {
 	return w32.HINSTANCE(w32.GetWindowLong(w.handle, w32.GWL_HINSTANCE))
-}
-
-// ClassName returns the Windows class name for the window.
-func (w *Window) ClassName() string {
-	return w.className
-}
-
-// SetClassName sets the Windows class name for the window. This can only be
-// called before the window is shown. It will panic if called after the window
-// is shown.
-func (w *Window) SetClassName(name string) {
-	if w.handle != 0 {
-		panic("wui.Window.SetClassName can only be called before showing the window")
-	}
-	w.className = name
 }
 
 func (w *Window) ClassStyle() uint32 {
@@ -801,6 +783,8 @@ func (w *Window) onWM_DRAWITEM(wParam, lParam uintptr) {
 	}
 }
 
+const className = "wui_window_class"
+
 func (w *Window) Show() error {
 	if w.handle != 0 {
 		return errors.New("wui.Window.Show: window already visible")
@@ -822,7 +806,7 @@ func (w *Window) Show() error {
 		Background: w.background,
 		WndProc:    syscall.NewCallback(w.onMsg),
 		Cursor:     w.cursor.handle,
-		ClassName:  syscall.StringToUTF16Ptr(w.className),
+		ClassName:  syscall.StringToUTF16Ptr(className),
 		Style:      w.classStyle,
 	}
 	atom := w32.RegisterClassEx(&class)
@@ -846,7 +830,7 @@ func (w *Window) Show() error {
 	}
 	window := w32.CreateWindowEx(
 		w.exStyle,
-		syscall.StringToUTF16Ptr(w.className),
+		syscall.StringToUTF16Ptr(className),
 		syscall.StringToUTF16Ptr(w.title),
 		w.style,
 		w.x, w.y, w.width, w.height,
@@ -1106,7 +1090,7 @@ func (w *Window) ShowModal() error {
 
 	window := w32.CreateWindowEx(
 		0,
-		syscall.StringToUTF16Ptr(w.parent.className),
+		syscall.StringToUTF16Ptr(className),
 		syscall.StringToUTF16Ptr(w.title),
 		w.style,
 		w.x, w.y, w.width, w.height,
