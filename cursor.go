@@ -7,34 +7,56 @@ import (
 	"github.com/gonutz/w32"
 )
 
+// Cursor describes the mouse cursor image. You can use a pre-defined Cursor...
+// variable (see below) or create a custom cursor with NewCursorFromImage.
 type Cursor struct {
 	handle w32.HCURSOR
 }
 
 var (
-	CursorArrow       = loadCursor(w32.IDC_ARROW)
-	CursorIBeam       = loadCursor(w32.IDC_IBEAM)
-	CursorWait        = loadCursor(w32.IDC_WAIT)
-	CursorCross       = loadCursor(w32.IDC_CROSS)
-	CursorUpArrow     = loadCursor(w32.IDC_UPARROW)
-	CursorSize        = loadCursor(w32.IDC_SIZE)
-	CursorSizeNWSE    = loadCursor(w32.IDC_SIZENWSE)
-	CursorSizeNESW    = loadCursor(w32.IDC_SIZENESW)
-	CursorSizeWE      = loadCursor(w32.IDC_SIZEWE)
-	CursorSizeNS      = loadCursor(w32.IDC_SIZENS)
-	CursorSizeALL     = loadCursor(w32.IDC_SIZEALL)
-	CursorNo          = loadCursor(w32.IDC_NO)
-	CursorHand        = loadCursor(w32.IDC_HAND)
+	// CursorArrow is the standard, default arrow cursor.
+	CursorArrow = loadCursor(w32.IDC_ARROW)
+	// CursorIBeam is the text cursor, it looks like the letter I.
+	CursorIBeam = loadCursor(w32.IDC_IBEAM)
+	// CursorWait is the hour glass or rotating circle cursor that indicates
+	// that an action will take some more time.
+	CursorWait = loadCursor(w32.IDC_WAIT)
+	// CursorCross looks like a black + (plus) symbol.
+	CursorCross = loadCursor(w32.IDC_CROSS)
+	// CursorUpArrow is a vertical arrow pointing upwards.
+	CursorUpArrow = loadCursor(w32.IDC_UPARROW)
+	// CursorSizeNWSE is a diagonal line from top-left to bottom-right with
+	// arrows at both ends.
+	CursorSizeNWSE = loadCursor(w32.IDC_SIZENWSE)
+	// CursorSizeNESW is a diagonal line from top-right to bottom-left with
+	// arrows at both ends.
+	CursorSizeNESW = loadCursor(w32.IDC_SIZENESW)
+	// CursorSizeWE is a horizontal line from left to right with arrows at both
+	// ends.
+	CursorSizeWE = loadCursor(w32.IDC_SIZEWE)
+	// CursorSizeNS is a vertical line from top to bottom with arrows at both
+	// ends.
+	CursorSizeNS = loadCursor(w32.IDC_SIZENS)
+	// CursorSizeALL is a white + (plus) symbol with arrows at all four ends.
+	CursorSizeALL = loadCursor(w32.IDC_SIZEALL)
+	// CursorNo indicates that an action is not possible. It is a crossed-out
+	// red circle, like a stop sign.
+	CursorNo = loadCursor(w32.IDC_NO)
+	// CursorHand is a hand pointing its index finger upwards.
+	CursorHand = loadCursor(w32.IDC_HAND)
+	// CursorAppStarting is a combination of CursorArrow and CursorWait, it has
+	// the arrow cursor but with an hour glass or rotating circle next to it.
 	CursorAppStarting = loadCursor(w32.IDC_APPSTARTING)
-	CursorHelp        = loadCursor(w32.IDC_HELP)
-	CursorIcon        = loadCursor(w32.IDC_ICON)
+	// CursorHelp is the default arrow cursor with a little question mark icon
+	// next to it.
+	CursorHelp = loadCursor(w32.IDC_HELP)
 )
 
 func loadCursor(id uint16) *Cursor {
 	return &Cursor{handle: w32.LoadCursor(0, w32.MakeIntResource(id))}
 }
 
-// CursorFromImage creates a cursor with 4 possible colors: black, white,
+// NewCursorFromImage creates a cursor with 4 possible colors: black, white,
 // transparent and inverse screen color. Inverse screen color depends on what is
 // under the cursor at any time. The cursor will be white minus the screen
 // color to give maximum contrast for such pixels.
@@ -47,7 +69,7 @@ func loadCursor(id uint16) *Cursor {
 // All other pixels are interpreted as inverse screen color. This means even
 // "almost" black/white/transparent, say with intensity 0xFFFE instead of
 // 0xFFFF, will be interpreted as inverse screen color.
-func CursorFromImage(img image.Image, x, y int) (*Cursor, error) {
+func NewCursorFromImage(img image.Image, x, y int) (*Cursor, error) {
 	// Cursor images have two bit masks: AND and XOR. Combining the bits in both
 	// will yield these results:
 	//
