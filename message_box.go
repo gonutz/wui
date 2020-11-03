@@ -42,7 +42,5 @@ func msgBox(caption, text string, flags uint) int {
 	if parent != nil {
 		handle = parent.handle
 	}
-	windows.mu.Lock()
-	defer windows.mu.Unlock()
 	return w32.MessageBox(handle, text, caption, w32.MB_TOPMOST|flags)
 }

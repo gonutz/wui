@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
-	"sync"
 	"syscall"
 	"unicode"
 	"unicode/utf16"
@@ -19,14 +18,14 @@ import (
 
 var windows windowStack
 
+// TODO windowStack used to have a mutex but the solution was never complete.
+// Try to make the system as a whole safe for concurrent access. This is not the
+// highest priority. Make it work synchronously first.
 type windowStack struct {
 	windows []*Window
-	mu      sync.Mutex
 }
 
 func (s *windowStack) top() *Window {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if len(s.windows) == 0 {
 		return nil
 	}
@@ -34,14 +33,10 @@ func (s *windowStack) top() *Window {
 }
 
 func (s *windowStack) push(w *Window) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.windows = append(s.windows, w)
 }
 
 func (s *windowStack) pop() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if len(s.windows) > 0 {
 		s.windows = s.windows[:len(s.windows)-1]
 	}
