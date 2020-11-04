@@ -123,7 +123,7 @@ type Window struct {
 	font             *Font
 	controls         []Control
 	children         []Control
-	icon             uintptr
+	icon             *Icon
 	showConsole      bool
 	altF4disabled    bool
 	shortcuts        []shortcut
@@ -1022,50 +1022,22 @@ func setManifest() {
 
 func (w *Window) applyIcon() {
 	if w.handle != 0 {
-		w32.SendMessage(w.handle, w32.WM_SETICON, w32.ICON_SMALL, w.icon)
-		w32.SendMessage(w.handle, w32.WM_SETICON, w32.ICON_SMALL2, w.icon)
-		w32.SendMessage(w.handle, w32.WM_SETICON, w32.ICON_BIG, w.icon)
+		var h uintptr
+		if w.icon != nil {
+			h = uintptr(w.icon.handle)
+		}
+		w32.SendMessage(w.handle, w32.WM_SETICON, w32.ICON_SMALL, h)
+		w32.SendMessage(w.handle, w32.WM_SETICON, w32.ICON_SMALL2, h)
+		w32.SendMessage(w.handle, w32.WM_SETICON, w32.ICON_BIG, h)
 	}
 }
 
-func (w *Window) SetIconFromExeResource(resourceID uint16) {
-	w.icon = uintptr(w32.LoadImage(
-		w32.GetModuleHandle(""),
-		w32.MakeIntResource(resourceID),
-		w32.IMAGE_ICON,
-		0, 0,
-		w32.LR_DEFAULTSIZE|w32.LR_SHARED,
-	))
-	w.applyIcon()
+func (w *Window) Icon() *Icon {
+	return w.icon
 }
 
-func (w *Window) SetIconFromMem(mem []byte) {
-	// For some reason CreateIconFromResource does not work for multi-resolution
-	// icons. It will only ever use the first of the icons.
-	// Instead create a temporary icon file, load it, then delete it.
-	f, err := ioutil.TempFile("", "icon_")
-	if err != nil {
-		return
-	}
-	iconPath := f.Name()
-	defer os.Remove(iconPath)
-	f.Write(mem)
-	f.Close()
-	w.SetIconFromFile(iconPath)
-}
-
-func (w *Window) SetIconFromFile(path string) {
-	p, err := syscall.UTF16PtrFromString(path)
-	if err != nil {
-		return
-	}
-	w.icon = uintptr(w32.LoadImage(
-		0,
-		p,
-		w32.IMAGE_ICON,
-		0, 0,
-		w32.LR_LOADFROMFILE|w32.LR_DEFAULTSIZE,
-	))
+func (w *Window) SetIcon(icon *Icon) {
+	w.icon = icon
 	w.applyIcon()
 }
 
@@ -1081,7 +1053,7 @@ func (w *Window) ShowModal() error {
 	windows.push(w)
 	defer windows.pop()
 
-	if w.icon == 0 {
+	if w.icon == nil {
 		w.icon = w.parent.icon
 	}
 	if w.font == nil {
