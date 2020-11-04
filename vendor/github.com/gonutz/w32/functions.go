@@ -1324,7 +1324,7 @@ func CreateIconFromResource(
 	icon bool,
 	version uint32,
 ) HICON {
-	ret, _, _ := createIconFromResourceEx.Call(
+	ret, _, _ := createIconFromResource.Call(
 		uintptr(mem),
 		uintptr(memSize),
 		uintptr(BoolToBOOL(icon)),
