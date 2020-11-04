@@ -82,10 +82,6 @@ func NewCursorFromImage(img image.Image, x, y int) (*Cursor, error) {
 	bits := make([]byte, b.Dx()*b.Dy()*2)
 	and := bits[:len(bits)/2]
 	xor := bits[len(bits)/2:]
-	// color.Color.RGBA() returns 32 bit numbers that really use only 16 bits,
-	// color intensities range from 0 to 0xFFFF. We consider a color on if it is
-	// at least half of that.
-	const halfIntensity = 0x7FFF
 	count := 0
 	var mask byte = 1
 	for y := b.Min.Y; y < b.Max.Y; y++ {
