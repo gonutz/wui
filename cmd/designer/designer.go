@@ -91,7 +91,7 @@ func main() {
 	w := wui.NewWindow()
 	w.SetFont(font)
 	w.SetTitle("wui Designer")
-	w.SetBackground(w32.GetSysColorBrush(w32.COLOR_BTNFACE))
+	w.SetBackground(wui.ColorButtonFace)
 	w.SetInnerSize(800, 600)
 
 	menu := wui.NewMainMenu()

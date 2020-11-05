@@ -80,7 +80,7 @@ func NewWindow() *Window {
 		width:      600,
 		height:     400,
 		style:      w32.WS_OVERLAPPEDWINDOW,
-		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
+		background: ColorButtonFace,
 		cursor:     CursorArrow,
 		alpha:      255,
 	}
@@ -93,7 +93,7 @@ func NewDialogWindow() *Window {
 		width:      600,
 		height:     400,
 		style:      w32.WS_OVERLAPPED | w32.WS_CAPTION | w32.WS_SYSMENU,
-		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
+		background: ColorButtonFace,
 		cursor:     CursorArrow,
 		alpha:      255,
 	}
@@ -116,7 +116,7 @@ type Window struct {
 	hidesMinButton   bool
 	hidesMaxButton   bool
 	hidesCloseButton bool
-	background       w32.HBRUSH
+	background       Color
 	cursor           *Cursor
 	menu             *Menu
 	menuStrings      []*MenuString
@@ -527,12 +527,15 @@ func (w *Window) State() WindowState {
 	return w.state
 }
 
-func (w *Window) GetBackground() w32.HBRUSH { return w.background }
+func (w *Window) GetBackground() Color {
+	return w.background
+}
 
-func (w *Window) SetBackground(b w32.HBRUSH) {
-	w.background = b
+func (w *Window) SetBackground(c Color) {
+	w.background = c
 	if w.handle != 0 {
-		w32.SetClassLongPtr(w.handle, w32.GCLP_HBRBACKGROUND, uintptr(b))
+		brush := w32.CreateSolidBrush(uint32(c))
+		w32.SetClassLongPtr(w.handle, w32.GCLP_HBRBACKGROUND, uintptr(brush))
 		w32.InvalidateRect(w.handle, nil, true)
 	}
 }
@@ -803,7 +806,7 @@ func (w *Window) Show() error {
 	setManifest()
 
 	class := w32.WNDCLASSEX{
-		Background: w.background,
+		Background: w32.CreateSolidBrush(uint32(w.background)),
 		WndProc:    syscall.NewCallback(w.onMsg),
 		Cursor:     w.cursor.handle,
 		ClassName:  syscall.StringToUTF16Ptr(className),

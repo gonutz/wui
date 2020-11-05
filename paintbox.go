@@ -88,16 +88,6 @@ func (p *PaintBox) Paint() {
 	}
 }
 
-type Color w32.COLORREF
-
-func (c Color) R() uint8 { return uint8(c & 0xFF) }
-func (c Color) G() uint8 { return uint8((c & 0xFF00) >> 8) }
-func (c Color) B() uint8 { return uint8((c & 0xFF0000) >> 16) }
-
-func RGB(r, g, b uint8) Color {
-	return Color(r) + Color(g)<<8 + Color(b)<<16
-}
-
 type Canvas struct {
 	hdc     w32.HDC
 	width   int
