@@ -13,6 +13,16 @@ type Button struct {
 	onClick func()
 }
 
+var _ Control = (*Button)(nil)
+
+func (*Button) canFocus() bool {
+	return true
+}
+
+func (*Button) eatsTabs() bool {
+	return false
+}
+
 func (b *Button) OnClick() func() {
 	return b.onClick
 }

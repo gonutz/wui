@@ -178,6 +178,8 @@ type Control interface {
 	Parent() Container
 	handleNotification(cmd uintptr)
 	Handle() uintptr
+	canFocus() bool
+	eatsTabs() bool
 }
 
 type Container interface {
@@ -641,6 +643,41 @@ func (w *Window) Close() {
 	}
 }
 
+func (w *Window) interceptMessage(msg *w32.MSG) bool {
+	if msg.Message == w32.WM_KEYDOWN && msg.WParam == w32.VK_TAB {
+		focus := uintptr(w32.GetFocus())
+		cur := func() int {
+			for i := range w.controls {
+				if w.controls[i].Handle() == focus {
+					return i
+				}
+			}
+			return -1
+		}()
+		if cur != -1 && w.controls[cur].eatsTabs() {
+			return false
+		}
+		shiftDown := w32.GetKeyState(w32.VK_SHIFT)&0x8000 != 0
+		nth := func(i int) int {
+			return (cur + 1 + i) % len(w.controls)
+		}
+		if shiftDown {
+			nth = func(i int) int {
+				return (cur + len(w.controls) - 1 - i) % len(w.controls)
+			}
+		}
+		for i := range w.controls {
+			j := nth(i)
+			if w.controls[j].canFocus() {
+				w32.SetFocus(w32.HWND(w.controls[j].Handle()))
+				return true
+			}
+		}
+		return true
+	}
+	return false
+}
+
 func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uintptr {
 	mouseX := int(lParam & 0xFFFF)
 	mouseY := int(lParam&0xFFFF0000) >> 16
@@ -866,9 +903,11 @@ func (w *Window) Show() error {
 
 	var msg w32.MSG
 	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
-		if w.accelTable == 0 || !w32.TranslateAccelerator(w.handle, w.accelTable, &msg) {
-			w32.TranslateMessage(&msg)
-			w32.DispatchMessage(&msg)
+		if !w.interceptMessage(&msg) {
+			if w.accelTable == 0 || !w32.TranslateAccelerator(w.handle, w.accelTable, &msg) {
+				w32.TranslateMessage(&msg)
+				w32.DispatchMessage(&msg)
+			}
 		}
 	}
 	return nil

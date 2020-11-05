@@ -14,6 +14,16 @@ type CheckBox struct {
 	onChange func(bool)
 }
 
+var _ Control = (*CheckBox)(nil)
+
+func (*CheckBox) canFocus() bool {
+	return true
+}
+
+func (*CheckBox) eatsTabs() bool {
+	return false
+}
+
 func (c *CheckBox) create(id int) {
 	c.textControl.create(id, 0, "BUTTON", w32.WS_TABSTOP|w32.BS_AUTOCHECKBOX)
 	w32.SendMessage(c.handle, w32.BM_SETCHECK, toCheckState(c.checked), 0)

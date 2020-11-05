@@ -437,6 +437,7 @@ func main() {
 		intProp("Character Limit", "CharacterLimit", 1, 0x7FFFFFFE),
 		boolProp("Is Password", "IsPassword"),
 		boolProp("Read Only", "ReadOnly"),
+		boolProp("Writes Tabs", "WritesTabs"),
 		stringListProp("Items", "Items"),
 		intProp("Selected Index", "SelectedIndex", -1, math.MaxInt32),
 		boolProp("Vertical", "Vertical"),

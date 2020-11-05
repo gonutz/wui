@@ -24,6 +24,16 @@ type PaintBox struct {
 	onMouseMove func(x, y int)
 }
 
+var _ Control = (*PaintBox)(nil)
+
+func (*PaintBox) canFocus() bool {
+	return false
+}
+
+func (*PaintBox) eatsTabs() bool {
+	return false
+}
+
 type backBuffer struct {
 	w, h int
 	dc   w32.HDC

@@ -16,6 +16,16 @@ type ProgressBar struct {
 	value        float64
 }
 
+var _ Control = (*ProgressBar)(nil)
+
+func (*ProgressBar) canFocus() bool {
+	return false
+}
+
+func (*ProgressBar) eatsTabs() bool {
+	return false
+}
+
 const maxProgressBarValue = 10000
 
 func (p *ProgressBar) create(id int) {

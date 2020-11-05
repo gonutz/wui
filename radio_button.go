@@ -25,6 +25,16 @@ type RadioButton struct {
 	onCheck func(bool)
 }
 
+var _ Control = (*RadioButton)(nil)
+
+func (*RadioButton) canFocus() bool {
+	return true
+}
+
+func (*RadioButton) eatsTabs() bool {
+	return false
+}
+
 func (r *RadioButton) create(id int) {
 	var style uint = w32.WS_TABSTOP | w32.BS_AUTORADIOBUTTON | w32.BS_NOTIFY
 	r.textControl.create(id, 0, "BUTTON", style)
