@@ -178,6 +178,8 @@ type Control interface {
 	Handle() uintptr
 	canFocus() bool
 	eatsTabs() bool
+	Visible() bool
+	Enabled() bool
 }
 
 type Container interface {
@@ -666,7 +668,9 @@ func (w *Window) interceptMessage(msg *w32.MSG) bool {
 		}
 		for i := range w.controls {
 			j := nth(i)
-			if w.controls[j].canFocus() {
+			if w.controls[j].canFocus() &&
+				w.controls[j].Visible() &&
+				w.controls[j].Enabled() {
 				w32.SetFocus(w32.HWND(w.controls[j].Handle()))
 				return true
 			}
