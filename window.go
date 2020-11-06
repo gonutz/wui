@@ -7,9 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
+	"sort"
 	"syscall"
-	"unicode"
-	"unicode/utf16"
 	"unsafe"
 
 	"github.com/gonutz/w32"
@@ -970,8 +969,8 @@ func (w *Window) onWM_COMMAND(wParam, lParam uintptr) {
 	} else if lParam == 0 && wHi == 1 {
 		// low word of w contains accelerator ID
 		index := int(wLo)
-		if f := w.shortcuts[index].f; f != nil {
-			f()
+		if 0 <= index && index < len(w.shortcuts) {
+			w.shortcuts[index].f()
 		}
 	} else if lParam != 0 {
 		// control clicked
@@ -1212,75 +1211,75 @@ func (w *Window) SetAlpha(a uint8) {
 	}
 }
 
-type ShortcutKeys struct {
-	// Mod is a bit field combining any of ModControl, ModShift, ModAlt
-	Mod KeyMod
-	// Rune is the character to be pressed for the accelerator. Either Rune or
-	// Key must be set, if both are set, Rune takes preference.
-	Rune rune
-	// Key is the virtual key to be pressed, it must be a w32.VK_... constant.
-	Key uint16
+type shortcut struct {
+	keys []Key
+	f    func()
 }
 
-type KeyMod int
+func (s *shortcut) Len() int {
+	return len(s.keys)
+}
 
-const (
-	ModControl KeyMod = 1 << iota
-	ModShift
-	ModAlt
-)
+func (s *shortcut) Less(i, j int) bool {
+	return s.keys[i] < s.keys[j]
+}
 
-type shortcut struct {
-	keys ShortcutKeys
-	f    func()
+func (s *shortcut) Swap(i, j int) {
+	s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
 }
 
 func (s shortcut) toACCEL() w32.ACCEL {
 	var a w32.ACCEL
-	a.Virt |= w32.FVIRTKEY // NOTE need to set this in any case for some reason
-	if s.keys.Mod&ModControl != 0 {
-		a.Virt |= w32.FCONTROL
-	}
-	if s.keys.Mod&ModShift != 0 {
-		a.Virt |= w32.FSHIFT
-	}
-	if s.keys.Mod&ModAlt != 0 {
-		a.Virt |= w32.FALT
-	}
-	if s.keys.Rune != 0 {
-		// use rune
-		a.Key = utf16.Encode([]rune{unicode.ToUpper(s.keys.Rune)})[0]
-	} else {
-		// use virtual key
-		a.Key = s.keys.Key
+	a.Virt = w32.FVIRTKEY
+	for _, key := range s.keys {
+		switch key {
+		case KeyControl, KeyLeftControl, KeyRightControl:
+			a.Virt |= w32.FCONTROL
+		case KeyShift, KeyLeftShift, KeyRightShift:
+			a.Virt |= w32.FSHIFT
+		case KeyAlt, KeyLeftAlt, KeyRightAlt:
+			a.Virt |= w32.FALT
+		default:
+			a.Key = uint16(key)
+		}
 	}
 	return a
 }
 
-func (w *Window) SetShortcut(keys ShortcutKeys, f func()) {
-	func() {
-		// check if this shortcut was set before
-		for i := range w.shortcuts {
-			if keys == w.shortcuts[i].keys {
-				if f != nil {
-					// replace shortcut
-					w.shortcuts[i].f = f
-				} else {
-					// remove shortcut entirely
-					copy(w.shortcuts[i:], w.shortcuts[i+1:])
-					w.shortcuts = w.shortcuts[:len(w.shortcuts)-1]
-				}
-				return // shortcut was there before
-			}
+func sameKeys(a, b []Key) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
 		}
-		// if we land here, the shortcut is new
-		w.shortcuts = append(w.shortcuts, shortcut{
-			keys: keys,
-			f:    f,
-		})
-	}()
+	}
+	return true
+}
+
+func (w *Window) SetShortcut(f func(), keys ...Key) {
 	if w.accelTable != 0 {
-		w.updateAccelerators()
+		defer w.updateAccelerators()
+	}
+	s := shortcut{keys: keys, f: f}
+	sort.Sort(&s)
+	// Look for an existing shortcut for this key combination and replace it if
+	// we find it.
+	for i := range w.shortcuts {
+		if sameKeys(w.shortcuts[i].keys, s.keys) {
+			w.shortcuts[i].f = f // Replace the handler function.
+			if f == nil {
+				// Setting nil deletes the shortcut.
+				w.shortcuts = append(w.shortcuts[:i], w.shortcuts[i+1:]...)
+			}
+			return
+		}
+	}
+	// If we have not returned until this point, the shortcut is new, so create
+	// it.
+	if len(s.keys) > 0 && s.f != nil {
+		w.shortcuts = append(w.shortcuts, s)
 	}
 }
 
@@ -1290,7 +1289,13 @@ func (w *Window) updateAccelerators() {
 		w.accelTable = 0
 	}
 	if len(w.shortcuts) > 0 {
-		accels := make([]w32.ACCEL, len(w.shortcuts))
+		// NOTE There is a bug somewhere in our system: when there is only one
+		// accelerator in the array, CreateAcceleratorTable will return an
+		// invalid 0 handle. Thus a single shortcut will never be triggered. As
+		// soon as there is another accelerator, it works. This is why we add +1
+		// to the length here. The last accelerator is never used, its index is
+		// outside w.shortcuts and thus ignored.
+		accels := make([]w32.ACCEL, len(w.shortcuts)+1)
 		for i := range w.shortcuts {
 			accels[i] = w.shortcuts[i].toACCEL()
 			accels[i].Cmd = uint16(i)
@@ -1311,11 +1316,13 @@ func (w *Window) Repaint() {
 	}
 }
 
-func (w *Window) Monitor() w32.HMONITOR {
+// Monitor returns the handle to the monitor (HMONITOR) that the window is over.
+// Before the window is shown, Monitor returns 0.
+func (w *Window) Monitor() uintptr {
 	if w.handle == 0 {
 		return 0
 	}
-	return w32.MonitorFromWindow(w.handle, w32.MONITOR_DEFAULTTONULL)
+	return uintptr(w32.MonitorFromWindow(w.handle, w32.MONITOR_DEFAULTTONULL))
 }
 
 func (w *Window) Parent() Container {

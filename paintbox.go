@@ -105,8 +105,9 @@ type Canvas struct {
 	regions []w32.HRGN
 }
 
-func (c *Canvas) Handle() w32.HDC {
-	return c.hdc
+// Handle returns the handle to the canvas' device context (HDC).
+func (c *Canvas) Handle() uintptr {
+	return uintptr(c.hdc)
 }
 
 func (c *Canvas) Size() (width, height int) {
@@ -189,17 +190,21 @@ func (c *Canvas) FillEllipse(x, y, width, height int, color Color) {
 	w32.Ellipse(c.hdc, x, y, x+width, y+height)
 }
 
-func (c *Canvas) Polyline(p []w32.POINT, color Color) {
+type Point struct {
+	X, Y int32
+}
+
+func (c *Canvas) Polyline(p []Point, color Color) {
 	if len(p) < 2 {
 		return
 	}
 	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
 	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
 	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
-	w32.Polyline(c.hdc, p)
+	w32.PolylineMem(c.hdc, uintptr(unsafe.Pointer(&p[0])), len(p))
 }
 
-func (c *Canvas) Polygon(p []w32.POINT, color Color) {
+func (c *Canvas) Polygon(p []Point, color Color) {
 	if len(p) < 2 {
 		return
 	}
@@ -207,7 +212,7 @@ func (c *Canvas) Polygon(p []w32.POINT, color Color) {
 	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
 	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_BRUSH))
 	w32.SetDCBrushColor(c.hdc, w32.COLORREF(color))
-	w32.Polygon(c.hdc, p)
+	w32.PolygonMem(c.hdc, uintptr(unsafe.Pointer(&p[0])), len(p))
 }
 
 func (c *Canvas) Arc(x, y, width, height int, fromClockAngle, dAngle float64, color Color) {
@@ -384,9 +389,11 @@ func (c *Canvas) DrawImage(img *Image, src Rectangle, destX, destY int) {
 	w32.DeleteDC(hdcMem)
 }
 
-func NewImageFromHBITMAP(bitmap w32.HBITMAP, width, height int) *Image {
+// NewImageFromHBITMAP takes a handle to a bitmap (HBITMAP) and makes it an
+// Image that you can use in Canvas.DrawImage.
+func NewImageFromHBITMAP(bitmap uintptr, width, height int) *Image {
 	return &Image{
-		bitmap: bitmap,
+		bitmap: w32.HBITMAP(bitmap),
 		width:  width,
 		height: height,
 	}

@@ -874,7 +874,7 @@ func main() {
 		}
 
 		w32.DrawIconEx(
-			c.Handle(),
+			w32.HDC(c.Handle()),
 			xOffset+borderSize,
 			yOffset+(topBorderSize-appIconHeight)/2,
 			appIcon,
@@ -1102,16 +1102,17 @@ func main() {
 		}
 	})
 
-	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'R'}, func() {
+	w.SetShortcut(func() {
 		// We place the window such that it lies exactly over our drawing.
 		x, y := w32.ClientToScreen(w32.HWND(w.Handle()), preview.X(), preview.Y())
 		showPreview(w, theWindow, x+xOffset, y+yOffset)
-	})
-	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'O'}, fileOpenMenu.OnClick())
-	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl, Rune: 'S'}, fileSaveMenu.OnClick())
-	w.SetShortcut(wui.ShortcutKeys{Mod: wui.ModControl | wui.ModShift, Rune: 'S'}, fileSaveAsMenu.OnClick())
+	},
+		wui.KeyControl, wui.KeyR)
+	w.SetShortcut(fileOpenMenu.OnClick(), wui.KeyControl, wui.KeyO)
+	w.SetShortcut(fileSaveMenu.OnClick(), wui.KeyControl, wui.KeyS)
+	w.SetShortcut(fileSaveAsMenu.OnClick(), wui.KeyControl, wui.KeyShift, wui.KeyS)
 
-	w.SetShortcut(wui.ShortcutKeys{Rune: 27}, w.Close) // TODO ESC for debugging
+	w.SetShortcut(w.Close, wui.KeyEscape) // TODO ESC for debugging
 
 	w.SetState(wui.WindowMaximized)
 	w.Show()
@@ -1175,7 +1176,7 @@ type drawer interface {
 	TextRectFormat(x, y, w, h int, s string, format wui.Format, color wui.Color)
 	TextExtent(s string) (width, height int)
 	TextOut(x, y int, s string, color wui.Color)
-	Polygon(p []w32.POINT, color wui.Color)
+	Polygon(p []wui.Point, color wui.Color)
 	SetFont(*wui.Font)
 }
 
@@ -1226,7 +1227,7 @@ func (d *offsetDrawer) TextOut(x, y int, s string, color wui.Color) {
 	d.base.TextOut(x+d.dx, y+d.dy, s, color)
 }
 
-func (d *offsetDrawer) Polygon(p []w32.POINT, color wui.Color) {
+func (d *offsetDrawer) Polygon(p []wui.Point, color wui.Color) {
 	for i := range p {
 		p[i].X += int32(d.dx)
 		p[i].Y += int32(d.dy)
@@ -1425,7 +1426,7 @@ func drawSlider(s *wui.Slider, d drawer) {
 			d.FillRect(cursorCenter-5, y+offset, 11, size, cursorColor)
 		}
 		drawCursorArrow = func(offset int) {
-			d.Polygon([]w32.POINT{
+			d.Polygon([]wui.Point{
 				{int32(cursorCenter - 5), int32(y + 15)},
 				{int32(cursorCenter), int32(y + 15 + offset)},
 				{int32(cursorCenter + 5), int32(y + 15)},
@@ -1465,7 +1466,7 @@ func drawSlider(s *wui.Slider, d drawer) {
 			d.FillRect(x+offset, cursorCenter-5, size, 11, cursorColor)
 		}
 		drawCursorArrow = func(offset int) {
-			d.Polygon([]w32.POINT{
+			d.Polygon([]wui.Point{
 				{int32(x + 15), int32(cursorCenter - 5)},
 				{int32(x + 15 + offset), int32(cursorCenter)},
 				{int32(x + 15), int32(cursorCenter + 5)},

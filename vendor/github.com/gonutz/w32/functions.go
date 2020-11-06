@@ -1210,12 +1210,13 @@ func EmptyClipboard() bool {
 }
 
 func GetClipboardFormatName(format uint) (string, bool) {
-	cchMaxCount := 255
+	const cchMaxCount = 255
 	buf := make([]uint16, cchMaxCount)
 	ret, _, _ := getClipboardFormatName.Call(
 		uintptr(format),
 		uintptr(unsafe.Pointer(&buf[0])),
-		uintptr(cchMaxCount))
+		cchMaxCount,
+	)
 
 	if ret > 0 {
 		return syscall.UTF16ToString(buf), true
@@ -1244,8 +1245,11 @@ func EndPaint(hwnd HWND, paint *PAINTSTRUCT) {
 	)
 }
 
-func GetKeyboardState(lpKeyState *[]byte) bool {
-	ret, _, _ := getKeyboardState.Call(uintptr(unsafe.Pointer(&(*lpKeyState)[0])))
+func GetKeyboardState(keyState []byte) bool {
+	if len(keyState) < 256 {
+		return false
+	}
+	ret, _, _ := getKeyboardState.Call(uintptr(unsafe.Pointer(&keyState[0])))
 	return ret != 0
 }
 
@@ -2239,7 +2243,7 @@ func RegSetString(hKey HKEY, subKey string, value string) (errno int) {
 	var dataLength int
 	if value != "" {
 		buf, err := syscall.UTF16FromString(value)
-		if err != nil {
+		if err != nil || len(buf) == 0 {
 			return ERROR_BAD_FORMAT
 		}
 		vptr = unsafe.Pointer(&buf[0])
@@ -2381,11 +2385,15 @@ func GetNumberOfEventLogRecords(eventlog HANDLE) (n uint32, ok bool) {
 }
 
 func ReadEventLog(eventlog HANDLE, readflags, recordoffset uint32, buffer []byte, numberofbytestoread uint32, bytesread, minnumberofbytesneeded *uint32) bool {
+	var bufPtr uintptr
+	if len(buffer) > 0 {
+		bufPtr = uintptr(unsafe.Pointer(&buffer[0]))
+	}
 	ret, _, _ := readEventLog.Call(
 		uintptr(eventlog),
 		uintptr(readflags),
 		uintptr(recordoffset),
-		uintptr(unsafe.Pointer(&buffer[0])),
+		bufPtr,
 		uintptr(numberofbytestoread),
 		uintptr(unsafe.Pointer(bytesread)),
 		uintptr(unsafe.Pointer(minnumberofbytesneeded)),
@@ -3082,9 +3090,13 @@ func GetTextExtentPoint32(hdc HDC, text string) (SIZE, bool) {
 	if err != nil {
 		return s, false
 	}
+	var strPtr uintptr
+	if len(str) > 0 {
+		strPtr = uintptr(unsafe.Pointer(&str[0]))
+	}
 	ret, _, _ := getTextExtentPoint32.Call(
 		uintptr(hdc),
-		uintptr(unsafe.Pointer(&str[0])),
+		strPtr,
 		uintptr(len(str)-1), // -1 for the trailing '\0'
 		uintptr(unsafe.Pointer(&s)),
 	)
@@ -3227,6 +3239,10 @@ func StretchBlt(hdcDest HDC, nXOriginDest, nYOriginDest, nWidthDest, nHeightDest
 }
 
 func SetDIBitsToDevice(hdc HDC, xDest, yDest, dwWidth, dwHeight, xSrc, ySrc int, uStartScan, cScanLines uint, lpvBits []byte, lpbmi *BITMAPINFO, fuColorUse uint) int {
+	var bitPtr uintptr
+	if len(lpvBits) > 0 {
+		bitPtr = uintptr(unsafe.Pointer(&lpvBits[0]))
+	}
 	ret, _, _ := setDIBitsToDevice.Call(
 		uintptr(hdc),
 		uintptr(xDest),
@@ -3237,7 +3253,7 @@ func SetDIBitsToDevice(hdc HDC, xDest, yDest, dwWidth, dwHeight, xSrc, ySrc int,
 		uintptr(ySrc),
 		uintptr(uStartScan),
 		uintptr(cScanLines),
-		uintptr(unsafe.Pointer(&lpvBits[0])),
+		bitPtr,
 		uintptr(unsafe.Pointer(lpbmi)),
 		uintptr(fuColorUse),
 	)
@@ -3295,11 +3311,15 @@ func TextOut(hdc HDC, x, y int, s string) bool {
 	if err != nil {
 		return false
 	}
+	var strPtr uintptr
+	if len(str) > 0 {
+		strPtr = uintptr(unsafe.Pointer(&str[0]))
+	}
 	ret, _, _ := textOut.Call(
 		uintptr(hdc),
 		uintptr(x),
 		uintptr(y),
-		uintptr(unsafe.Pointer(&str[0])),
+		strPtr,
 		uintptr(len(str)-1), // -1 for the trailing '\0'
 	)
 	return ret != 0
@@ -3422,6 +3442,9 @@ func Chord(hdc HDC, x1, y1, x2, y2, x3, y3, x4, y4 int) bool {
 }
 
 func Polygon(hdc HDC, p []POINT) bool {
+	if len(p) == 0 {
+		return true
+	}
 	ret, _, _ := polygon.Call(
 		uintptr(hdc),
 		uintptr(unsafe.Pointer(&p[0])),
@@ -3430,7 +3453,15 @@ func Polygon(hdc HDC, p []POINT) bool {
 	return ret != 0
 }
 
+func PolygonMem(hdc HDC, start uintptr, pointCount int) bool {
+	ret, _, _ := polygon.Call(uintptr(hdc), start, uintptr(pointCount))
+	return ret != 0
+}
+
 func Polyline(hdc HDC, p []POINT) bool {
+	if len(p) == 0 {
+		return true
+	}
 	ret, _, _ := polyline.Call(
 		uintptr(hdc),
 		uintptr(unsafe.Pointer(&p[0])),
@@ -3439,7 +3470,15 @@ func Polyline(hdc HDC, p []POINT) bool {
 	return ret != 0
 }
 
+func PolylineMem(hdc HDC, start uintptr, pointCount int) bool {
+	ret, _, _ := polyline.Call(uintptr(hdc), start, uintptr(pointCount))
+	return ret != 0
+}
+
 func PolyBezier(hdc HDC, p []POINT) bool {
+	if len(p) == 0 {
+		return true
+	}
 	ret, _, _ := polyBezier.Call(
 		uintptr(hdc),
 		uintptr(unsafe.Pointer(&p[0])),
@@ -3588,10 +3627,11 @@ func Lstrlen(lpString *uint16) int {
 }
 
 func Lstrcpy(buf []uint16, lpString *uint16) {
-	lstrcpy.Call(
-		uintptr(unsafe.Pointer(&buf[0])),
-		uintptr(unsafe.Pointer(lpString)),
-	)
+	var bufPtr uintptr
+	if len(buf) > 0 {
+		bufPtr = uintptr(unsafe.Pointer(&buf[0]))
+	}
+	lstrcpy.Call(bufPtr, uintptr(unsafe.Pointer(lpString)))
 }
 
 func GlobalAlloc(uFlags uint, dwBytes uint32) HGLOBAL {
@@ -4365,11 +4405,15 @@ func GetFileVersionInfoSize(path string) uint32 {
 }
 
 func GetFileVersionInfo(path string, data []byte) bool {
+	var dataPtr uintptr
+	if len(data) > 0 {
+		dataPtr = uintptr(unsafe.Pointer(&data[0]))
+	}
 	ret, _, _ := getFileVersionInfo.Call(
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(path))),
 		0,
 		uintptr(len(data)),
-		uintptr(unsafe.Pointer(&data[0])),
+		dataPtr,
 	)
 	return ret != 0
 }
@@ -4380,7 +4424,10 @@ func GetFileVersionInfo(path string, data []byte) bool {
 func VerQueryValueRoot(block []byte) (VS_FIXEDFILEINFO, bool) {
 	var offset uintptr
 	var length uint
-	blockStart := uintptr(unsafe.Pointer(&block[0]))
+	var blockStart uintptr
+	if len(block) > 0 {
+		blockStart = uintptr(unsafe.Pointer(&block[0]))
+	}
 	ret, _, _ := verQueryValue.Call(
 		blockStart,
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(`\`))),
@@ -4407,7 +4454,10 @@ func VerQueryValueRoot(block []byte) (VS_FIXEDFILEINFO, bool) {
 func VerQueryValueTranslations(block []byte) ([]string, bool) {
 	var offset uintptr
 	var length uint
-	blockStart := uintptr(unsafe.Pointer(&block[0]))
+	var blockStart uintptr
+	if len(block) > 0 {
+		blockStart = uintptr(unsafe.Pointer(&block[0]))
+	}
 	ret, _, _ := verQueryValue.Call(
 		blockStart,
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(`\VarFileInfo\Translation`))),
@@ -4459,7 +4509,10 @@ const (
 func VerQueryValueString(block []byte, translation, item string) (string, bool) {
 	var offset uintptr
 	var utf16Length uint
-	blockStart := uintptr(unsafe.Pointer(&block[0]))
+	var blockStart uintptr
+	if len(block) > 0 {
+		blockStart = uintptr(unsafe.Pointer(&block[0]))
+	}
 	id := `\StringFileInfo\` + translation + `\` + item
 	ret, _, _ := verQueryValue.Call(
 		blockStart,
@@ -4522,10 +4575,14 @@ func GetNumberOfPhysicalMonitorsFromHMONITOR(monitor HMONITOR) (bool, DWORD) {
 
 // len(buf) must not be 0.
 func GetPhysicalMonitorsFromHMONITOR(monitor HMONITOR, buf []PHYSICAL_MONITOR) bool {
+	var bufPtr uintptr
+	if len(buf) > 0 {
+		bufPtr = uintptr(unsafe.Pointer(&buf[0]))
+	}
 	ret, _, _ := getPhysicalMonitorsFromHMONITOR.Call(
 		uintptr(monitor),
 		uintptr(len(buf)),
-		uintptr(unsafe.Pointer(&buf[0])),
+		bufPtr,
 	)
 	return ret != 0
 }
