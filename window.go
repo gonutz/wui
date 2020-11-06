@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
-	"sort"
 	"syscall"
 	"unsafe"
 
@@ -1212,26 +1211,16 @@ func (w *Window) SetAlpha(a uint8) {
 }
 
 type shortcut struct {
-	keys []Key
-	f    func()
+	// accel has its Cmd set to 0 for comparibility. It will be copied and Cmd
+	// assigned on the copies when creating the accelerator table.
+	accel w32.ACCEL
+	f     func()
 }
 
-func (s *shortcut) Len() int {
-	return len(s.keys)
-}
-
-func (s *shortcut) Less(i, j int) bool {
-	return s.keys[i] < s.keys[j]
-}
-
-func (s *shortcut) Swap(i, j int) {
-	s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
-}
-
-func (s shortcut) toACCEL() w32.ACCEL {
+func toACCEL(keys []Key) w32.ACCEL {
 	var a w32.ACCEL
 	a.Virt = w32.FVIRTKEY
-	for _, key := range s.keys {
+	for _, key := range keys {
 		switch key {
 		case KeyControl, KeyLeftControl, KeyRightControl:
 			a.Virt |= w32.FCONTROL
@@ -1246,28 +1235,18 @@ func (s shortcut) toACCEL() w32.ACCEL {
 	return a
 }
 
-func sameKeys(a, b []Key) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func (w *Window) SetShortcut(f func(), keys ...Key) {
+	if len(keys) == 0 {
+		return
+	}
 	if w.accelTable != 0 {
 		defer w.updateAccelerators()
 	}
-	s := shortcut{keys: keys, f: f}
-	sort.Sort(&s)
+	s := shortcut{accel: toACCEL(keys), f: f}
 	// Look for an existing shortcut for this key combination and replace it if
 	// we find it.
 	for i := range w.shortcuts {
-		if sameKeys(w.shortcuts[i].keys, s.keys) {
+		if w.shortcuts[i].accel == s.accel {
 			w.shortcuts[i].f = f // Replace the handler function.
 			if f == nil {
 				// Setting nil deletes the shortcut.
@@ -1278,7 +1257,7 @@ func (w *Window) SetShortcut(f func(), keys ...Key) {
 	}
 	// If we have not returned until this point, the shortcut is new, so create
 	// it.
-	if len(s.keys) > 0 && s.f != nil {
+	if s.f != nil {
 		w.shortcuts = append(w.shortcuts, s)
 	}
 }
@@ -1297,7 +1276,7 @@ func (w *Window) updateAccelerators() {
 		// outside w.shortcuts and thus ignored.
 		accels := make([]w32.ACCEL, len(w.shortcuts)+1)
 		for i := range w.shortcuts {
-			accels[i] = w.shortcuts[i].toACCEL()
+			accels[i] = w.shortcuts[i].accel
 			accels[i].Cmd = uint16(i)
 		}
 		w.accelTable = w32.CreateAcceleratorTable(accels)
