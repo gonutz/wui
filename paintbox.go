@@ -24,6 +24,16 @@ type PaintBox struct {
 	onMouseMove func(x, y int)
 }
 
+var _ Control = (*PaintBox)(nil)
+
+func (*PaintBox) canFocus() bool {
+	return false
+}
+
+func (*PaintBox) eatsTabs() bool {
+	return false
+}
+
 type backBuffer struct {
 	w, h int
 	dc   w32.HDC
@@ -86,16 +96,6 @@ func (p *PaintBox) Paint() {
 	if p.handle != 0 {
 		w32.InvalidateRect(p.handle, nil, true)
 	}
-}
-
-type Color w32.COLORREF
-
-func (c Color) R() uint8 { return uint8(c & 0xFF) }
-func (c Color) G() uint8 { return uint8((c & 0xFF00) >> 8) }
-func (c Color) B() uint8 { return uint8((c & 0xFF0000) >> 16) }
-
-func RGB(r, g, b uint8) Color {
-	return Color(r) + Color(g)<<8 + Color(b)<<16
 }
 
 type Canvas struct {

@@ -29,6 +29,16 @@ type FloatUpDown struct {
 	onValueChange func(value float64)
 }
 
+var _ Control = (*FloatUpDown)(nil)
+
+func (*FloatUpDown) canFocus() bool {
+	return true
+}
+
+func (*FloatUpDown) eatsTabs() bool {
+	return false
+}
+
 func (n *FloatUpDown) create(id int) {
 	sanitize := func(text string) string {
 		var newText string

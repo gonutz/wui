@@ -19,6 +19,17 @@ type Panel struct {
 	font     *Font
 }
 
+var _ Control = (*Panel)(nil)
+var _ container = (*Panel)(nil)
+
+func (*Panel) canFocus() bool {
+	return false
+}
+
+func (*Panel) eatsTabs() bool {
+	return false
+}
+
 type PanelBorderStyle int
 
 const (

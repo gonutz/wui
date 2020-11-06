@@ -26,6 +26,16 @@ type StringTable struct {
 	selected          int
 }
 
+var _ Control = (*StringTable)(nil)
+
+func (*StringTable) canFocus() bool {
+	return true
+}
+
+func (*StringTable) eatsTabs() bool {
+	return false
+}
+
 func (c *StringTable) create(id int) {
 	c.textControl.create(
 		id,

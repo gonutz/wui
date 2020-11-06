@@ -20,6 +20,16 @@ type ComboBox struct {
 	onChange func(newIndex int)
 }
 
+var _ Control = (*ComboBox)(nil)
+
+func (*ComboBox) canFocus() bool {
+	return true
+}
+
+func (*ComboBox) eatsTabs() bool {
+	return false
+}
+
 func (e *ComboBox) create(id int) {
 	e.textControl.create(
 		id,

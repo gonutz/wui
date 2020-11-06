@@ -127,6 +127,7 @@ var properties = map[interface{}][]property{
 		prop("Text"),
 		prop("WordWrap"),
 		prop("CharacterLimit"),
+		prop("WritesTabs"),
 	),
 }
 

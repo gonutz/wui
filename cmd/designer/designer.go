@@ -91,7 +91,7 @@ func main() {
 	w := wui.NewWindow()
 	w.SetFont(font)
 	w.SetTitle("wui Designer")
-	w.SetBackground(w32.GetSysColorBrush(w32.COLOR_BTNFACE))
+	w.SetBackground(wui.ColorButtonFace)
 	w.SetInnerSize(800, 600)
 
 	menu := wui.NewMainMenu()
@@ -437,6 +437,7 @@ func main() {
 		intProp("Character Limit", "CharacterLimit", 1, 0x7FFFFFFE),
 		boolProp("Is Password", "IsPassword"),
 		boolProp("Read Only", "ReadOnly"),
+		boolProp("Writes Tabs", "WritesTabs"),
 		stringListProp("Items", "Items"),
 		intProp("Selected Index", "SelectedIndex", -1, math.MaxInt32),
 		boolProp("Vertical", "Vertical"),

@@ -13,6 +13,16 @@ type Label struct {
 	alignment TextAlignment
 }
 
+var _ Control = (*Label)(nil)
+
+func (*Label) canFocus() bool {
+	return false
+}
+
+func (*Label) eatsTabs() bool {
+	return false
+}
+
 type TextAlignment int
 
 const (

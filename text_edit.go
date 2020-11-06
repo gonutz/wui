@@ -15,7 +15,18 @@ type TextEdit struct {
 	textEditControl
 	limit        int
 	autoHScroll  bool
+	writesTabs   bool
 	onTextChange func()
+}
+
+var _ Control = (*TextEdit)(nil)
+
+func (*TextEdit) canFocus() bool {
+	return true
+}
+
+func (e *TextEdit) eatsTabs() bool {
+	return e.writesTabs
 }
 
 func (e *TextEdit) create(id int) {
@@ -60,6 +71,14 @@ func (e *TextEdit) SetWordWrap(wrap bool) {
 
 func (e *TextEdit) WordWrap() bool {
 	return !e.autoHScroll
+}
+
+func (e *TextEdit) WritesTabs() bool {
+	return e.writesTabs
+}
+
+func (e *TextEdit) SetWritesTabs(tabs bool) {
+	e.writesTabs = tabs
 }
 
 func (e *TextEdit) SetOnTextChange(f func()) {

@@ -27,6 +27,16 @@ type Slider struct {
 	onChange      func(cursor int)
 }
 
+var _ Control = (*Slider)(nil)
+
+func (*Slider) canFocus() bool {
+	return true
+}
+
+func (*Slider) eatsTabs() bool {
+	return false
+}
+
 type SliderOrientation int
 
 const (

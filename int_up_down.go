@@ -32,6 +32,16 @@ type IntUpDown struct {
 	onValueChange func(value int)
 }
 
+var _ Control = (*IntUpDown)(nil)
+
+func (*IntUpDown) canFocus() bool {
+	return true
+}
+
+func (*IntUpDown) eatsTabs() bool {
+	return false
+}
+
 func (n *IntUpDown) create(id int) {
 	// the main handle is for the edit field
 	n.text = strconv.Itoa(int(n.value))

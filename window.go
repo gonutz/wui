@@ -80,7 +80,7 @@ func NewWindow() *Window {
 		width:      600,
 		height:     400,
 		style:      w32.WS_OVERLAPPEDWINDOW,
-		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
+		background: ColorButtonFace,
 		cursor:     CursorArrow,
 		alpha:      255,
 	}
@@ -93,7 +93,7 @@ func NewDialogWindow() *Window {
 		width:      600,
 		height:     400,
 		style:      w32.WS_OVERLAPPED | w32.WS_CAPTION | w32.WS_SYSMENU,
-		background: w32.GetSysColorBrush(w32.COLOR_BTNFACE),
+		background: ColorButtonFace,
 		cursor:     CursorArrow,
 		alpha:      255,
 	}
@@ -116,7 +116,7 @@ type Window struct {
 	hidesMinButton   bool
 	hidesMaxButton   bool
 	hidesCloseButton bool
-	background       w32.HBRUSH
+	background       Color
 	cursor           *Cursor
 	menu             *Menu
 	menuStrings      []*MenuString
@@ -178,6 +178,8 @@ type Control interface {
 	Parent() Container
 	handleNotification(cmd uintptr)
 	Handle() uintptr
+	canFocus() bool
+	eatsTabs() bool
 }
 
 type Container interface {
@@ -527,12 +529,15 @@ func (w *Window) State() WindowState {
 	return w.state
 }
 
-func (w *Window) GetBackground() w32.HBRUSH { return w.background }
+func (w *Window) GetBackground() Color {
+	return w.background
+}
 
-func (w *Window) SetBackground(b w32.HBRUSH) {
-	w.background = b
+func (w *Window) SetBackground(c Color) {
+	w.background = c
 	if w.handle != 0 {
-		w32.SetClassLongPtr(w.handle, w32.GCLP_HBRBACKGROUND, uintptr(b))
+		brush := w32.CreateSolidBrush(uint32(c))
+		w32.SetClassLongPtr(w.handle, w32.GCLP_HBRBACKGROUND, uintptr(brush))
 		w32.InvalidateRect(w.handle, nil, true)
 	}
 }
@@ -636,6 +641,41 @@ func (w *Window) Close() {
 	if w.handle != 0 {
 		w32.SendMessage(w.handle, w32.WM_CLOSE, 0, 0)
 	}
+}
+
+func (w *Window) interceptMessage(msg *w32.MSG) bool {
+	if msg.Message == w32.WM_KEYDOWN && msg.WParam == w32.VK_TAB {
+		focus := uintptr(w32.GetFocus())
+		cur := func() int {
+			for i := range w.controls {
+				if w.controls[i].Handle() == focus {
+					return i
+				}
+			}
+			return -1
+		}()
+		if cur != -1 && w.controls[cur].eatsTabs() {
+			return false
+		}
+		shiftDown := w32.GetKeyState(w32.VK_SHIFT)&0x8000 != 0
+		nth := func(i int) int {
+			return (cur + 1 + i) % len(w.controls)
+		}
+		if shiftDown {
+			nth = func(i int) int {
+				return (cur + len(w.controls) - 1 - i) % len(w.controls)
+			}
+		}
+		for i := range w.controls {
+			j := nth(i)
+			if w.controls[j].canFocus() {
+				w32.SetFocus(w32.HWND(w.controls[j].Handle()))
+				return true
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uintptr {
@@ -803,7 +843,7 @@ func (w *Window) Show() error {
 	setManifest()
 
 	class := w32.WNDCLASSEX{
-		Background: w.background,
+		Background: w32.CreateSolidBrush(uint32(w.background)),
 		WndProc:    syscall.NewCallback(w.onMsg),
 		Cursor:     w.cursor.handle,
 		ClassName:  syscall.StringToUTF16Ptr(className),
@@ -863,9 +903,11 @@ func (w *Window) Show() error {
 
 	var msg w32.MSG
 	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
-		if w.accelTable == 0 || !w32.TranslateAccelerator(w.handle, w.accelTable, &msg) {
-			w32.TranslateMessage(&msg)
-			w32.DispatchMessage(&msg)
+		if !w.interceptMessage(&msg) {
+			if w.accelTable == 0 || !w32.TranslateAccelerator(w.handle, w.accelTable, &msg) {
+				w32.TranslateMessage(&msg)
+				w32.DispatchMessage(&msg)
+			}
 		}
 	}
 	return nil

@@ -17,6 +17,16 @@ type EditLine struct {
 	onTextChange func()
 }
 
+var _ Control = (*EditLine)(nil)
+
+func (*EditLine) canFocus() bool {
+	return true
+}
+
+func (*EditLine) eatsTabs() bool {
+	return false
+}
+
 func (e *EditLine) create(id int) {
 	e.textEditControl.create(
 		id,
