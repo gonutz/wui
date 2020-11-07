@@ -402,99 +402,88 @@ func repositionChidrenByAnchors(c Container, oldW, oldH, newW, newH int) {
 }
 
 func (w *Window) InnerX() int {
-	x, _ := w.InnerPosition()
+	x, _, _, _ := w.InnerBounds()
 	return x
 }
 
+func (w *Window) SetInnerX(x int) {
+	_, y, width, height := w.InnerBounds()
+	w.SetInnerBounds(x, y, width, height)
+}
+
 func (w *Window) InnerY() int {
-	_, y := w.InnerPosition()
+	_, y, _, _ := w.InnerBounds()
 	return y
 }
 
+func (w *Window) SetInnerY(y int) {
+	x, _, width, height := w.InnerBounds()
+	w.SetInnerBounds(x, y, width, height)
+}
+
 func (w *Window) InnerPosition() (x, y int) {
+	x, y, _, _ = w.InnerBounds()
+	return
+}
+
+func (w *Window) SetInnerPosition(x, y int) {
+	_, _, width, height := w.InnerBounds()
+	w.SetInnerBounds(x, y, width, height)
+}
+
+func (w *Window) InnerWidth() int {
+	_, _, width, _ := w.InnerBounds()
+	return width
+}
+
+func (w *Window) SetInnerWidth(width int) {
+	x, y, _, height := w.InnerBounds()
+	w.SetInnerBounds(x, y, width, height)
+}
+
+func (w *Window) InnerHeight() int {
+	_, _, _, height := w.InnerBounds()
+	return height
+}
+
+func (w *Window) SetInnerHeight(height int) {
+	x, y, width, _ := w.InnerBounds()
+	w.SetInnerBounds(x, y, width, height)
+}
+
+func (w *Window) InnerSize() (width, height int) {
+	_, _, width, height = w.InnerBounds()
+	return
+}
+
+func (w *Window) SetInnerSize(width, height int) {
+	x, y, _, _ := w.InnerBounds()
+	w.SetInnerBounds(x, y, width, height)
+}
+
+func (w *Window) InnerBounds() (x, y, width, height int) {
 	if w.handle != 0 {
 		x, y = w32.ClientToScreen(w.handle, 0, 0)
+		r := w32.GetClientRect(w.handle)
+		width = int(r.Width())
+		height = int(r.Height())
 	} else {
 		x, y = w.Position()
 		var r w32.RECT
 		w32.AdjustWindowRectEx(&r, w.style, w.menu != nil, w.exStyle)
 		x -= int(r.Left)
 		y -= int(r.Top)
-	}
-	return
-}
-
-func (w *Window) InnerWidth() int {
-	width, _ := w.InnerSize()
-	return width
-}
-
-func (w *Window) InnerHeight() int {
-	_, height := w.InnerSize()
-	return height
-}
-
-func (w *Window) InnerSize() (width, height int) {
-	if w.handle != 0 {
-		r := w32.GetClientRect(w.handle)
-		width = int(r.Width())
-		height = int(r.Height())
-	} else {
-		var r w32.RECT
-		w32.AdjustWindowRect(&r, w.style, w.menu != nil)
 		width = w.width - int(r.Width())
 		height = w.height - int(r.Height())
 	}
 	return
 }
 
-func (w *Window) InnerBounds() (x, y, width, height int) {
-	x, y = w.InnerPosition()
-	width, height = w.InnerSize()
-	return
-}
-
-func (w *Window) SetInnerWidth(width int) {
-	if width < 0 {
-		width = 0
-	}
+func (w *Window) SetInnerBounds(x, y, width, height int) {
 	var r w32.RECT
-	w32.AdjustWindowRect(&r, w.style, w.menu != nil)
-	w.width = width + int(r.Width())
-	if w.handle != 0 {
-		w32.SetWindowPos(
-			w.handle, 0,
-			w.x, w.y, w.width, w.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
-}
-
-func (w *Window) SetInnerHeight(height int) {
-	if height < 0 {
-		height = 0
-	}
-	var r w32.RECT
-	w32.AdjustWindowRect(&r, w.style, w.menu != nil)
-	w.height = height + int(r.Height())
-	if w.handle != 0 {
-		w32.SetWindowPos(
-			w.handle, 0,
-			w.x, w.y, w.width, w.height,
-			w32.SWP_NOOWNERZORDER|w32.SWP_NOZORDER,
-		)
-	}
-}
-
-func (w *Window) SetInnerSize(width, height int) {
-	if width < 0 {
-		width = 0
-	}
-	if height < 0 {
-		height = 0
-	}
-	var r w32.RECT
-	w32.AdjustWindowRect(&r, w.style, w.menu != nil)
+	w32.AdjustWindowRectEx(&r, w.style, w.menu != nil, w.exStyle)
+	w.x = x + int(r.Left)
+	w.y = y + int(r.Top)
 	w.width = width + int(r.Width())
 	w.height = height + int(r.Height())
 	if w.handle != 0 {
