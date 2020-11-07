@@ -19,6 +19,17 @@ import (
 	"github.com/gonutz/wui"
 )
 
+// TODO Have color property for window background.
+
+// TODO Have icon for window.
+
+// TODO Have cursor properties for all controls, first let all controls have
+// changeable cursors.
+
+// TODO Edit main menu.
+
+// TODO Have a way to edit short cuts.
+
 var (
 	// names associates variable names with the controls.
 	names = make(map[interface{}]string)

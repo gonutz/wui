@@ -84,6 +84,8 @@ func NewWindow() *Window {
 	}
 }
 
+// TODO Get rid of this and instead make the styles indirectly changeable by
+// nice words. Need to set window border style.
 func NewDialogWindow() *Window {
 	return &Window{
 		x:          100,
@@ -568,6 +570,9 @@ func (w *Window) Font() *Font {
 
 func (w *Window) SetFont(f *Font) {
 	w.font = f
+	// TODO This should probably go over the children and recurse down from
+	// there, making sure all parents have their font set first, before their
+	// children.
 	for _, c := range w.controls {
 		c.parentFontChanged()
 	}
@@ -1085,6 +1090,8 @@ func (w *Window) SetIcon(icon *Icon) {
 	w.applyIcon()
 }
 
+// TODO Go over ShowModal and check the differences to Show.
+
 func (w *Window) ShowModal() error {
 	if w.handle != 0 {
 		return errors.New("wui.Window.ShowModal: window already visible")
@@ -1162,6 +1169,9 @@ func (w *Window) HideConsoleOnStart() {
 	w.showConsole = false
 }
 
+// TODO Remove DisableAltF4. Do we really need it? If we do, expose this
+// behavior in a more general way, e.g. as a close reason in OnCanClose().
+
 func (w *Window) DisableAltF4() {
 	w.altF4disabled = true
 }
@@ -1169,6 +1179,8 @@ func (w *Window) DisableAltF4() {
 func (w *Window) EnableAltF4() {
 	w.altF4disabled = false
 }
+
+// TODO Destroy functions for all the things, also a Remove from containers.
 
 func (w *Window) Destroy() {
 	if w.handle != 0 {
@@ -1287,11 +1299,16 @@ func (w *Window) updateAccelerators() {
 	}
 }
 
+// TODO Have good scrollbars. Do we still want to have Scroll? For other
+// containers as well?
+
 func (w *Window) Scroll(dx, dy int) {
 	if w.handle != 0 {
 		w32.ScrollWindow(w.handle, dx, dy, nil, nil)
 	}
 }
+
+// TODO When is Repaint needed?
 
 func (w *Window) Repaint() {
 	if w.handle != 0 {
