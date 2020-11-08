@@ -100,6 +100,7 @@ func NewDialogWindow() *Window {
 type Window struct {
 	handle           w32.HWND
 	parent           *Window
+	borderStyle      WindowBorderStyle
 	classStyle       uint32
 	title            string
 	style            uint
@@ -1380,3 +1381,37 @@ func (w *Window) SetHasCloseButton(hasClose bool) {
 		w32.EnableMenuItem(w32.GetSystemMenu(w.handle, false), w32.SC_CLOSE, state)
 	}
 }
+
+type WindowBorderStyle int
+
+const (
+	WindowBorderNone WindowBorderStyle = iota
+	PanelBorderFull
+)
+
+func (w *Window) BorderStyle() WindowBorderStyle {
+	return w.borderStyle
+}
+
+func (w *Window) SetBorderStyle(s WindowBorderStyle) {
+	w.style = w32.WS_POPUP
+	w.exStyle = 0
+	w.classStyle = 0
+	w.borderStyle = s
+	if w.handle != 0 {
+		w32.SetWindowLong(w.handle, w32.GWL_STYLE, int32(w.style))
+		w32.SetWindowLong(w.handle, w32.GWL_EXSTYLE, int32(w.exStyle))
+		// TODO Do we really need to set the class style? We are not changing
+		// the window buttons here.
+		w32.SetClassLong(w.handle, w32.GCL_STYLE, int32(w.classStyle))
+		w32.SetWindowPos(
+			w.handle, 0, 0, 0, 0, 0,
+			w32.SWP_FRAMECHANGED|w32.SWP_NOMOVE|w32.SWP_NOZORDER|
+				w32.SWP_NOSIZE|w32.SWP_NOACTIVATE,
+		)
+		w32.ShowWindow(w.handle, w.state.toCmd())
+	}
+}
+
+// TODO Do we need to read the bounds back in? What about anchors? Or do we make
+// the client size stay the same?
