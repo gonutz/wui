@@ -62,6 +62,7 @@ var (
 	callWindowProc                   = user32.NewProc("CallWindowProcW")
 	setWindowLong                    = user32.NewProc("SetWindowLongW")
 	setWindowLongPtr                 = user32.NewProc("SetWindowLongPtrW")
+	setClassLong                     = user32.NewProc("SetClassLongW")
 	setClassLongPtr                  = user32.NewProc("SetClassLongPtrW")
 	getWindowLong                    = user32.NewProc("GetWindowLongW")
 	getWindowLongPtr                 = user32.NewProc("GetWindowLongPtrW")
@@ -774,6 +775,15 @@ func SetWindowLongPtr(hwnd HWND, index int, value uintptr) uintptr {
 		value,
 	)
 	return ret
+}
+
+func SetClassLong(w HWND, index int, value int32) uint32 {
+	ret, _, _ := setClassLong.Call(
+		uintptr(w),
+		uintptr(index),
+		uintptr(value),
+	)
+	return uint32(ret)
 }
 
 func SetClassLongPtr(w HWND, index int, value uintptr) uintptr {
