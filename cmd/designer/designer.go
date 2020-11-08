@@ -1707,7 +1707,11 @@ func showPreview(parent, w *wui.Window, x, y int) {
 	// Create a centered progress dialog that cannot be closed until the preview
 	// is shown.
 	canClose := make(chan bool, 1)
-	progress := wui.NewDialogWindow()
+	progress := wui.NewWindow()
+	progress.SetHasMinButton(false)
+	progress.SetHasMaxButton(false)
+	progress.SetHasCloseButton(false)
+	progress.SetResizable(false)
 	progress.SetTitle("Generating Preview...")
 	progress.DisableAltF4()
 	progress.SetOnCanClose(func() bool {

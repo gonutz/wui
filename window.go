@@ -83,16 +83,6 @@ func NewWindow() *Window {
 	}
 }
 
-// TODO Get rid of this and instead make the styles indirectly changeable by
-// nice words. Need to set window border style.
-func NewDialogWindow() *Window {
-	w := NewWindow()
-	w.SetResizable(false)
-	w.SetHasMinButton(false)
-	w.SetHasMaxButton(false)
-	return w
-}
-
 type Window struct {
 	handle           w32.HWND
 	parent           *Window
