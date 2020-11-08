@@ -19,6 +19,17 @@ import (
 	"github.com/gonutz/wui"
 )
 
+// TODO Have color property for window background.
+
+// TODO Have icon for window.
+
+// TODO Have cursor properties for all controls, first let all controls have
+// changeable cursors.
+
+// TODO Edit main menu.
+
+// TODO Have a way to edit short cuts.
+
 var (
 	// names associates variable names with the controls.
 	names = make(map[interface{}]string)
@@ -388,6 +399,11 @@ func main() {
 		}
 	}
 
+	// TODO For Window: update inner bounds when outer bounds change and vice
+	// versa. Also reduce flickering when window size is changed by dragging the
+	// mouse. Instead of calling activate we have to lock updating and only
+	// change the visible properies values.
+
 	uiProps := []uiProp{
 		stringProp("Title", "Title"),
 		enumProp("Window State", "State",
@@ -409,6 +425,10 @@ func main() {
 		intProp("Y", "Y"),
 		intProp("Width", "Width"),
 		intProp("Height", "Height"),
+		intProp("Inner X", "InnerX"),
+		intProp("Inner Y", "InnerY"),
+		intProp("Inner Width", "InnerWidth"),
+		intProp("Inner Height", "InnerHeight"),
 		stringProp("Text", "Text"),
 		enumProp("Alignment", "Alignment",
 			"Left", "Center", "Right",
