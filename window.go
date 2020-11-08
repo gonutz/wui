@@ -77,7 +77,6 @@ func NewWindow() *Window {
 		y:          50,
 		width:      600,
 		height:     400,
-		style:      w32.WS_OVERLAPPEDWINDOW,
 		background: ColorButtonFace,
 		cursor:     CursorArrow,
 		alpha:      255,
@@ -87,25 +86,22 @@ func NewWindow() *Window {
 // TODO Get rid of this and instead make the styles indirectly changeable by
 // nice words. Need to set window border style.
 func NewDialogWindow() *Window {
-	return &Window{
-		x:          100,
-		y:          50,
-		width:      600,
-		height:     400,
-		style:      w32.WS_OVERLAPPED | w32.WS_CAPTION | w32.WS_SYSMENU,
-		background: ColorButtonFace,
-		cursor:     CursorArrow,
-		alpha:      255,
-	}
+	w := NewWindow()
+	w.SetResizable(false)
+	w.SetHasMinButton(false)
+	w.SetHasMaxButton(false)
+	return w
 }
 
 type Window struct {
 	handle           w32.HWND
 	parent           *Window
-	classStyle       uint32
+	hidesBorder      bool
+	fixedSize        bool
+	hidesMinButton   bool
+	hidesMaxButton   bool
+	hidesCloseButton bool
 	title            string
-	style            uint
-	exStyle          uint
 	x                int
 	y                int
 	width            int
@@ -113,9 +109,6 @@ type Window struct {
 	lastInnerWidth   int
 	lastInnerHeight  int
 	state            WindowState
-	hidesMinButton   bool
-	hidesMaxButton   bool
-	hidesCloseButton bool
 	background       Color
 	cursor           *Cursor
 	menu             *Menu
@@ -218,18 +211,6 @@ func (w *Window) getInstance() w32.HINSTANCE {
 	return w32.HINSTANCE(w32.GetWindowLong(w.handle, w32.GWL_HINSTANCE))
 }
 
-func (w *Window) ClassStyle() uint32 {
-	return w.classStyle
-}
-
-func (w *Window) SetClassStyle(style uint32) {
-	w.classStyle = style
-	if w.handle != 0 {
-		w32.SetClassLongPtr(w.handle, w32.GCL_STYLE, uintptr(w.classStyle))
-		w.classStyle = uint32(w32.GetClassLongPtr(w.handle, w32.GCL_STYLE))
-	}
-}
-
 func (w *Window) Title() string { return w.title }
 
 func (w *Window) SetTitle(title string) {
@@ -239,28 +220,35 @@ func (w *Window) SetTitle(title string) {
 	}
 }
 
-func (w *Window) Style() uint { return w.style }
+func (w *Window) style() uint {
+	var s uint
 
-func (w *Window) SetStyle(ws uint) {
-	w.style = ws
-	if w.handle != 0 {
-		w32.SetWindowLongPtr(w.handle, w32.GWL_STYLE, uintptr(w.style))
-		w32.ShowWindow(w.handle, w.state.toCmd()) // for the new style to take effect
-		w.style = uint(w32.GetWindowLongPtr(w.handle, w32.GWL_STYLE))
-		w.readBounds()
+	if w.hidesBorder {
+		s |= w32.WS_POPUP
+	} else {
+		s |= w32.WS_CAPTION | w32.WS_SYSMENU
 	}
+
+	if !w.fixedSize {
+		s |= w32.WS_SIZEBOX
+	}
+
+	if !w.hidesMinButton {
+		s |= w32.WS_MINIMIZEBOX
+	}
+
+	if !w.hidesMaxButton {
+		s |= w32.WS_MAXIMIZEBOX
+	}
+
+	return s
 }
 
-func (w *Window) ExtendedStyle() uint { return w.exStyle }
-
-func (w *Window) SetExtendedStyle(x uint) {
-	w.exStyle = x
-	if w.handle != 0 {
-		w32.SetWindowLongPtr(w.handle, w32.GWL_EXSTYLE, uintptr(w.exStyle))
-		w32.ShowWindow(w.handle, w.state.toCmd()) // for the new style to take effect
-		w.exStyle = uint(w32.GetWindowLongPtr(w.handle, w32.GWL_EXSTYLE))
-		w.readBounds()
+func (w *Window) extendedStyle() uint {
+	if w.alpha != 255 {
+		return w32.WS_EX_LAYERED
 	}
+	return 0
 }
 
 func (w *Window) readBounds() {
@@ -470,7 +458,7 @@ func (w *Window) InnerBounds() (x, y, width, height int) {
 	} else {
 		x, y = w.Position()
 		var r w32.RECT
-		w32.AdjustWindowRectEx(&r, w.style, w.menu != nil, w.exStyle)
+		w32.AdjustWindowRectEx(&r, w.style(), w.menu != nil, w.extendedStyle())
 		x -= int(r.Left)
 		y -= int(r.Top)
 		width = w.width - int(r.Width())
@@ -481,7 +469,7 @@ func (w *Window) InnerBounds() (x, y, width, height int) {
 
 func (w *Window) SetInnerBounds(x, y, width, height int) {
 	var r w32.RECT
-	w32.AdjustWindowRectEx(&r, w.style, w.menu != nil, w.exStyle)
+	w32.AdjustWindowRectEx(&r, w.style(), w.menu != nil, w.extendedStyle())
 	w.x = x + int(r.Left)
 	w.y = y + int(r.Top)
 	w.width = width + int(r.Width())
@@ -746,6 +734,14 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 			w.onResize()
 		}
 		w32.InvalidateRect(window, nil, true)
+		switch wParam {
+		case w32.SIZE_MAXIMIZED:
+			w.state = WindowMaximized
+		case w32.SIZE_MINIMIZED:
+			w.state = WindowMinimized
+		case w32.SIZE_RESTORED:
+			w.state = WindowNormal
+		}
 		return 0
 	case w32.WM_ACTIVATE:
 		active := wParam != 0
@@ -843,7 +839,6 @@ func (w *Window) Show() error {
 		WndProc:    syscall.NewCallback(w.onMsg),
 		Cursor:     w.cursor.handle,
 		ClassName:  syscall.StringToUTF16Ptr(className),
-		Style:      w.classStyle,
 	}
 	atom := w32.RegisterClassEx(&class)
 	if atom == 0 {
@@ -851,24 +846,15 @@ func (w *Window) Show() error {
 	}
 	defer w32.UnregisterClassAtom(atom, w32.GetModuleHandle(""))
 
-	if w.alpha != 255 {
-		w.exStyle |= w32.WS_EX_LAYERED
-	}
-	if w.hidesMinButton {
-		w.style = w.style & ^uint(w32.WS_MINIMIZEBOX)
-	} else {
-		w.style = w.style | w32.WS_MINIMIZEBOX
-	}
-	if w.hidesMaxButton {
-		w.style = w.style & ^uint(w32.WS_MAXIMIZEBOX)
-	} else {
-		w.style = w.style | w32.WS_MAXIMIZEBOX
-	}
+	// We remember the desired state, the window setup will make a WM_SIZE
+	// message with a restored window state arrive before we call ShowWindow.
+	state := w.state
+
 	window := w32.CreateWindowEx(
-		w.exStyle,
+		w.extendedStyle(),
 		syscall.StringToUTF16Ptr(className),
 		syscall.StringToUTF16Ptr(w.title),
-		w.style,
+		w.style(),
 		w.x, w.y, w.width, w.height,
 		0, 0, 0, nil,
 	)
@@ -891,7 +877,7 @@ func (w *Window) Show() error {
 	w.lastInnerWidth, w.lastInnerHeight = w.InnerSize()
 	w.createContents()
 	w.applyIcon()
-	w32.ShowWindow(window, w.state.toCmd())
+	w32.ShowWindow(window, state.toCmd())
 	w.readBounds()
 	if w.onShow != nil {
 		w.onShow()
@@ -1104,7 +1090,7 @@ func (w *Window) ShowModal() error {
 		0,
 		syscall.StringToUTF16Ptr(className),
 		syscall.StringToUTF16Ptr(w.title),
-		w.style,
+		w.style(),
 		w.x, w.y, w.width, w.height,
 		w.parent.handle,
 		0, 0, nil,
@@ -1384,5 +1370,61 @@ func (w *Window) SetHasCloseButton(hasClose bool) {
 			state = w32.MF_BYCOMMAND | w32.MF_ENABLED
 		}
 		w32.EnableMenuItem(w32.GetSystemMenu(w.handle, false), w32.SC_CLOSE, state)
+	}
+}
+
+func (w *Window) Resizable() bool {
+	return !w.fixedSize
+}
+
+func (w *Window) SetResizable(canResize bool) {
+	if canResize == w.Resizable() {
+		return
+	}
+	w.fixedSize = !canResize
+	w.stylesChanged()
+}
+
+func (w *Window) HasBorder() bool {
+	return !w.hidesBorder
+}
+
+func (w *Window) SetHasBorder(border bool) {
+	if border == w.HasBorder() {
+		return
+	}
+	w.hidesBorder = !border
+	w.stylesChanged()
+}
+
+func (w *Window) stylesChanged() {
+	if w.handle != 0 {
+		// We want to keep the inner bounds the same as they were, this way no
+		// controls change their position. First we restore the window, if it is
+		// minimized or maximized the inner size would not be right. We restore
+		// the original window state at the end. A problematic example: a
+		// maximized window without border is set to have a border now. The
+		// inner size fills the whole screen while maximized. Adding a border
+		// while keeping the inner size constant would add borders which lie
+		// outside the screen. This is why we need to restore the window first.
+		state := w.state
+		w.SetState(WindowNormal)
+		// Remember inner bounds.
+		x, y, width, height := w.InnerBounds()
+		// Update to the new window styles.
+		w32.SetWindowLong(w.handle, w32.GWL_STYLE, int32(w.style()))
+		w32.SetWindowLong(w.handle, w32.GWL_EXSTYLE, int32(w.extendedStyle()))
+		// Restore the original inner bounds.
+		w.SetInnerBounds(x, y, width, height)
+		// SetWindowPos and ShowWindow are necessary to make Windows realize the
+		// changes in styles.
+		w32.SetWindowPos(
+			w.handle, 0, 0, 0, 0, 0,
+			w32.SWP_FRAMECHANGED|w32.SWP_NOMOVE|w32.SWP_NOZORDER|
+				w32.SWP_NOSIZE|w32.SWP_NOACTIVATE,
+		)
+		w32.ShowWindow(w.handle, w32.SW_SHOWNORMAL)
+		// Restore the original window state.
+		w.SetState(state)
 	}
 }
