@@ -37,13 +37,10 @@ func commonPropertiesPlus(plus ...property) []property {
 
 var properties = map[interface{}][]property{
 	wui.NewWindow(): []property{
-		prop("X"),
-		prop("Y"),
-		prop("Position", "X", "Y"),
-		prop("Width"),
-		prop("Height"),
-		prop("Size", "Width", "Height"),
-		prop("Bounds", "Position", "Size"),
+		// We do not use the outer bounds for a Window since that is usually not
+		// what the user wants. The inner size determines the layout of the
+		// controls, also different Windows versions will have differently sized
+		// bounds. Keeping the inner size constant makes the most sense.
 		prop("InnerX"),
 		prop("InnerY"),
 		prop("InnerPosition", "InnerX", "InnerY"),
@@ -56,6 +53,8 @@ var properties = map[interface{}][]property{
 		prop("HasMinButton"),
 		prop("HasMaxButton"),
 		prop("HasCloseButton"),
+		prop("HasBorder"),
+		prop("Resizable"),
 		prop("State"),
 	},
 

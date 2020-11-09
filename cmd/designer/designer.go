@@ -30,6 +30,11 @@ import (
 
 // TODO Have a way to edit short cuts.
 
+// TODO Asking a control if it is Visible() will not ask its parent(s). Our
+// controls are in Panels. This means that hiding the panel will not set the
+// children visible. The children are not visible but will report to be. This
+// messes up the TAB stops.
+
 var (
 	// names associates variable names with the controls.
 	names = make(map[interface{}]string)
@@ -125,6 +130,9 @@ func main() {
 		update    func()
 		rightType func(t reflect.Type) bool
 	}
+	// updateProperties refreshes the visible UI properties by reading the
+	// values in from the active control.
+	var updateProperties func()
 
 	const propMargin = 2
 
@@ -146,11 +154,14 @@ func main() {
 			reflect.ValueOf(active).MethodByName(setterFunc).Call(
 				[]reflect.Value{reflect.ValueOf(on)},
 			)
+			updateProperties()
 			preview.Paint()
 		})
 		update := func() {
 			on := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0].Bool()
-			c.SetChecked(on)
+			if c.Checked() != on {
+				c.SetChecked(on)
+			}
 		}
 		rightType := func(t reflect.Type) bool {
 			return t.Kind() == reflect.Bool
@@ -197,13 +208,17 @@ func main() {
 				reflect.ValueOf(active).MethodByName(setterFunc).Call(
 					[]reflect.Value{reflect.ValueOf(v).Convert(m.Type.In(1))},
 				)
+				updateProperties()
 				preview.Paint()
 			}
 		})
 		update := func() {
 			v := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0]
 			i := v.Convert(reflect.TypeOf(0)).Int()
-			n.SetValue(int(i))
+			newValue := int(i)
+			if n.Value() != newValue {
+				n.SetValue(newValue)
+			}
 		}
 		rightType := func(t reflect.Type) bool {
 			return t.Kind() == reflect.Int || t.Kind() == reflect.Uint8
@@ -246,13 +261,16 @@ func main() {
 				reflect.ValueOf(active).MethodByName(setterFunc).Call(
 					[]reflect.Value{reflect.ValueOf(v).Convert(m.Type.In(1))},
 				)
+				updateProperties()
 				preview.Paint()
 			}
 		})
 		update := func() {
 			v := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0]
-			i := v.Convert(reflect.TypeOf(0.0)).Float()
-			n.SetValue(i)
+			newValue := v.Convert(reflect.TypeOf(0.0)).Float()
+			if n.Value() != newValue {
+				n.SetValue(newValue)
+			}
 		}
 		rightType := func(t reflect.Type) bool {
 			return t.Kind() == reflect.Float32 || t.Kind() == reflect.Float64
@@ -291,12 +309,15 @@ func main() {
 				reflect.ValueOf(active).MethodByName(setterFunc).Call(
 					[]reflect.Value{reflect.ValueOf(t.Text())},
 				)
+				updateProperties()
 				preview.Paint()
 			}
 		})
 		update := func() {
 			text := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0].String()
-			t.SetText(text)
+			if t.Text() != text {
+				t.SetText(text)
+			}
 		}
 		rightType := func(t reflect.Type) bool {
 			return t.Kind() == reflect.String
@@ -334,13 +355,19 @@ func main() {
 				reflect.ValueOf(active).MethodByName(setterFunc).Call(
 					[]reflect.Value{reflect.ValueOf(items)},
 				)
+				start, end := list.CursorPosition()
+				updateProperties()
+				list.SetSelection(start, end)
 				preview.Paint()
 			}
 		})
 		update := func() {
 			items := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0].Interface().([]string)
 			l.SetText(fmt.Sprintf("%s (%d)", name, len(items)))
-			list.SetText(strings.Join(items, "\r\n") + "\r\n")
+			newText := strings.Join(items, "\r\n") + "\r\n"
+			if list.Text() != newText {
+				list.SetText(newText)
+			}
 		}
 		rightType := func(t reflect.Type) bool {
 			// NOTE that currently there is only []string, we might have to
@@ -380,13 +407,16 @@ func main() {
 				reflect.ValueOf(active).MethodByName(setterFunc).Call(
 					[]reflect.Value{reflect.ValueOf(index).Convert(m.Type.In(1))},
 				)
+				updateProperties()
 				preview.Paint()
 			}
 		})
 		update := func() {
 			v := reflect.ValueOf(active).MethodByName(getterFunc).Call(nil)[0]
-			index := v.Convert(reflect.TypeOf(0)).Int()
-			c.SetSelectedIndex(int(index))
+			index := int(v.Convert(reflect.TypeOf(0)).Int())
+			if c.SelectedIndex() != index {
+				c.SetSelectedIndex(index)
+			}
 		}
 		rightType := func(t reflect.Type) bool {
 			return true
@@ -412,6 +442,8 @@ func main() {
 		boolProp("Min Button", "HasMinButton"),
 		boolProp("Max Button", "HasMaxButton"),
 		boolProp("Close Button", "HasCloseButton"),
+		boolProp("Has Border", "HasBorder"),
+		boolProp("Resizable", "Resizable"),
 		intProp("Alpha", "Alpha", 0, 255),
 		boolProp("Enabled", "Enabled"),
 		boolProp("Visible", "Visible"),
@@ -751,6 +783,14 @@ func main() {
 		dlg.ShowModal()
 	})
 
+	updateProperties = func() {
+		for _, prop := range uiProps {
+			if prop.panel.Visible() {
+				prop.update()
+			}
+		}
+	}
+
 	activate := func(newActive node) {
 		active = newActive
 
@@ -764,9 +804,9 @@ func main() {
 			if show {
 				prop.panel.SetY(y)
 				y += prop.panel.Height()
-				prop.update()
 			}
 		}
+		updateProperties()
 
 		f, hasFont := active.(fonter)
 		fontProps.SetVisible(hasFont)
@@ -793,8 +833,11 @@ func main() {
 	}
 	activate(theWindow)
 
-	const xOffset, yOffset = 5, 5
+	var xOffset, yOffset int
 	preview.SetOnPaint(func(c *wui.Canvas) {
+		// Place the inner top-left at 20,40.
+		xOffset = 20 - (theWindow.InnerX() - theWindow.X())
+		yOffset = 40 - (theWindow.InnerY() - theWindow.Y())
 		width, height := theWindow.Size()
 		innerWidth, innerHeight := theWindow.InnerSize()
 		borderSize := (width - innerWidth) / 2
@@ -835,16 +878,16 @@ func main() {
 		c.FillRect(xOffset, yOffset+height-borderSize, width, borderSize, borderColor)
 		c.FillRect(xOffset+width-borderSize, yOffset, borderSize, height, borderColor)
 
-		c.SetFont(theWindow.Font())
-		_, textH := c.TextExtent(theWindow.Title())
-		c.TextOut(
-			xOffset+borderSize+appIconWidth+5,
-			yOffset+(topBorderSize-textH)/2,
-			theWindow.Title(),
-			wui.RGB(0, 0, 0),
-		)
+		if theWindow.HasBorder() {
+			c.SetFont(theWindow.Font())
+			_, textH := c.TextExtent(theWindow.Title())
+			c.TextOut(
+				xOffset+borderSize+appIconWidth+5,
+				yOffset+(topBorderSize-textH)/2,
+				theWindow.Title(),
+				wui.RGB(0, 0, 0),
+			)
 
-		{
 			w := topBorderSize
 			h := w - 8
 			y := yOffset + 4
@@ -877,30 +920,28 @@ func main() {
 					c.DrawRect(cx, cy, iconSize, iconSize, color)
 				}
 			}
-			{
-				// Close button.
-				color := wui.RGB(0, 0, 0)
-				backColor := wui.RGB(255, 128, 128)
-				if !theWindow.HasCloseButton() {
-					color = wui.RGB(204, 204, 204)
-					backColor = wui.RGB(240, 240, 240)
-				}
-				c.FillRect(x2, y, w, h, backColor)
-				cx := x2 + (w-iconSize)/2
-				cy := y + (h-iconSize)/2
-				c.Line(cx, cy, cx+iconSize, cy+iconSize, color)
-				c.Line(cx, cy+iconSize-1, cx+iconSize, cy-1, color)
+			// Close button.
+			color := wui.RGB(0, 0, 0)
+			backColor := wui.RGB(255, 128, 128)
+			if !theWindow.HasCloseButton() {
+				color = wui.RGB(204, 204, 204)
+				backColor = wui.RGB(240, 240, 240)
 			}
-		}
+			c.FillRect(x2, y, w, h, backColor)
+			cx := x2 + (w-iconSize)/2
+			cy := y + (h-iconSize)/2
+			c.Line(cx, cy, cx+iconSize, cy+iconSize, color)
+			c.Line(cx, cy+iconSize-1, cx+iconSize, cy-1, color)
 
-		w32.DrawIconEx(
-			w32.HDC(c.Handle()),
-			xOffset+borderSize,
-			yOffset+(topBorderSize-appIconHeight)/2,
-			appIcon,
-			appIconWidth, appIconHeight,
-			0, 0, w32.DI_NORMAL,
-		)
+			w32.DrawIconEx(
+				w32.HDC(c.Handle()),
+				xOffset+borderSize,
+				yOffset+(topBorderSize-appIconHeight)/2,
+				appIcon,
+				appIconWidth, appIconHeight,
+				0, 0, w32.DI_NORMAL,
+			)
+		}
 
 		// Clear the background behind the window.
 		w, h := c.Size()
@@ -1004,7 +1045,7 @@ func main() {
 				dy := y - dragStartY
 				theWindow.SetHeight(dragStartHeight + dy)
 			}
-			activate(theWindow) // Update the size in the UI.
+			updateProperties()
 			preview.Paint()
 		}
 	})

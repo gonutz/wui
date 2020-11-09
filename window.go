@@ -1368,11 +1368,9 @@ func (w *Window) Resizable() bool {
 }
 
 func (w *Window) SetResizable(canResize bool) {
-	if canResize == w.Resizable() {
-		return
+	if canResize != w.Resizable() {
+		w.changeStyles(func() { w.fixedSize = !canResize })
 	}
-	w.fixedSize = !canResize
-	w.stylesChanged()
 }
 
 func (w *Window) HasBorder() bool {
@@ -1380,15 +1378,17 @@ func (w *Window) HasBorder() bool {
 }
 
 func (w *Window) SetHasBorder(border bool) {
-	if border == w.HasBorder() {
-		return
+	if border != w.HasBorder() {
+		w.changeStyles(func() { w.hidesBorder = !border })
 	}
-	w.hidesBorder = !border
-	w.stylesChanged()
 }
 
-func (w *Window) stylesChanged() {
-	if w.handle != 0 {
+func (w *Window) changeStyles(change func()) {
+	if w.handle == 0 {
+		x, y, width, height := w.InnerBounds()
+		change()
+		w.SetInnerBounds(x, y, width, height)
+	} else {
 		// We want to keep the inner bounds the same as they were, this way no
 		// controls change their position. First we restore the window, if it is
 		// minimized or maximized the inner size would not be right. We restore
@@ -1402,6 +1402,7 @@ func (w *Window) stylesChanged() {
 		// Remember inner bounds.
 		x, y, width, height := w.InnerBounds()
 		// Update to the new window styles.
+		change()
 		w32.SetWindowLong(w.handle, w32.GWL_STYLE, int32(w.style()))
 		w32.SetWindowLong(w.handle, w32.GWL_EXSTYLE, int32(w.extendedStyle()))
 		// Restore the original inner bounds.
