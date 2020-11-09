@@ -118,6 +118,8 @@ func main() {
 	fileMenu.Add(fileSaveMenu)
 	fileSaveAsMenu := wui.NewMenuString("Save File &As...\tCtrl+Shift+S")
 	fileMenu.Add(fileSaveAsMenu)
+	previewMenu := wui.NewMenuString("&Run Preview\tCtrl+R")
+	fileMenu.Add(previewMenu)
 	menu.Add(fileMenu)
 	w.SetMenu(menu)
 
@@ -1163,15 +1165,16 @@ func main() {
 		}
 	})
 
-	w.SetShortcut(func() {
+	previewMenu.SetOnClick(func() {
 		// We place the window such that it lies exactly over our drawing.
 		x, y := w32.ClientToScreen(w32.HWND(w.Handle()), preview.X(), preview.Y())
 		showPreview(w, theWindow, x+xOffset, y+yOffset)
-	},
-		wui.KeyControl, wui.KeyR)
+	})
+
 	w.SetShortcut(fileOpenMenu.OnClick(), wui.KeyControl, wui.KeyO)
 	w.SetShortcut(fileSaveMenu.OnClick(), wui.KeyControl, wui.KeyS)
 	w.SetShortcut(fileSaveAsMenu.OnClick(), wui.KeyControl, wui.KeyShift, wui.KeyS)
+	w.SetShortcut(previewMenu.OnClick(), wui.KeyControl, wui.KeyR)
 
 	w.SetShortcut(w.Close, wui.KeyEscape) // TODO ESC for debugging
 
