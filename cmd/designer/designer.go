@@ -120,6 +120,9 @@ func main() {
 	fileMenu.Add(fileSaveAsMenu)
 	previewMenu := wui.NewMenuString("&Run Preview\tCtrl+R")
 	fileMenu.Add(previewMenu)
+	exitMenu := wui.NewMenuString("E&xit\tAlt+F4")
+	fileMenu.Add(exitMenu)
+	exitMenu.SetOnClick(w.Close)
 	menu.Add(fileMenu)
 	w.SetMenu(menu)
 
