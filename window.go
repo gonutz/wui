@@ -1083,8 +1083,8 @@ func (w *Window) SetIcon(icon *Icon) {
 	w.applyIcon()
 }
 
-// TODO Go over ShowModal and check the differences to Show. For one, TABs do
-// not work in modal dialog.
+// TODO Show and ShowModal are very similar and need to stay in sync, refactor
+// the two functions for easier maintenance.
 
 func (w *Window) ShowModal() error {
 	if w.handle != 0 {
@@ -1105,8 +1105,12 @@ func (w *Window) ShowModal() error {
 		w.font = w.parent.font
 	}
 
+	// We remember the desired state, the window setup will make a WM_SIZE
+	// message with a restored window state arrive before we call ShowWindow.
+	state := w.state
+
 	window := w32.CreateWindowEx(
-		0,
+		w.extendedStyle(),
 		syscall.StringToUTF16Ptr(className),
 		syscall.StringToUTF16Ptr(w.title),
 		w.style(),
@@ -1118,6 +1122,16 @@ func (w *Window) ShowModal() error {
 		return errors.New("wui.Window.ShowModal: CreateWindowEx failed")
 	}
 	w.handle = window
+	if w.alpha != 255 {
+		w32.SetLayeredWindowAttributes(w.handle, 0, w.alpha, w32.LWA_ALPHA)
+	}
+	if w.hidesCloseButton {
+		w32.EnableMenuItem(
+			w32.GetSystemMenu(w.handle, false),
+			w32.SC_CLOSE,
+			w32.MF_BYCOMMAND|w32.MF_DISABLED|w32.MF_GRAYED,
+		)
+	}
 
 	w32.SetWindowSubclass(w.handle, syscall.NewCallback(func(
 		window w32.HWND,
@@ -1133,7 +1147,7 @@ func (w *Window) ShowModal() error {
 	w.lastInnerWidth, w.lastInnerHeight = w.InnerSize()
 	w.createContents()
 	w.applyIcon()
-	w32.ShowWindow(window, w.state.toCmd())
+	w32.ShowWindow(window, state.toCmd())
 	w32.EnableWindow(w.parent.handle, false)
 	w.readBounds()
 	if w.onShow != nil {
@@ -1142,11 +1156,8 @@ func (w *Window) ShowModal() error {
 
 	var msg w32.MSG
 	for w32.GetMessage(&msg, 0, 0, 0) != 0 {
-		// TODO this eats VK_ESCAPE and VK_RETURN and makes escape press a
-		// focused button?!
-		if w.accelTable == 0 ||
-			!w32.TranslateAccelerator(w.handle, w.accelTable, &msg) {
-			if !w32.IsDialogMessage(w.handle, &msg) {
+		if !w.interceptMessage(&msg) {
+			if w.accelTable == 0 || !w32.TranslateAccelerator(w.handle, w.accelTable, &msg) {
 				w32.TranslateMessage(&msg)
 				w32.DispatchMessage(&msg)
 			}
