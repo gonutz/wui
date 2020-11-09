@@ -182,11 +182,10 @@ type Container interface {
 	setParent(parent Container)
 	getHandle() w32.HWND
 	getInstance() w32.HINSTANCE
-	registerControl(c Control)
 	onWM_COMMAND(w, l uintptr)
 	onWM_DRAWITEM(w, l uintptr)
 	onWM_NOTIFY(w, l uintptr)
-	controlCount() int
+	getIDFor(c Control) int
 }
 
 func (*Window) setParent(parent Container) {
@@ -545,21 +544,26 @@ func (w *Window) SetFont(f *Font) {
 	}
 }
 
+// TODO When Adding a Control to one Container while it already has a parent,
+// either panic or remove it from the old parent first. Do this when working on
+// Remove.
+
 func (w *Window) Add(c Control) {
+	w.children = append(w.children, c)
 	c.setParent(w)
 	if w.handle != 0 {
-		c.create(len(w.controls))
+		c.create(w.getIDFor(c))
 	}
-	w.children = append(w.children, c)
-	w.registerControl(c)
 }
 
-func (w *Window) registerControl(c Control) {
+func (w *Window) getIDFor(c Control) int {
+	for i := range w.controls {
+		if c == w.controls[i] {
+			return i
+		}
+	}
 	w.controls = append(w.controls, c)
-}
-
-func (w *Window) controlCount() int {
-	return len(w.controls)
+	return len(w.controls) - 1
 }
 
 func (w *Window) SetOnShow(f func()) {
@@ -948,8 +952,8 @@ func (w *Window) createContents() {
 		}
 	}
 
-	for i, c := range w.controls {
-		c.create(i)
+	for _, c := range w.children {
+		c.create(w.getIDFor(c))
 	}
 }
 

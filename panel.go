@@ -103,6 +103,17 @@ func (p *Panel) create(id int) {
 			return w32.DefSubclassProc(window, msg, wParam, lParam)
 		}
 	}), 0, 0)
+	for _, c := range p.children {
+		c.create(p.getIDFor(c))
+	}
+}
+
+func (p *Panel) Add(c Control) {
+	p.children = append(p.children, c)
+	c.setParent(p)
+	if p.handle != 0 {
+		c.create(p.getIDFor(c))
+	}
 }
 
 func (p *Panel) getHandle() w32.HWND {
@@ -134,14 +145,11 @@ func (p *Panel) BorderStyle() PanelBorderStyle {
 	return p.border
 }
 
-// TODO there is a bug in this when Adding control while parent is not set
-func (p *Panel) Add(c Control) {
-	c.setParent(p)
-	if p.handle != 0 {
-		c.create(p.parent.controlCount())
+func (p *Panel) getIDFor(c Control) int {
+	if p.parent == nil {
+		return -1
 	}
-	p.registerControl(c)
-	p.children = append(p.children, c)
+	return p.parent.getIDFor(c)
 }
 
 func (p *Panel) Children() []Control {
@@ -158,16 +166,6 @@ func (p *Panel) onWM_DRAWITEM(w, l uintptr) {
 
 func (p *Panel) onWM_NOTIFY(w, l uintptr) {
 	p.parent.onWM_NOTIFY(w, l)
-}
-
-func (p *Panel) controlCount() int {
-	return p.parent.controlCount()
-}
-
-func (p *Panel) registerControl(c Control) {
-	if p.parent != nil {
-		p.parent.registerControl(c)
-	}
 }
 
 func (p *Panel) Font() *Font {
