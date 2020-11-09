@@ -35,6 +35,8 @@ import (
 // children visible. The children are not visible but will report to be. This
 // messes up the TAB stops.
 
+// TODO Make edit lines select the whole text when they receive focus.
+
 var (
 	// names associates variable names with the controls.
 	names = make(map[interface{}]string)
@@ -441,6 +443,7 @@ func main() {
 
 	uiProps := []uiProp{
 		stringProp("Title", "Title"),
+		stringProp("Text", "Text"),
 		enumProp("Window State", "State",
 			"Normal", "Maximized", "Minimized",
 		),
@@ -466,7 +469,6 @@ func main() {
 		intProp("Inner Y", "InnerY"),
 		intProp("Inner Width", "InnerWidth"),
 		intProp("Inner Height", "InnerHeight"),
-		stringProp("Text", "Text"),
 		enumProp("Alignment", "Alignment",
 			"Left", "Center", "Right",
 		),
