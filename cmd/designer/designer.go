@@ -1840,7 +1840,7 @@ func main() {`)
 	if name == "" {
 		name = defaultName(w)
 	}
-	writeControl(w, name, line)
+	writeControl(w, "", name, line)
 	line("")
 	if isPreview {
 		line(name + ".SetShortcut(" + name + ".Close, wui.KeyEscape)")
@@ -1855,18 +1855,16 @@ func main() {`)
 	return formatted
 }
 
-func writeControl(c interface{}, name string, line func(format string, a ...interface{})) {
+func writeControl(c interface{}, parentName, name string, line func(format string, a ...interface{})) {
 	do := func(format string, a ...interface{}) {
 		line(name+format, a...)
 	}
 
-	typeName := reflect.TypeOf(c).Elem().Name()
-	do(" := wui.New%s()", typeName)
-
+	var fontName string
 	if f, ok := c.(fonter); ok {
 		font := f.Font()
 		if font != nil {
-			fontName := name + "Font"
+			fontName = name + "Font"
 			line(fontName + ", _ := wui.NewFont(wui.FontDesc{")
 			if font.Desc.Name != "" {
 				line("Name: %q,", font.Desc.Name)
@@ -1887,14 +1885,25 @@ func writeControl(c interface{}, name string, line func(format string, a ...inte
 				line("StrikedOut: true,")
 			}
 			line("})")
-			do(".SetFont(%s)", fontName)
+			line("")
 		}
+	}
+
+	typeName := reflect.TypeOf(c).Elem().Name()
+	do(" := wui.New%s()", typeName)
+
+	if fontName != "" {
+		do(".SetFont(%s)", fontName)
 	}
 
 	setters := generateProperties(name, c)
 	for _, setter := range setters {
 		line("\t" + setter)
 	}
+	if parentName != "" {
+		line("%s.Add(%s)", parentName, name)
+	}
+	line("")
 
 	// TODO Generate ALL events.
 	if p, ok := c.(*wui.PaintBox); ok {
@@ -1910,9 +1919,7 @@ func writeControl(c interface{}, name string, line func(format string, a ...inte
 			if childName == "" {
 				childName = defaultName(child)
 			}
-			writeControl(child, childName, line)
-			line("")
-			line("%s.Add(%s)", name, childName)
+			writeControl(child, name, childName, line)
 		}
 	}
 }
