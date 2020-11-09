@@ -150,21 +150,22 @@ func (b MouseButton) String() string {
 }
 
 type Control interface {
-	setParent(parent container)
-	create(id int)
-	parentFontChanged()
-	SetBounds(x, y, width, height int)
 	Bounds() (x, y, width, height int)
+	SetBounds(x, y, width, height int)
 	Anchors() (horizontal, vertical Anchor)
 	SetHorizontalAnchor(a Anchor)
 	SetVerticalAnchor(a Anchor)
 	Parent() Container
-	handleNotification(cmd uintptr)
 	Handle() uintptr
-	canFocus() bool
-	eatsTabs() bool
 	Visible() bool
 	Enabled() bool
+
+	setParent(parent Container)
+	create(id int)
+	parentFontChanged()
+	handleNotification(cmd uintptr)
+	canFocus() bool
+	eatsTabs() bool
 }
 
 type Container interface {
@@ -175,11 +176,10 @@ type Container interface {
 	SetBounds(x, y, width, height int)
 	InnerBounds() (x, y, width, height int)
 	Font() *Font
-}
+	Visible() bool
+	Enabled() bool
 
-type container interface {
-	Container
-	setParent(parent container)
+	setParent(parent Container)
 	getHandle() w32.HWND
 	getInstance() w32.HINSTANCE
 	registerControl(c Control)
@@ -189,7 +189,7 @@ type container interface {
 	controlCount() int
 }
 
-func (*Window) setParent(parent container) {
+func (*Window) setParent(parent Container) {
 	// TODO This is just to implement the container interface.
 }
 
@@ -641,8 +641,8 @@ func (w *Window) interceptMessage(msg *w32.MSG) bool {
 		for i := range w.controls {
 			j := nth(i)
 			if w.controls[j].canFocus() &&
-				w.controls[j].Visible() &&
-				w.controls[j].Enabled() {
+				Visible(w.controls[j]) &&
+				Enabled(w.controls[j]) {
 				w32.SetFocus(w32.HWND(w.controls[j].Handle()))
 				return true
 			}
@@ -650,6 +650,32 @@ func (w *Window) interceptMessage(msg *w32.MSG) bool {
 		return true
 	}
 	return false
+}
+
+// Visible return true if the given control and all of its parents are visible.
+// This is different from the control's Visible() function which only returns
+// the visibility of the control itself. If it is contained in an invisible
+// parent, c.Visible() will return true while Visible(c) will return false.
+func Visible(c VisibleControl) bool {
+	return c == nil || c.Visible() && Visible(c.Parent())
+}
+
+type VisibleControl interface {
+	Visible() bool
+	Parent() Container
+}
+
+// Enabled return true if the given control and all of its parents are enabled.
+// This is different from the control's Enabled() function which only returns
+// the enabled state of the control itself. If it is contained in a disabled
+// parent, c.Enabled() will return true while Enabled(c) will return false.
+func Enabled(c EnabledControl) bool {
+	return c == nil || c.Enabled() && Enabled(c.Parent())
+}
+
+type EnabledControl interface {
+	Enabled() bool
+	Parent() Container
 }
 
 func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uintptr {
@@ -1291,6 +1317,10 @@ func (w *Window) Monitor() uintptr {
 }
 
 func (w *Window) Parent() Container {
+	if w.parent == nil {
+		// This special case is necessary to make == nil comparisons work.
+		return nil
+	}
 	return w.parent
 }
 
@@ -1418,4 +1448,12 @@ func (w *Window) changeStyles(change func()) {
 		// Restore the original window state.
 		w.SetState(state)
 	}
+}
+
+func (w *Window) Visible() bool {
+	return true
+}
+
+func (w *Window) Enabled() bool {
+	return true
 }

@@ -76,7 +76,7 @@ type control struct {
 	height   int
 	hAnchor  Anchor
 	vAnchor  Anchor
-	parent   container
+	parent   Container
 	disabled bool
 	hidden   bool
 	onResize func()
@@ -90,7 +90,7 @@ func (c *control) Parent() Container {
 	return c.parent
 }
 
-func (c *control) setParent(parent container) {
+func (c *control) setParent(parent Container) {
 	c.parent = parent
 }
 

@@ -20,7 +20,7 @@ type Panel struct {
 }
 
 var _ Control = (*Panel)(nil)
-var _ container = (*Panel)(nil)
+var _ Container = (*Panel)(nil)
 
 func (*Panel) canFocus() bool {
 	return false
