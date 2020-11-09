@@ -1136,7 +1136,7 @@ func main() {
 	})
 
 	saveCodeTo := func(path string) {
-		code := generateCode(theWindow)
+		code := generateCode(theWindow, false)
 		err := ioutil.WriteFile(path, code, 0666)
 		if err != nil {
 			wui.MessageBoxError("Error", err.Error())
@@ -1778,7 +1778,7 @@ func showPreview(parent, w *wui.Window, x, y int) {
 		// the preview shown in the designer.
 		oldX, oldY := w.Position()
 		w.SetPosition(x, y)
-		code := generateCode(w)
+		code := generateCode(w, true)
 		w.SetPosition(oldX, oldY)
 
 		// Write the Go file to our temporary build dir.
@@ -1809,7 +1809,11 @@ func showPreview(parent, w *wui.Window, x, y int) {
 	progress.ShowModal()
 }
 
-func generateCode(w *wui.Window) []byte {
+func generateCode(w *wui.Window, isPreview bool) []byte {
+	// TODO Remove the isPreview parameter once we can set window shortcuts
+	// through the UI and generate them. Once we have that, temporarily add this
+	// shortcut before generating the preview code and reset it afterwards, as
+	// is done with the window position.
 	var code bytes.Buffer
 	code.WriteString(`//+build ignore
 
@@ -1830,6 +1834,9 @@ func main() {`)
 	}
 	writeControl(w, name, line)
 	line("")
+	if isPreview {
+		line(name + ".SetShortcut(" + name + ".Close, wui.KeyEscape)")
+	}
 	line(name + ".Show()")
 	code.WriteString("\n}")
 
