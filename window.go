@@ -72,15 +72,13 @@ func (s WindowState) toCmd() int {
 }
 
 func NewWindow() *Window {
-	return &Window{
-		x:          100,
-		y:          50,
-		width:      600,
-		height:     400,
+	w := &Window{
 		background: ColorButtonFace,
 		cursor:     CursorArrow,
 		alpha:      255,
 	}
+	w.SetInnerBounds(100, 50, 600, 400)
+	return w
 }
 
 type Window struct {
@@ -1085,7 +1083,8 @@ func (w *Window) SetIcon(icon *Icon) {
 	w.applyIcon()
 }
 
-// TODO Go over ShowModal and check the differences to Show.
+// TODO Go over ShowModal and check the differences to Show. For one, TABs do
+// not work in modal dialog.
 
 func (w *Window) ShowModal() error {
 	if w.handle != 0 {

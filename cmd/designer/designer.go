@@ -28,12 +28,7 @@ import (
 
 // TODO Edit main menu.
 
-// TODO Have a way to edit short cuts.
-
-// TODO Asking a control if it is Visible() will not ask its parent(s). Our
-// controls are in Panels. This means that hiding the panel will not set the
-// children visible. The children are not visible but will report to be. This
-// messes up the TAB stops.
+// TODO Have a way to edit shortcuts.
 
 // TODO Make edit lines select the whole text when they receive focus.
 
@@ -436,11 +431,6 @@ func main() {
 		}
 	}
 
-	// TODO For Window: update inner bounds when outer bounds change and vice
-	// versa. Also reduce flickering when window size is changed by dragging the
-	// mouse. Instead of calling activate we have to lock updating and only
-	// change the visible properies values.
-
 	uiProps := []uiProp{
 		stringProp("Title", "Title"),
 		stringProp("Text", "Text"),
@@ -755,7 +745,7 @@ func main() {
 		code := wui.NewTextEdit()
 		font, _ := wui.NewFont(wui.FontDesc{Name: "Courier New", Height: -15})
 		code.SetFont(font)
-		// TODO code.SetWriteTabs(true)
+		code.SetWritesTabs(true)
 		// TODO code.SetLineBreaks("\n")
 		code.SetBounds(0, 0, dlg.InnerWidth(), dlg.InnerHeight()-30)
 		code.SetAnchors(wui.AnchorMinAndMax, wui.AnchorMinAndMax)
