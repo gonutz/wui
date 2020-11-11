@@ -29,6 +29,10 @@ type Slider struct {
 
 var _ Control = (*Slider)(nil)
 
+func (s *Slider) closing() {
+	s.CursorPosition()
+}
+
 func (*Slider) canFocus() bool {
 	return true
 }

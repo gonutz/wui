@@ -19,6 +19,10 @@ type EditLine struct {
 
 var _ Control = (*EditLine)(nil)
 
+func (e *EditLine) closing() {
+	e.Text()
+}
+
 func (*EditLine) canFocus() bool {
 	return true
 }

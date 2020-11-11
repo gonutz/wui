@@ -22,6 +22,21 @@ type Panel struct {
 var _ Control = (*Panel)(nil)
 var _ Container = (*Panel)(nil)
 
+func (p *Panel) closing() {
+	for _, c := range p.children {
+		c.closing()
+	}
+}
+
+func (p *Panel) destroy() {
+	if p.handle != 0 {
+		for _, c := range p.children {
+			c.destroy()
+		}
+		p.control.destroy()
+	}
+}
+
 func (*Panel) canFocus() bool {
 	return false
 }

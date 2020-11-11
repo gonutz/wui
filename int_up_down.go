@@ -12,7 +12,7 @@ import (
 // TODO Typing + or - into an IntUpDown shows an error. The same might be true
 // for FloatUpDowns.
 
-// TODO IntUpDown should not expose Text() and SetText().
+// TODO IntUpDown should not expose Text() and SetText(). Or should it?
 
 // TODO Have ReadOnly and SetReadOnly.
 
@@ -33,6 +33,10 @@ type IntUpDown struct {
 }
 
 var _ Control = (*IntUpDown)(nil)
+
+func (n *IntUpDown) closing() {
+	n.Value()
+}
 
 func (*IntUpDown) canFocus() bool {
 	return true

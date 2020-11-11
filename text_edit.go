@@ -21,6 +21,10 @@ type TextEdit struct {
 
 var _ Control = (*TextEdit)(nil)
 
+func (e *TextEdit) closing() {
+	e.Text()
+}
+
 func (*TextEdit) canFocus() bool {
 	return true
 }

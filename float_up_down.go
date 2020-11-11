@@ -31,6 +31,10 @@ type FloatUpDown struct {
 
 var _ Control = (*FloatUpDown)(nil)
 
+func (n *FloatUpDown) closing() {
+	n.Value()
+}
+
 func (*FloatUpDown) canFocus() bool {
 	return true
 }

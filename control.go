@@ -82,6 +82,17 @@ type control struct {
 	onResize func()
 }
 
+// closing defaults to nothing, the base control has no properties that are
+// user-changeable through the GUI.
+func (c *control) closing() {}
+
+func (c *control) destroy() {
+	if c.handle != 0 {
+		w32.DestroyWindow(c.handle)
+		c.handle = 0
+	}
+}
+
 func (c *control) Handle() uintptr {
 	return uintptr(c.handle)
 }
@@ -294,7 +305,6 @@ func (c *textControl) Text() string {
 func (c *textControl) SetText(text string) {
 	c.text = text
 	if c.handle != 0 {
-		// TODO this does not work after closing a dialog window with a Label
 		w32.SetWindowText(c.handle, text)
 	}
 }

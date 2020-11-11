@@ -22,6 +22,10 @@ type ComboBox struct {
 
 var _ Control = (*ComboBox)(nil)
 
+func (c *ComboBox) closing() {
+	c.SelectedIndex()
+}
+
 func (*ComboBox) canFocus() bool {
 	return true
 }

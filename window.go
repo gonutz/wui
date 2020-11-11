@@ -164,6 +164,8 @@ type Control interface {
 	handleNotification(cmd uintptr)
 	canFocus() bool
 	eatsTabs() bool
+	closing()
+	destroy()
 }
 
 type Container interface {
@@ -795,6 +797,7 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 		if w.onClose != nil {
 			w.onClose()
 		}
+		w.closing()
 	}
 	return w32.DefWindowProc(window, msg, wParam, lParam)
 }
@@ -910,6 +913,9 @@ func (w *Window) Show() error {
 			}
 		}
 	}
+
+	w.destroy()
+
 	return nil
 }
 
@@ -952,6 +958,22 @@ func (w *Window) createContents() {
 
 	for _, c := range w.children {
 		c.create(w.getIDFor(c))
+	}
+}
+
+func (w *Window) closing() {
+	for _, c := range w.children {
+		c.closing()
+	}
+}
+
+func (w *Window) destroy() {
+	if w.handle != 0 {
+		for _, c := range w.children {
+			c.destroy()
+		}
+		w32.DestroyWindow(w.handle)
+		w.handle = 0
 	}
 }
 

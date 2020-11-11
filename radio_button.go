@@ -7,7 +7,8 @@ import "github.com/gonutz/w32"
 // TODO: We can create two radio buttons both set to checked and only later add
 // them both to their parents. This will keep them both checked, SetChecked only
 // sets siblings to false when the parent is assigned. parent.Add could make
-// sure that only one radio button is checked.
+// sure that only one radio button is checked. Maybe do this in RadioButton.create
+// since it is guaranteed to have its parents set.
 
 // NewRadioButton returns a new, unchecked RadioButton.
 func NewRadioButton() *RadioButton {

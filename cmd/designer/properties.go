@@ -223,7 +223,7 @@ func toGo(args []reflect.Value) string {
 					s += "}"
 				}
 			} else {
-				panic("TODO slices of types other than string not handled")
+				panic("slices of types other than string not handled")
 			}
 		case reflect.String:
 			s = fmt.Sprintf("%q", arg.String())
