@@ -282,6 +282,8 @@ func (c *Canvas) TextOut(x, y int, s string, color Color) {
 	w32.SetBkMode(c.hdc, w32.OPAQUE)
 }
 
+// TODO What about line breaks in TextRects (\n vs \r\n)?
+
 func (c *Canvas) TextRect(x, y, w, h int, s string, color Color) {
 	c.TextRectFormat(x, y, w, h, s, FormatTopLeft, color)
 }
@@ -290,8 +292,14 @@ func (c *Canvas) TextRect(x, y, w, h int, s string, color Color) {
 // given width. The given width is necessary because text rects use word breaks
 // and thus given a smaller width might produce a higher text height.
 func (c *Canvas) TextRectExtent(s string, givenWidth int) (width, height int) {
+	// TODO What is the max of givenWidth, int can be larger than 0x7FFFFFFF (or
+	// whatever it is) so do we clamp it or have a const NoWidth=0x7FFFFFFF?
 	var flags uint = w32.DT_WORDBREAK | w32.DT_NOFULLWIDTHCHARBREAK | w32.DT_EXPANDTABS
 	var r w32.RECT
+	const maxInt32 = 0x7FFFFFFF
+	if givenWidth > maxInt32 {
+		givenWidth = maxInt32
+	}
 	r.Right = int32(givenWidth)
 	w32.DrawText(c.hdc, s, &r, flags|w32.DT_CALCRECT)
 	return int(r.Width()), int(r.Height())
