@@ -32,6 +32,10 @@ import (
 
 // TODO Make edit lines select the whole text when they receive focus.
 
+// TODO Un-highlight the template when the mouse leaves the palette area, even
+// when it leaves it fast, in which case it does not receive a mouse move
+// message.
+
 var (
 	// names associates variable names with the controls.
 	names = make(map[interface{}]string)
@@ -86,12 +90,6 @@ func main() {
 		// TODO Move preview somewhere else.
 		preview = wui.NewPaintBox()
 	)
-
-	const (
-		idleMouse = iota
-		addingControl
-	)
-	mouseMode := idleMouse
 
 	theWindow := defaultWindow()
 	names[theWindow] = "window"
@@ -974,8 +972,8 @@ func main() {
 			if h < 0 {
 				h = 0
 			}
-			inner.DrawRect(x-1, y-1, w+2, h+2, wui.RGB(255, 0, 255))
-			inner.DrawRect(x-2, y-2, w+4, h+4, wui.RGB(255, 0, 255))
+			inner.DrawRect(x, y, w, h, wui.RGB(255, 0, 255))
+			inner.DrawRect(x+1, y+1, w-2, h-2, wui.RGB(255, 0, 255))
 		}
 
 		if controlToAdd != nil {
@@ -984,17 +982,19 @@ func main() {
 	})
 	w.Add(preview)
 
-	var dragMode int
+	// mouseMode constants.
 	const (
-		dragNone = 0
-		dragX    = 1
-		dragY    = 2
-		dragXY   = 3
+		idleMouse = iota
+		addingControl
+		dragX
+		dragY
+		dragXY
 	)
+	mouseMode := idleMouse
 
 	var dragStartX, dragStartY, dragStartWidth, dragStartHeight int
 
-	lastX, lastY := -999, -999
+	lastX, lastY := -999999, -999999
 	w.SetOnMouseMove(func(x, y int) {
 		if x == lastX && y == lastY {
 			return
@@ -1021,7 +1021,7 @@ func main() {
 				controlToAdd.SetBounds(relX, relY, w, h)
 			}
 			preview.Paint()
-		} else if dragMode == dragNone {
+		} else if mouseMode == idleMouse {
 			x -= preview.X()
 			y -= preview.Y()
 			if xResizeArea.contains(x, y) {
@@ -1034,11 +1034,11 @@ func main() {
 				w.SetCursor(defaultCursor)
 			}
 		} else {
-			if dragMode == dragX || dragMode == dragXY {
+			if mouseMode == dragX || mouseMode == dragXY {
 				dx := x - dragStartX
 				theWindow.SetWidth(dragStartWidth + dx)
 			}
-			if dragMode == dragY || dragMode == dragXY {
+			if mouseMode == dragY || mouseMode == dragXY {
 				dy := y - dragStartY
 				theWindow.SetHeight(dragStartHeight + dy)
 			}
@@ -1055,6 +1055,7 @@ func main() {
 				templateDx = hx - (x - palette.X())
 				templateDy = hy - (y - palette.Y())
 				mouseMode = addingControl
+				activate(theWindow)
 				preview.Paint()
 			} else if mouseMode == addingControl {
 				innerX, innerY, _, _ := theWindow.InnerBounds()
@@ -1085,12 +1086,11 @@ func main() {
 					h: theWindow.Height(),
 				}
 				if xResizeArea.contains(x-preview.X(), y-preview.Y()) {
-					// TODO Combine dragMode and mouseMode?
-					dragMode = dragX
+					mouseMode = dragX
 				} else if yResizeArea.contains(x-preview.X(), y-preview.Y()) {
-					dragMode = dragY
+					mouseMode = dragY
 				} else if xyResizeArea.contains(x-preview.X(), y-preview.Y()) {
-					dragMode = dragXY
+					mouseMode = dragXY
 				} else if windowArea.contains(x, y) {
 					newActive := findControlAt(
 						theWindow,
@@ -1107,7 +1107,9 @@ func main() {
 
 	w.SetOnMouseUp(func(button wui.MouseButton, x, y int) {
 		if button == wui.MouseButtonLeft {
-			dragMode = dragNone
+			if mouseMode == dragX || mouseMode == dragY || mouseMode == dragXY {
+				mouseMode = idleMouse
+			}
 		}
 	})
 
