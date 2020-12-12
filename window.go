@@ -1069,7 +1069,7 @@ func setManifest() {
         </dependentAssembly>
     </dependency>
 </assembly>`
-	// create a temporary manifest file, load it, then delete it
+	// Create a temporary manifest file, load it, then delete it.
 	f, err := ioutil.TempFile("", "manifest_")
 	if err != nil {
 		return
