@@ -566,12 +566,24 @@ func (w *Window) getIDFor(c Control) int {
 	return len(w.controls) - 1
 }
 
+func (w *Window) OnShow() func() {
+	return w.onShow
+}
+
 func (w *Window) SetOnShow(f func()) {
 	w.onShow = f
 }
 
+func (w *Window) OnClose() func() {
+	return w.onClose
+}
+
 func (w *Window) SetOnClose(f func()) {
 	w.onClose = f
+}
+
+func (w *Window) OnCanClose() func() bool {
+	return w.onCanClose
 }
 
 // SetOnCanClose is passed a function that is called when the window is about to
@@ -581,24 +593,48 @@ func (w *Window) SetOnCanClose(f func() bool) {
 	w.onCanClose = f
 }
 
+func (w *Window) OnMouseMove() func(x, y int) {
+	return w.onMouseMove
+}
+
 func (w *Window) SetOnMouseMove(f func(x, y int)) {
 	w.onMouseMove = f
+}
+
+func (w *Window) OnMouseWheel() func(x, y int, delta float64) {
+	return w.onMouseWheel
 }
 
 func (w *Window) SetOnMouseWheel(f func(x, y int, delta float64)) {
 	w.onMouseWheel = f
 }
 
+func (w *Window) OnMouseDown() func(button MouseButton, x, y int) {
+	return w.onMouseDown
+}
+
 func (w *Window) SetOnMouseDown(f func(button MouseButton, x, y int)) {
 	w.onMouseDown = f
+}
+
+func (w *Window) OnMouseUp() func(button MouseButton, x, y int) {
+	return w.onMouseUp
 }
 
 func (w *Window) SetOnMouseUp(f func(button MouseButton, x, y int)) {
 	w.onMouseUp = f
 }
 
+func (w *Window) OnKeyDown() func(key int) {
+	return w.onKeyDown
+}
+
 func (w *Window) SetOnKeyDown(f func(key int)) {
 	w.onKeyDown = f
+}
+
+func (w *Window) OnKeyUp() func(key int) {
+	return w.onKeyUp
 }
 
 func (w *Window) SetOnKeyUp(f func(key int)) {
