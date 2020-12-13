@@ -109,18 +109,25 @@ func main() {
 
 	menu := wui.NewMainMenu()
 	fileMenu := wui.NewMenu("&File")
+	editMenu := wui.NewMenu("&Edit")
 	fileOpenMenu := wui.NewMenuString("&Open File...\tCtrl+O")
-	fileMenu.Add(fileOpenMenu)
 	fileSaveMenu := wui.NewMenuString("&Save File\tCtrl+S")
-	fileMenu.Add(fileSaveMenu)
 	fileSaveAsMenu := wui.NewMenuString("Save File &As...\tCtrl+Shift+S")
-	fileMenu.Add(fileSaveAsMenu)
 	previewMenu := wui.NewMenuString("&Run Preview\tCtrl+R")
-	fileMenu.Add(previewMenu)
 	exitMenu := wui.NewMenuString("E&xit\tAlt+F4")
+	undoMenu := wui.NewMenuString("&Undo\tCtrl+Z")
+	redoMenu := wui.NewMenuString("&Redo\tCtrl+Shift+Z")
+	fileMenu.Add(fileOpenMenu)
+	fileMenu.Add(fileSaveMenu)
+	fileMenu.Add(fileSaveAsMenu)
+	fileMenu.Add(wui.NewMenuSeparator())
+	fileMenu.Add(previewMenu)
+	fileMenu.Add(wui.NewMenuSeparator())
 	fileMenu.Add(exitMenu)
-	exitMenu.SetOnClick(w.Close)
+	editMenu.Add(undoMenu)
+	editMenu.Add(redoMenu)
 	menu.Add(fileMenu)
+	menu.Add(editMenu)
 	w.SetMenu(menu)
 
 	// TODO Doing this after the menu does not work.
@@ -1264,10 +1271,18 @@ func main() {
 		showPreview(w, theWindow, x+xOffset, y+yOffset)
 	})
 
+	exitMenu.SetOnClick(w.Close)
+
+	// TODO Build undo/redo.
+	//undoMenu.SetOnClick(func() {})
+	//redoMenu.SetOnClick(func() {})
+
 	w.SetShortcut(fileOpenMenu.OnClick(), wui.KeyControl, wui.KeyO)
 	w.SetShortcut(fileSaveMenu.OnClick(), wui.KeyControl, wui.KeyS)
 	w.SetShortcut(fileSaveAsMenu.OnClick(), wui.KeyControl, wui.KeyShift, wui.KeyS)
 	w.SetShortcut(previewMenu.OnClick(), wui.KeyControl, wui.KeyR)
+	w.SetShortcut(undoMenu.OnClick(), wui.KeyControl, wui.KeyZ)
+	w.SetShortcut(redoMenu.OnClick(), wui.KeyControl, wui.KeyShift, wui.KeyZ)
 
 	w.SetShortcut(w.Close, wui.KeyEscape) // TODO ESC for debugging
 
