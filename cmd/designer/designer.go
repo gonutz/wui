@@ -36,6 +36,10 @@ import (
 // when it leaves it fast, in which case it does not receive a mouse move
 // message.
 
+// TODO Have a way to hide the app icon (WS_EX_DLGMODALFRAME).
+
+// TODO Have a way to hide the border completely but make it still resizeable.
+
 var (
 	// names associates variable names with the controls.
 	names = make(map[interface{}]string)
@@ -77,8 +81,6 @@ func main() {
 	}()
 
 	var (
-		// The ResizeAreas are the size drag points of the window.
-		xResizeArea, yResizeArea, xyResizeArea rectangle
 		// innerX and Y is the top-left corner of where theWindow's inner
 		// rectangle is drawn, relative to the application window. This means we
 		// can use innerX and Y in the application window's mouse events to find
@@ -844,25 +846,6 @@ func main() {
 		// Clear inner area.
 		c.FillRect(innerX, innerY, innerWidth, innerHeight, wui.RGB(240, 240, 240))
 
-		xResizeArea = rectangle{
-			x: xOffset + width - 6,
-			y: yOffset + height/2 - 12,
-			w: 12,
-			h: 24,
-		}
-		yResizeArea = rectangle{
-			x: xOffset + width/2 - 12,
-			y: yOffset + height - 6,
-			w: 24,
-			h: 12,
-		}
-		xyResizeArea = rectangle{
-			x: xOffset + width - 6,
-			y: yOffset + height - 6,
-			w: 12,
-			h: 12,
-		}
-
 		// Draw all the window contents.
 		drawContainer(theWindow, inner)
 
@@ -880,7 +863,7 @@ func main() {
 				xOffset+borderSize+appIconWidth+5,
 				yOffset+(topBorderSize-textH)/2,
 				theWindow.Title(),
-				wui.RGB(0, 0, 0),
+				black,
 			)
 
 			w := topBorderSize
@@ -897,7 +880,7 @@ func main() {
 					c.FillRect(x0, y, w, h, wui.RGB(240, 240, 240))
 					cx := x0 + (w-iconSize)/2
 					cy := y + h - 1 - (iconSize+1)/2
-					color := wui.RGB(0, 0, 0)
+					color := black
 					if !theWindow.HasMinButton() {
 						color = wui.RGB(204, 204, 204)
 					}
@@ -908,7 +891,7 @@ func main() {
 					c.FillRect(x1, y, w, h, wui.RGB(240, 240, 240))
 					cx := x1 + (w-iconSize)/2
 					cy := y + (h-iconSize)/2
-					color := wui.RGB(0, 0, 0)
+					color := black
 					if !theWindow.HasMaxButton() {
 						color = wui.RGB(204, 204, 204)
 					}
@@ -916,7 +899,7 @@ func main() {
 				}
 			}
 			// Close button.
-			color := wui.RGB(0, 0, 0)
+			color := black
 			backColor := wui.RGB(255, 128, 128)
 			if !theWindow.HasCloseButton() {
 				color = wui.RGB(204, 204, 204)
@@ -947,15 +930,6 @@ func main() {
 		bottom := yOffset + height
 		c.FillRect(0, bottom, w, h-bottom, white)
 
-		// Add drag markers to resize window.
-		outlineSquare := func(r rectangle) {
-			c.FillRect(r.x, r.y, r.w, r.h, white)
-			c.DrawRect(r.x, r.y, r.w, r.h, black)
-		}
-		outlineSquare(xResizeArea)
-		outlineSquare(yResizeArea)
-		outlineSquare(xyResizeArea)
-
 		// Highlight the currently selected child control.
 		if active != nil && active != theWindow {
 			x, y, w, h := active.Bounds()
@@ -966,12 +940,8 @@ func main() {
 				y += dy
 				parent = parent.Parent()
 			}
-			if w < 0 {
-				w = 0
-			}
-			if h < 0 {
-				h = 0
-			}
+			w = max(w, 0)
+			h = max(h, 0)
 			inner.DrawRect(x, y, w, h, wui.RGB(255, 0, 255))
 			inner.DrawRect(x+1, y+1, w-2, h-2, wui.RGB(255, 0, 255))
 		}
@@ -985,14 +955,27 @@ func main() {
 	// mouseMode constants.
 	const (
 		idleMouse = iota
-		addingControl
-		dragX
-		dragY
-		dragXY
+		addControl
+		dragTopLeft
+		dragTop
+		dragTopRight
+		dragRight
+		dragBottomRight
+		dragBottom
+		dragBottomLeft
+		dragLeft
+		dragAll
 	)
-	mouseMode := idleMouse
+	var (
+		mouseMode         = idleMouse
+		nextDragMouseMode int
+		nextToDrag        node
+	)
 
-	var dragStartX, dragStartY, dragStartWidth, dragStartHeight int
+	var (
+		dragStartX, dragStartY                                  int
+		preResizeX, preResizeY, preResizeWidth, preResizeHeight int
+	)
 
 	lastX, lastY := -999999, -999999
 	w.SetOnMouseMove(func(x, y int) {
@@ -1001,7 +984,7 @@ func main() {
 		}
 		lastX, lastY = x, y
 
-		if mouseMode == addingControl {
+		if mouseMode == addControl {
 			if contains(preview, x, y) {
 				_, _, w, h := controlToAdd.Bounds()
 				relX := x - preview.X()
@@ -1022,25 +1005,145 @@ func main() {
 			}
 			preview.Paint()
 		} else if mouseMode == idleMouse {
+			// See if the cursor is over the edge of the active control. In that
+			// case show the resize cursor and remember what to resize and in
+			// which direction.
 			x -= preview.X()
 			y -= preview.Y()
-			if xResizeArea.contains(x, y) {
-				w.SetCursor(wui.CursorSizeWE)
-			} else if yResizeArea.contains(x, y) {
-				w.SetCursor(wui.CursorSizeNS)
-			} else if xyResizeArea.contains(x, y) {
+			x -= xOffset
+			y -= yOffset
+			nextToDrag = active
+			ax, ay, aw, ah := relativeBounds(active, theWindow)
+			const margin = 6
+			corner := func(x, y int) rectangle {
+				return rect(x-margin, y-margin, 2*margin, 2*margin)
+			}
+			var (
+				// These are the draggable areas for the active control.
+				topLeft     = corner(ax, ay)
+				top         = rect(ax, ay-margin, aw, 2*margin)
+				topRight    = corner(ax+aw, ay)
+				right       = rect(ax+aw-margin, ay, 2*margin, ah)
+				bottomRight = corner(ax+aw, ay+ah)
+				bottom      = rect(ax, ay+ah-margin, aw, 2*margin)
+				bottomLeft  = corner(ax, ay+ah)
+				left        = rect(ax-margin, ay, 2*margin, ah)
+			)
+			if active == theWindow {
+				// The main window can only be dragged right and bottom so we
+				// reset the other drag areas. They will not be triggered for
+				// the main window.
+				topLeft = rectangle{}
+				top = rectangle{}
+				topRight = rectangle{}
+				bottomLeft = rectangle{}
+				left = rectangle{}
+			}
+			var (
+				// No matter what the active control is, we want to be able to
+				// drag the main window always so we check for that separately.
+				winX, winY, winW, winH = relativeBounds(theWindow, theWindow)
+				winRight               = rect(winX+winW-margin, winY, 2*margin, winH)
+				winBottomRight         = corner(winX+winW, winY+winH)
+				winBottom              = rect(winX, winY+winH-margin, winW, 2*margin)
+			)
+			if winBottomRight.contains(x, y) {
+				nextDragMouseMode = dragBottomRight
 				w.SetCursor(wui.CursorSizeNWSE)
+				nextToDrag = theWindow
+			} else if winRight.contains(x, y) {
+				nextDragMouseMode = dragRight
+				w.SetCursor(wui.CursorSizeWE)
+				nextToDrag = theWindow
+			} else if winBottom.contains(x, y) {
+				nextDragMouseMode = dragBottom
+				w.SetCursor(wui.CursorSizeNS)
+				nextToDrag = theWindow
+			} else if topLeft.contains(x, y) {
+				nextDragMouseMode = dragTopLeft
+				w.SetCursor(wui.CursorSizeNWSE)
+			} else if topRight.contains(x, y) {
+				nextDragMouseMode = dragTopRight
+				w.SetCursor(wui.CursorSizeNESW)
+			} else if bottomRight.contains(x, y) {
+				nextDragMouseMode = dragBottomRight
+				w.SetCursor(wui.CursorSizeNWSE)
+			} else if bottomLeft.contains(x, y) {
+				nextDragMouseMode = dragBottomLeft
+				w.SetCursor(wui.CursorSizeNESW)
+			} else if top.contains(x, y) {
+				nextDragMouseMode = dragTop
+				w.SetCursor(wui.CursorSizeNS)
+			} else if right.contains(x, y) {
+				nextDragMouseMode = dragRight
+				w.SetCursor(wui.CursorSizeWE)
+			} else if bottom.contains(x, y) {
+				nextDragMouseMode = dragBottom
+				w.SetCursor(wui.CursorSizeNS)
+			} else if left.contains(x, y) {
+				nextDragMouseMode = dragLeft
+				w.SetCursor(wui.CursorSizeWE)
 			} else {
-				w.SetCursor(defaultCursor)
+				// If we are not over a draggable border but inside the active
+				// control, we drag it completely without resizing.
+				// If we are not inside the active control we activate another
+				// control with this mouse click.
+				// There is a catch, though. If the active control is a
+				// container and we are over a child control, we do not want to
+				// drag the container, we want to activate the child control,
+				// even though the mouse is still inside the active container.
+				// Then there is an exception to this which is the main window.
+				// We cannot drag that as a whole at all.
+				innerX, innerY, _, _ := theWindow.InnerBounds()
+				outerX, outerY, _, _ := theWindow.Bounds()
+				relX := x - (innerX - outerX)
+				relY := y - (innerY - outerY)
+				if theWindow != active &&
+					active == findControlAt(theWindow, relX, relY) {
+					nextDragMouseMode = dragAll
+					w.SetCursor(wui.CursorSizeAll)
+				} else {
+					nextDragMouseMode = idleMouse
+					w.SetCursor(defaultCursor)
+				}
 			}
 		} else {
-			if mouseMode == dragX || mouseMode == dragXY {
-				dx := x - dragStartX
-				theWindow.SetWidth(dragStartWidth + dx)
-			}
-			if mouseMode == dragY || mouseMode == dragXY {
-				dy := y - dragStartY
-				theWindow.SetHeight(dragStartHeight + dy)
+			// In this case we are dragging, update the relevant parts of the
+			// control being dragged.
+			dx := x - dragStartX
+			dy := y - dragStartY
+			x, y, w, h := preResizeX, preResizeY, preResizeWidth, preResizeHeight
+			switch mouseMode {
+			case dragTopLeft:
+				dx = min(dx, w)
+				dy = min(dy, h)
+				nextToDrag.SetBounds(x+dx, y+dy, w-dx, h-dy)
+			case dragTop:
+				dy = min(dy, h)
+				nextToDrag.SetBounds(x, y+dy, w, h-dy)
+			case dragTopRight:
+				dx = max(dx, -w)
+				dy = min(dy, h)
+				nextToDrag.SetBounds(x, y+dy, w+dx, h-dy)
+			case dragRight:
+				dx = max(dx, -w)
+				nextToDrag.SetBounds(x, y, w+dx, h)
+			case dragBottomRight:
+				dx = max(dx, -w)
+				dy = max(dy, -h)
+				nextToDrag.SetBounds(x, y, w+dx, h+dy)
+			case dragBottom:
+				dy = max(dy, -h)
+				nextToDrag.SetBounds(x, y, w, h+dy)
+			case dragBottomLeft:
+				dx = min(dx, w)
+				dy = max(dy, -h)
+				nextToDrag.SetBounds(x+dx, y, w-dx, h+dy)
+			case dragLeft:
+				dx = min(dx, w)
+				nextToDrag.SetBounds(x+dx, y, w-dx, h)
+			case dragAll:
+				nextToDrag.SetBounds(x+dx, y+dy, w, h)
 			}
 			updateProperties()
 			preview.Paint()
@@ -1054,10 +1157,10 @@ func main() {
 				hx, hy, _, _ := highlightedTemplate.Bounds()
 				templateDx = hx - (x - palette.X())
 				templateDy = hy - (y - palette.Y())
-				mouseMode = addingControl
+				mouseMode = addControl
 				activate(theWindow)
 				preview.Paint()
-			} else if mouseMode == addingControl {
+			} else if mouseMode == addControl {
 				innerX, innerY, _, _ := theWindow.InnerBounds()
 				outerX, outerY, _, _ := theWindow.Bounds()
 				x, y, w, h := controlToAdd.Bounds()
@@ -1078,24 +1181,13 @@ func main() {
 			} else {
 				dragStartX = x
 				dragStartY = y
-				dragStartWidth, dragStartHeight = theWindow.Size()
-				windowArea := rectangle{
-					x: preview.X() + xOffset,
-					y: preview.Y() + yOffset,
-					w: theWindow.Width(),
-					h: theWindow.Height(),
-				}
-				if xResizeArea.contains(x-preview.X(), y-preview.Y()) {
-					mouseMode = dragX
-				} else if yResizeArea.contains(x-preview.X(), y-preview.Y()) {
-					mouseMode = dragY
-				} else if xyResizeArea.contains(x-preview.X(), y-preview.Y()) {
-					mouseMode = dragXY
-				} else if windowArea.contains(x, y) {
+				preResizeX, preResizeY, preResizeWidth, preResizeHeight = nextToDrag.Bounds()
+				mouseMode = nextDragMouseMode
+				if mouseMode == idleMouse {
 					newActive := findControlAt(
 						theWindow,
-						x-(preview.X()+innerX),
-						y-(preview.Y()+innerY),
+						x-preview.X()-innerX,
+						y-preview.Y()-innerY,
 					)
 					if newActive != active {
 						activate(newActive)
@@ -1107,10 +1199,14 @@ func main() {
 
 	w.SetOnMouseUp(func(button wui.MouseButton, x, y int) {
 		if button == wui.MouseButtonLeft {
-			if mouseMode == dragX || mouseMode == dragY || mouseMode == dragXY {
+			if mouseMode != addControl {
 				mouseMode = idleMouse
 			}
 		}
+		// TODO Why does this not work?
+		//nextDragMouseMode = idleMouse
+		//w.OnMouseMove()(x+1, y)
+		//w.OnMouseMove()(x, y)
 	})
 
 	workingPath := ""
@@ -1177,6 +1273,10 @@ func main() {
 
 	w.SetState(wui.WindowMaximized)
 	w.Show()
+}
+
+func rect(x, y, width, height int) rectangle {
+	return rectangle{x: x, y: y, w: width, h: height}
 }
 
 type rectangle struct {
@@ -2088,4 +2188,36 @@ func getFont(f fontControl) *wui.Font {
 		return font
 	}
 	return getFont(f.Parent())
+}
+
+// relativeBounds returns a control's outer bounds relative to the outer bounds
+// of the given container. If the control is the same as the container this will
+// result in x and y being 0.
+func relativeBounds(of node, in wui.Container) (x, y, width, height int) {
+	x, y, width, height = of.Bounds()
+	parent := of.Parent()
+	for parent != nil {
+		innerX, innerY, _, _ := parent.InnerBounds()
+		x += innerX
+		y += innerY
+		parent = parent.Parent()
+	}
+	dx, dy, _, _ := in.Bounds()
+	x -= dx
+	y -= dy
+	return
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
