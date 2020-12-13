@@ -117,6 +117,7 @@ func main() {
 	exitMenu := wui.NewMenuString("E&xit\tAlt+F4")
 	undoMenu := wui.NewMenuString("&Undo\tCtrl+Z")
 	redoMenu := wui.NewMenuString("&Redo\tCtrl+Shift+Z")
+	deleteMenu := wui.NewMenuString("&Delete\tCtrl+Del")
 	fileMenu.Add(fileOpenMenu)
 	fileMenu.Add(fileSaveMenu)
 	fileMenu.Add(fileSaveAsMenu)
@@ -126,6 +127,8 @@ func main() {
 	fileMenu.Add(exitMenu)
 	editMenu.Add(undoMenu)
 	editMenu.Add(redoMenu)
+	editMenu.Add(wui.NewMenuSeparator())
+	editMenu.Add(deleteMenu)
 	menu.Add(fileMenu)
 	menu.Add(editMenu)
 	w.SetMenu(menu)
@@ -1277,12 +1280,23 @@ func main() {
 	//undoMenu.SetOnClick(func() {})
 	//redoMenu.SetOnClick(func() {})
 
+	deleteMenu.SetOnClick(func() {
+		if active != nil && active != theWindow {
+			c := active.(wui.Control)
+			p := active.Parent()
+			activate(p)
+			p.Remove(c)
+			preview.Paint()
+		}
+	})
+
 	w.SetShortcut(fileOpenMenu.OnClick(), wui.KeyControl, wui.KeyO)
 	w.SetShortcut(fileSaveMenu.OnClick(), wui.KeyControl, wui.KeyS)
 	w.SetShortcut(fileSaveAsMenu.OnClick(), wui.KeyControl, wui.KeyShift, wui.KeyS)
 	w.SetShortcut(previewMenu.OnClick(), wui.KeyControl, wui.KeyR)
 	w.SetShortcut(undoMenu.OnClick(), wui.KeyControl, wui.KeyZ)
 	w.SetShortcut(redoMenu.OnClick(), wui.KeyControl, wui.KeyShift, wui.KeyZ)
+	w.SetShortcut(deleteMenu.OnClick(), wui.KeyControl, wui.KeyDelete)
 
 	w.SetShortcut(w.Close, wui.KeyEscape) // TODO ESC for debugging
 
