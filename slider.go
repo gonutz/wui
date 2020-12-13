@@ -196,6 +196,9 @@ func (s *Slider) TickFrequency() int {
 // tick is drawn). The first and last ticks are always drawn (except if you hide
 // ticks altogether).
 func (s *Slider) SetTickFrequency(n int) {
+	if n <= 0 {
+		return
+	}
 	s.tickFrequency = n
 	if s.handle != 0 {
 		w32.SendMessage(s.handle, w32.TBM_SETTICFREQ, uintptr(n), 0)
