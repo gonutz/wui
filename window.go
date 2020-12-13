@@ -170,6 +170,7 @@ type Control interface {
 
 type Container interface {
 	Add(Control)
+	Remove(Control)
 	Children() []Control
 	Parent() Container
 	Bounds() (x, y, width, height int)
@@ -536,23 +537,30 @@ func (w *Window) Font() *Font {
 
 func (w *Window) SetFont(f *Font) {
 	w.font = f
-	// TODO This should probably go over the children and recurse down from
-	// there, making sure all parents have their font set first, before their
-	// children.
-	for _, c := range w.controls {
+	for _, c := range w.children {
 		c.parentFontChanged()
 	}
 }
 
-// TODO When Adding a Control to one Container while it already has a parent,
-// either panic or remove it from the old parent first. Do this when working on
-// Remove.
-
 func (w *Window) Add(c Control) {
+	if c.Parent() != nil {
+		c.Parent().Remove(c)
+	}
 	w.children = append(w.children, c)
 	c.setParent(w)
 	if w.handle != 0 {
 		c.create(w.getIDFor(c))
+	}
+}
+
+func (w *Window) Remove(c Control) {
+	for i, child := range w.children {
+		if child == c {
+			child.setParent(nil)
+			child.destroy()
+			w.children = append(w.children[:i], w.children[i+1:]...)
+			return
+		}
 	}
 }
 
@@ -680,7 +688,8 @@ func (w *Window) interceptMessage(msg *w32.MSG) bool {
 		}
 		for i := range w.controls {
 			j := nth(i)
-			if w.controls[j].canFocus() &&
+			if w.controls[j].Parent() != nil &&
+				w.controls[j].canFocus() &&
 				Visible(w.controls[j]) &&
 				Enabled(w.controls[j]) {
 				w32.SetFocus(w32.HWND(w.controls[j].Handle()))

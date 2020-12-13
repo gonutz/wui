@@ -131,6 +131,17 @@ func (p *Panel) Add(c Control) {
 	}
 }
 
+func (p *Panel) Remove(c Control) {
+	for i, child := range p.children {
+		if child == c {
+			child.setParent(nil)
+			child.destroy()
+			p.children = append(p.children[:i], p.children[i+1:]...)
+			return
+		}
+	}
+}
+
 func (p *Panel) getHandle() w32.HWND {
 	return p.handle
 }
