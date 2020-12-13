@@ -1809,8 +1809,23 @@ func drawProgressBar(p *wui.ProgressBar, d drawer) {
 		d.PushDrawRegion(x, y, w, h)
 		d.DrawRect(x, y, w, h, wui.RGB(188, 188, 188))
 		d.FillRect(x+1, y+1, w-2, h-2, wui.RGB(230, 230, 230))
-		filledW := int(float64(w-2)*p.Value() + 0.5)
-		d.FillRect(x+1, y+1, filledW, h-2, wui.RGB(0, 180, 40))
+		if p.MovesForever() {
+			if p.Vertical() {
+				filledH := (h - 2) / 2
+				d.FillRect(x+1, y+1+filledH/2, w-2, filledH, wui.RGB(0, 180, 40))
+			} else {
+				filledW := (w - 2) / 2
+				d.FillRect(x+1+filledW/2, y+1, filledW, h-2, wui.RGB(0, 180, 40))
+			}
+		} else {
+			if p.Vertical() {
+				filledH := int(float64(h-2)*p.Value() + 0.5)
+				d.FillRect(x+1, y+h-1-filledH, w-2, filledH, wui.RGB(0, 180, 40))
+			} else {
+				filledW := int(float64(w-2)*p.Value() + 0.5)
+				d.FillRect(x+1, y+1, filledW, h-2, wui.RGB(0, 180, 40))
+			}
+		}
 		d.PopDrawRegion()
 	}
 }
