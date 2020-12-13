@@ -552,7 +552,7 @@ func main() {
 			panel.SetY(y)
 			y += panel.Height()
 		}
-		fontProps.SetBounds(15, 0, 180, y+5)
+		fontProps.SetBounds(15, 0, 175, y+5)
 		fontLabel.SetWidth(fontProps.InnerWidth())
 	}
 	updateFont := func() {
