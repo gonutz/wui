@@ -1194,7 +1194,7 @@ func main() {
 				dragStartY = y
 				preResizeX, preResizeY, preResizeWidth, preResizeHeight = nextToDrag.Bounds()
 				mouseMode = nextDragMouseMode
-				if mouseMode == idleMouse {
+				if mouseMode == idleMouse && contains(preview, x, y) {
 					newActive := findControlAt(
 						theWindow,
 						x-preview.X()-innerX,
