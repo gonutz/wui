@@ -37,6 +37,14 @@ func (*Slider) canFocus() bool {
 	return true
 }
 
+func (s *Slider) OnTabFocus() func() {
+	return s.onTabFocus
+}
+
+func (s *Slider) SetOnTabFocus(f func()) {
+	s.onTabFocus = f
+}
+
 func (*Slider) eatsTabs() bool {
 	return false
 }

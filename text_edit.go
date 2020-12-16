@@ -29,6 +29,14 @@ func (*TextEdit) canFocus() bool {
 	return true
 }
 
+func (e *TextEdit) OnTabFocus() func() {
+	return e.onTabFocus
+}
+
+func (e *TextEdit) SetOnTabFocus(f func()) {
+	e.onTabFocus = f
+}
+
 func (e *TextEdit) eatsTabs() bool {
 	return e.writesTabs
 }

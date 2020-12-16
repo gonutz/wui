@@ -19,6 +19,14 @@ func (*Button) canFocus() bool {
 	return true
 }
 
+func (b *Button) OnTabFocus() func() {
+	return b.onTabFocus
+}
+
+func (b *Button) SetOnTabFocus(f func()) {
+	b.onTabFocus = f
+}
+
 func (*Button) eatsTabs() bool {
 	return false
 }

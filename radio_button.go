@@ -32,6 +32,14 @@ func (*RadioButton) canFocus() bool {
 	return true
 }
 
+func (r *RadioButton) OnTabFocus() func() {
+	return r.onTabFocus
+}
+
+func (r *RadioButton) SetOnTabFocus(f func()) {
+	r.onTabFocus = f
+}
+
 func (*RadioButton) eatsTabs() bool {
 	return false
 }

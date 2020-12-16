@@ -20,6 +20,14 @@ func (*CheckBox) canFocus() bool {
 	return true
 }
 
+func (c *CheckBox) OnTabFocus() func() {
+	return c.onTabFocus
+}
+
+func (c *CheckBox) SetOnTabFocus(f func()) {
+	c.onTabFocus = f
+}
+
 func (*CheckBox) eatsTabs() bool {
 	return false
 }

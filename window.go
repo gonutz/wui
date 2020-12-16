@@ -163,6 +163,7 @@ type Control interface {
 	parentFontChanged()
 	handleNotification(cmd uintptr)
 	canFocus() bool
+	wasFocussedWithTab()
 	eatsTabs() bool
 	closing()
 	destroy()
@@ -693,6 +694,7 @@ func (w *Window) interceptMessage(msg *w32.MSG) bool {
 				Visible(w.controls[j]) &&
 				Enabled(w.controls[j]) {
 				w32.SetFocus(w32.HWND(w.controls[j].Handle()))
+				w.controls[j].wasFocussedWithTab()
 				return true
 			}
 		}

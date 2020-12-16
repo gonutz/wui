@@ -39,6 +39,14 @@ func (*FloatUpDown) canFocus() bool {
 	return true
 }
 
+func (n *FloatUpDown) OnTabFocus() func() {
+	return n.onTabFocus
+}
+
+func (n *FloatUpDown) SetOnTabFocus(f func()) {
+	n.onTabFocus = f
+}
+
 func (*FloatUpDown) eatsTabs() bool {
 	return false
 }

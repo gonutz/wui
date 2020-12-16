@@ -27,6 +27,14 @@ func (*EditLine) canFocus() bool {
 	return true
 }
 
+func (e *EditLine) OnTabFocus() func() {
+	return e.onTabFocus
+}
+
+func (e *EditLine) SetOnTabFocus(f func()) {
+	e.onTabFocus = f
+}
+
 func (*EditLine) eatsTabs() bool {
 	return false
 }

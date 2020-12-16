@@ -32,6 +32,14 @@ func (*StringTable) canFocus() bool {
 	return true
 }
 
+func (s *StringTable) OnTabFocus() func() {
+	return s.onTabFocus
+}
+
+func (s *StringTable) SetOnTabFocus(f func()) {
+	s.onTabFocus = f
+}
+
 func (*StringTable) eatsTabs() bool {
 	return false
 }

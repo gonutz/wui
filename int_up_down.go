@@ -42,6 +42,14 @@ func (*IntUpDown) canFocus() bool {
 	return true
 }
 
+func (n *IntUpDown) OnTabFocus() func() {
+	return n.onTabFocus
+}
+
+func (n *IntUpDown) SetOnTabFocus(f func()) {
+	n.onTabFocus = f
+}
+
 func (*IntUpDown) eatsTabs() bool {
 	return false
 }

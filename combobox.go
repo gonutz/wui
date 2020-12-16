@@ -30,6 +30,14 @@ func (*ComboBox) canFocus() bool {
 	return true
 }
 
+func (c *ComboBox) OnTabFocus() func() {
+	return c.onTabFocus
+}
+
+func (c *ComboBox) SetOnTabFocus(f func()) {
+	c.onTabFocus = f
+}
+
 func (*ComboBox) eatsTabs() bool {
 	return false
 }

@@ -69,17 +69,18 @@ func (a Anchor) String() string {
 }
 
 type control struct {
-	handle   w32.HWND
-	x        int
-	y        int
-	width    int
-	height   int
-	hAnchor  Anchor
-	vAnchor  Anchor
-	parent   Container
-	disabled bool
-	hidden   bool
-	onResize func()
+	handle     w32.HWND
+	x          int
+	y          int
+	width      int
+	height     int
+	hAnchor    Anchor
+	vAnchor    Anchor
+	parent     Container
+	disabled   bool
+	hidden     bool
+	onResize   func()
+	onTabFocus func()
 }
 
 // closing defaults to nothing, the base control has no properties that are
@@ -256,6 +257,12 @@ func (c *control) SetVisible(v bool) {
 }
 
 func (c *control) handleNotification(cmd uintptr) {}
+
+func (c *control) wasFocussedWithTab() {
+	if c.onTabFocus != nil {
+		c.onTabFocus()
+	}
+}
 
 type textControl struct {
 	control
