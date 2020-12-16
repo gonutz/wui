@@ -868,7 +868,6 @@ func main() {
 		c.FillRect(xOffset+width-borderSize, yOffset, borderSize, height, borderColor)
 
 		if theWindow.HasBorder() {
-			c.SetFont(theWindow.Font())
 			_, textH := c.TextExtent(theWindow.Title())
 			c.TextOut(
 				xOffset+borderSize+appIconWidth+5,
