@@ -188,6 +188,7 @@ func main() {
 
 	intPanel := func(parent wui.Container, name string, minmax ...int) (*wui.IntUpDown, *wui.Panel) {
 		n := wui.NewIntUpDown()
+		n.SetOnTabFocus(n.SelectAll)
 		if len(minmax) == 2 {
 			n.SetMinMax(minmax[0], minmax[1])
 		}
@@ -246,6 +247,7 @@ func main() {
 	floatProp := func(name, getterFunc string, minmax ...float64) uiProp {
 		setterFunc := "Set" + getterFunc // By convention.
 		n := wui.NewFloatUpDown()
+		n.SetOnTabFocus(n.SelectAll)
 		if len(minmax) == 2 {
 			n.SetMinMax(minmax[0], minmax[1])
 		}
@@ -297,6 +299,7 @@ func main() {
 
 	stringPanel := func(parent wui.Container, name string) (*wui.EditLine, *wui.Panel) {
 		t := wui.NewEditLine()
+		t.SetOnTabFocus(t.SelectAll)
 		t.SetBounds(100, propMargin, 90, 22)
 		l := wui.NewLabel()
 		l.SetText(name)
