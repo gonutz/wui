@@ -880,6 +880,8 @@ func main() {
 		innerY = yOffset + topBorderSize
 		inner := makeOffsetDrawer(c, innerX, innerY)
 
+		c.FillRect(0, 0, preview.Width(), preview.Height(), white)
+
 		// Clear inner area.
 		c.FillRect(innerX, innerY, innerWidth, innerHeight, wui.RGB(240, 240, 240))
 
@@ -956,15 +958,6 @@ func main() {
 				0, 0, w32.DI_NORMAL,
 			)
 		}
-
-		// Clear the background behind the window.
-		w, h := c.Size()
-		c.FillRect(0, 0, w, yOffset, white)
-		c.FillRect(0, 0, xOffset, h, white)
-		right := xOffset + width
-		c.FillRect(right, 0, w-right, h, white)
-		bottom := yOffset + height
-		c.FillRect(0, bottom, w, h-bottom, white)
 
 		// Highlight the currently selected child control, except if dragging
 		// it with the mouse.
