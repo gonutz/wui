@@ -18,20 +18,21 @@ func prop(name string, combines ...string) property {
 }
 
 func commonPropertiesPlus(plus ...property) []property {
-	return append([]property{
-		prop("Enabled"),
-		prop("Visible"),
-		prop("HorizontalAnchor"),
-		prop("VerticalAnchor"),
-		prop("Anchors", "HorizontalAnchor", "VerticalAnchor"),
-		prop("X"),
-		prop("Y"),
-		prop("Position", "X", "Y"),
-		prop("Width"),
-		prop("Height"),
-		prop("Size", "Width", "Height"),
-		prop("Bounds", "Position", "Size"),
-	},
+	return append(
+		[]property{
+			prop("Enabled"),
+			prop("Visible"),
+			prop("HorizontalAnchor"),
+			prop("VerticalAnchor"),
+			prop("Anchors", "HorizontalAnchor", "VerticalAnchor"),
+			prop("X"),
+			prop("Y"),
+			prop("Position", "X", "Y"),
+			prop("Width"),
+			prop("Height"),
+			prop("Size", "Width", "Height"),
+			prop("Bounds", "Position", "Size"),
+		},
 		plus...)
 }
 
