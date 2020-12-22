@@ -844,6 +844,29 @@ func main() {
 	}
 	activate(theWindow)
 
+	// mouseMode constants.
+	const (
+		idleMouse = iota
+		addControl
+		dragTopLeft
+		dragTop
+		dragTopRight
+		dragRight
+		dragBottomRight
+		dragBottom
+		dragBottomLeft
+		dragLeft
+		dragAll
+	)
+	var (
+		mouseMode         = idleMouse
+		nextDragMouseMode int
+		nextToDrag        node
+	)
+	dragging := func() bool {
+		return dragTopLeft <= mouseMode && mouseMode <= dragAll
+	}
+
 	var xOffset, yOffset int
 	preview.SetOnPaint(func(c *wui.Canvas) {
 		// Place the inner top-left at 20,40.
@@ -943,8 +966,9 @@ func main() {
 		bottom := yOffset + height
 		c.FillRect(0, bottom, w, h-bottom, white)
 
-		// Highlight the currently selected child control.
-		if active != nil && active != theWindow {
+		// Highlight the currently selected child control, except if dragging
+		// it with the mouse.
+		if !dragging() && active != nil && active != theWindow {
 			x, y, w, h := active.Bounds()
 			parent := active.Parent()
 			for parent != theWindow {
@@ -964,26 +988,6 @@ func main() {
 		}
 	})
 	w.Add(preview)
-
-	// mouseMode constants.
-	const (
-		idleMouse = iota
-		addControl
-		dragTopLeft
-		dragTop
-		dragTopRight
-		dragRight
-		dragBottomRight
-		dragBottom
-		dragBottomLeft
-		dragLeft
-		dragAll
-	)
-	var (
-		mouseMode         = idleMouse
-		nextDragMouseMode int
-		nextToDrag        node
-	)
 
 	var (
 		dragStartX, dragStartY                                  int
@@ -1206,6 +1210,7 @@ func main() {
 						activate(newActive)
 					}
 				}
+				preview.Paint()
 			}
 		}
 	})
@@ -1220,6 +1225,7 @@ func main() {
 		//nextDragMouseMode = idleMouse
 		//w.OnMouseMove()(x+1, y)
 		//w.OnMouseMove()(x, y)
+		preview.Paint()
 	})
 
 	workingPath := ""
