@@ -1,6 +1,6 @@
 package wui
 
-import "github.com/gonutz/w32"
+import "github.com/gonutz/w32/v2"
 
 // Key represents a button on a keyboard. See the constants below.
 type Key int

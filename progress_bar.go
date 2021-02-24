@@ -2,7 +2,7 @@
 
 package wui
 
-import "github.com/gonutz/w32"
+import "github.com/gonutz/w32/v2"
 
 func NewProgressBar() *ProgressBar {
 	return &ProgressBar{}

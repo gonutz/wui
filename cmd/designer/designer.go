@@ -15,7 +15,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/gonutz/w32"
+	"github.com/gonutz/w32/v2"
 	"github.com/gonutz/wui"
 )
 

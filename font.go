@@ -5,7 +5,7 @@ package wui
 import (
 	"errors"
 
-	"github.com/gonutz/w32"
+	"github.com/gonutz/w32/v2"
 )
 
 var NoExactFontMatch = errors.New("wui.NewFont: the desired font was not found in the system, a replacement is used")

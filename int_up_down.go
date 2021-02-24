@@ -6,7 +6,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/gonutz/w32"
+	"github.com/gonutz/w32/v2"
 )
 
 // TODO Typing + or - into an IntUpDown shows an error. The same might be true

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/gonutz/w32"
+	"github.com/gonutz/w32/v2"
 )
 
 type FileSaveDialog struct {

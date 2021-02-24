@@ -1,6 +1,6 @@
 package wui
 
-import "github.com/gonutz/w32"
+import "github.com/gonutz/w32/v2"
 
 // Color is a 24 bit color in BGR form. The alpha channel is always 0 and has no
 // relevance.

@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/gonutz/w32"
+	"github.com/gonutz/w32/v2"
 )
 
 func NewPaintBox() *PaintBox {
@@ -201,7 +201,7 @@ func (c *Canvas) Polyline(p []Point, color Color) {
 	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_PEN))
 	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
 	w32.SelectObject(c.hdc, w32.GetStockObject(w32.NULL_BRUSH))
-	w32.PolylineMem(c.hdc, uintptr(unsafe.Pointer(&p[0])), len(p))
+	w32.PolylineMem(c.hdc, unsafe.Pointer(&p[0]), len(p))
 }
 
 func (c *Canvas) Polygon(p []Point, color Color) {
@@ -212,7 +212,7 @@ func (c *Canvas) Polygon(p []Point, color Color) {
 	w32.SetDCPenColor(c.hdc, w32.COLORREF(color))
 	w32.SelectObject(c.hdc, w32.GetStockObject(w32.DC_BRUSH))
 	w32.SetDCBrushColor(c.hdc, w32.COLORREF(color))
-	w32.PolygonMem(c.hdc, uintptr(unsafe.Pointer(&p[0])), len(p))
+	w32.PolygonMem(c.hdc, unsafe.Pointer(&p[0]), len(p))
 }
 
 func (c *Canvas) Arc(x, y, width, height int, fromClockAngle, dAngle float64, color Color) {
