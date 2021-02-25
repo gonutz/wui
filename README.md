@@ -1,3 +1,8 @@
+Version 2
+=========
+
+Please go to [Version 2](https://github.com/gonutz/wui/tree/master/v2) of this library for the latest version.
+
 Windows GUI Library
 ===================
 
