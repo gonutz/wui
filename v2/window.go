@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"syscall"
+	"unicode/utf16"
 	"unsafe"
 
 	"github.com/gonutz/w32/v2"
@@ -120,6 +121,7 @@ type Window struct {
 	onMouseUp        func(button MouseButton, x, y int)
 	onKeyDown        func(key int)
 	onKeyUp          func(key int)
+	onChar           func(r rune)
 	onResize         func()
 }
 
@@ -650,6 +652,14 @@ func (w *Window) SetOnKeyUp(f func(key int)) {
 	w.onKeyUp = f
 }
 
+func (w *Window) SetOnChar(f func(r rune)) {
+	w.onChar = f
+}
+
+func (w *Window) OnChar() func(r rune) {
+	return w.onChar
+}
+
 func (w *Window) OnResize() func() {
 	return w.onResize
 }
@@ -779,6 +789,11 @@ func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uint
 	case w32.WM_KEYUP:
 		if w.onKeyUp != nil {
 			w.onKeyUp(int(wParam))
+			return 0
+		}
+	case w32.WM_CHAR:
+		if w.onChar != nil {
+			w.onChar(utf16.Decode([]uint16{uint16(wParam)})[0])
 			return 0
 		}
 	case w32.WM_COMMAND:
