@@ -34,6 +34,14 @@ type IntUpDown struct {
 
 var _ Control = (*IntUpDown)(nil)
 
+func (n *IntUpDown) destroy() {
+	n.textEditControl.destroy()
+	if n.upDownHandle != 0 {
+		w32.DestroyWindow(n.upDownHandle)
+		n.upDownHandle = 0
+	}
+}
+
 func (n *IntUpDown) closing() {
 	n.Value()
 }
