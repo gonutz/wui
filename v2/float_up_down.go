@@ -31,6 +31,14 @@ type FloatUpDown struct {
 
 var _ Control = (*FloatUpDown)(nil)
 
+func (n *FloatUpDown) destroy() {
+	n.textEditControl.destroy()
+	if n.upDownHandle != 0 {
+		w32.DestroyWindow(n.upDownHandle)
+		n.upDownHandle = 0
+	}
+}
+
 func (n *FloatUpDown) closing() {
 	n.Value()
 }
