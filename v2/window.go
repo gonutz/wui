@@ -123,6 +123,7 @@ type Window struct {
 	onKeyUp          func(key int)
 	onChar           func(r rune)
 	onResize         func()
+	onMessage        MessageCallback
 }
 
 func (w *Window) Children() []Control {
@@ -668,6 +669,23 @@ func (w *Window) SetOnResize(f func()) {
 	w.onResize = f
 }
 
+// MessageCallback is used as a hook into the main window procedure. It will run
+// at its very start and may intercept all messages.
+// If the callback returns true for handled, then the message is processed no
+// further and the message loop returns the given result code.
+// If the callback returns false for handled, then the message goes to this
+// library's handler for it or to the default window procedure defined in the
+// Windows API if it is not handled.
+type MessageCallback func(window uintptr, msg uint32, w, l uintptr) (handled bool, result uintptr)
+
+func (w *Window) OnMessage() MessageCallback {
+	return w.onMessage
+}
+
+func (w *Window) SetOnMessage(f MessageCallback) {
+	w.onMessage = f
+}
+
 func (w *Window) Close() {
 	if w.handle != 0 {
 		w32.SendMessage(w.handle, w32.WM_CLOSE, 0, 0)
@@ -740,6 +758,13 @@ type EnabledControl interface {
 }
 
 func (w *Window) onMsg(window w32.HWND, msg uint32, wParam, lParam uintptr) uintptr {
+	if w.onMessage != nil {
+		handled, result := w.onMessage(uintptr(window), msg, wParam, lParam)
+		if handled {
+			return result
+		}
+	}
+
 	mouseX := int(lParam & 0xFFFF)
 	mouseY := int(lParam&0xFFFF0000) >> 16
 	switch msg {
