@@ -1,5 +1,3 @@
-//+build windows
-
 package wui
 
 import "github.com/gonutz/w32/v2"
