@@ -1,7 +1,7 @@
 Windows GUI Library
 ===================
 
-This is a pure Go library to create native Windows GUIs. See [the online documentation](https://pkg.go.dev/github.com/gonutz/wui/v2?GOOS=windows) for details. Note that you need to set `GOOS=windows` to display all of the documentation as most files are tagged with `//+build windows`.
+This is a pure Go library to create native Windows GUIs. See [the online documentation](https://pkg.go.dev/github.com/gonutz/wui/v2) for details.
 
 # Minimal Example
 
