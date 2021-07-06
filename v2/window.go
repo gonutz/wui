@@ -74,6 +74,7 @@ func (s WindowState) toCmd() int {
 
 func NewWindow() *Window {
 	w := &Window{
+		className:  "wui_window",
 		background: ColorButtonFace,
 		cursor:     CursorArrow,
 		alpha:      255,
@@ -83,6 +84,7 @@ func NewWindow() *Window {
 }
 
 type Window struct {
+	className        string
 	handle           w32.HWND
 	parent           *Window
 	hidesBorder      bool
@@ -203,6 +205,20 @@ func (w *Window) getHandle() w32.HWND {
 
 func (w *Window) getInstance() w32.HINSTANCE {
 	return w32.HINSTANCE(w32.GetWindowLong(w.handle, w32.GWL_HINSTANCE))
+}
+
+func (w *Window) ClassName() string {
+	return w.className
+}
+
+// SetClassName sets the identifier used for registering this window's class
+// using RegisterClass or RegisterClassEx when first creating this window. This
+// can only be done before the window is shown. For a running window this name
+// will not be updated.
+func (w *Window) SetClassName(name string) {
+	if w.handle == 0 {
+		w.className = name
+	}
 }
 
 func (w *Window) Title() string { return w.title }
@@ -923,8 +939,6 @@ func (w *Window) onWM_DRAWITEM(wParam, lParam uintptr) {
 	}
 }
 
-const className = "wui_window_class"
-
 func (w *Window) Show() error {
 	if w.handle != 0 {
 		return errors.New("wui.Window.Show: window already visible")
@@ -946,7 +960,7 @@ func (w *Window) Show() error {
 		Background: w32.CreateSolidBrush(uint32(w.background)),
 		WndProc:    syscall.NewCallback(w.onMsg),
 		Cursor:     w.cursor.handle,
-		ClassName:  syscall.StringToUTF16Ptr(className),
+		ClassName:  syscall.StringToUTF16Ptr(w.className),
 	}
 	atom := w32.RegisterClassEx(&class)
 	if atom == 0 {
@@ -960,7 +974,7 @@ func (w *Window) Show() error {
 
 	window := w32.CreateWindowEx(
 		w.extendedStyle(),
-		syscall.StringToUTF16Ptr(className),
+		syscall.StringToUTF16Ptr(w.className),
 		syscall.StringToUTF16Ptr(w.title),
 		w.style(),
 		w.x, w.y, w.width, w.height,
@@ -1220,7 +1234,7 @@ func (w *Window) ShowModal() error {
 
 	window := w32.CreateWindowEx(
 		w.extendedStyle(),
-		syscall.StringToUTF16Ptr(className),
+		syscall.StringToUTF16Ptr(w.className),
 		syscall.StringToUTF16Ptr(w.title),
 		w.style(),
 		w.x, w.y, w.width, w.height,
