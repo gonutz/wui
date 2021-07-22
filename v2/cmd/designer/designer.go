@@ -1941,6 +1941,8 @@ func showPreview(parent, w *wui.Window, x, y int) {
 		buildCount++
 
 		// Do the build synchronously and report any build errors.
+		exec.Command("go", "mod", "init", "temp/wui/preview").Run()
+		exec.Command("go", "mod", "tidy").Run()
 		output, err := exec.Command("go", "build", "-o", exeFile, goFile).CombinedOutput()
 		if err != nil {
 			wui.MessageBoxError("Error", err.Error()+"\r\n"+string(output))
