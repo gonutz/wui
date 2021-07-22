@@ -77,6 +77,8 @@ func main() {
 					os.Remove(filepath.Join(buildDir, file.Name()))
 				}
 			}
+			os.Remove(filepath.Join(buildDir, "go.mod"))
+			os.Remove(filepath.Join(buildDir, "go.sum"))
 		}
 	}()
 
@@ -1300,7 +1302,7 @@ func main() {
 	w.SetShortcut(redoMenu.OnClick(), wui.KeyControl, wui.KeyShift, wui.KeyZ)
 	w.SetShortcut(deleteMenu.OnClick(), wui.KeyControl, wui.KeyDelete)
 
-	w.SetShortcut(w.Close, wui.KeyEscape) // TODO ESC for debugging
+	//w.SetShortcut(w.Close, wui.KeyEscape) // TODO ESC for debugging
 
 	w.SetState(wui.WindowMaximized)
 	w.Show()
@@ -1941,11 +1943,21 @@ func showPreview(parent, w *wui.Window, x, y int) {
 		buildCount++
 
 		// Do the build synchronously and report any build errors.
-		exec.Command("go", "mod", "init", "temp/wui/preview").Run()
-		exec.Command("go", "mod", "tidy").Run()
-		output, err := exec.Command("go", "build", "-o", exeFile, goFile).CombinedOutput()
-		if err != nil {
-			wui.MessageBoxError("Error", err.Error()+"\r\n"+string(output))
+		var tryOutput []byte
+		var tryErr error
+		try := func(cmd string, args ...string) {
+			if err != nil {
+				return
+			}
+			command := exec.Command(cmd, args...)
+			command.Dir = buildDir
+			tryOutput, tryErr = command.CombinedOutput()
+		}
+		try("go", "mod", "init", "temp/wui/preview")
+		try("go", "mod", "tidy")
+		try("go", "build", "-o", exeFile, goFile)
+		if tryErr != nil {
+			wui.MessageBoxError("Error", tryErr.Error()+"\r\n"+string(tryOutput))
 			return
 		}
 
@@ -1963,9 +1975,7 @@ func generateCode(w *wui.Window, isPreview bool) []byte {
 	// shortcut before generating the preview code and reset it afterwards, as
 	// is done with the window position.
 	var code bytes.Buffer
-	code.WriteString(`//+build ignore
-
-package main
+	code.WriteString(`package main
 
 import "github.com/gonutz/wui/v2"
 
