@@ -2,6 +2,7 @@ package wui
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -116,7 +117,14 @@ func (dlg *FileSaveDialog) getSaveFileName(parent *Window, bufLen int) (bool, []
 				initDir = &initDir16[0]
 			}
 		} else {
-			path, err := syscall.UTF16FromString(dlg.initPath)
+			dir, file := filepath.Split(dlg.initPath)
+
+			initDir16, err = syscall.UTF16FromString(dir)
+			if err == nil {
+				initDir = &initDir16[0]
+			}
+
+			path, err := syscall.UTF16FromString(file)
 			if err == nil {
 				copy(filenameBuf, path)
 			}
