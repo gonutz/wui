@@ -54,7 +54,7 @@ func (e *TextEdit) create(id int) {
 	if e.limit != 0 {
 		e.SetCharacterLimit(e.limit)
 	}
-	e.SetReadOnly(true)
+	e.SetReadOnly(e.readOnly)
 }
 
 func (e *TextEdit) SetCharacterLimit(count int) {
