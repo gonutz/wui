@@ -7,8 +7,15 @@ import (
 	"github.com/gonutz/w32/v2"
 )
 
+// With this func you can enchance your combo box with
+// built-in sorting and vertical/horizontal scrolling
+// ex., w32.CBS_SORT | w32.WS_VSCROLL
+func NewComboBoxAdvanced(style uint) *ComboBox {
+	return &ComboBox{selected: -1, style: style}
+}
+
 func NewComboBox() *ComboBox {
-	return &ComboBox{selected: -1}
+	return &ComboBox{selected: -1, style: w32.WS_TABSTOP | w32.CBS_DROPDOWNLIST}
 }
 
 type ComboBox struct {
@@ -16,6 +23,7 @@ type ComboBox struct {
 	items    []string
 	selected int
 	onChange func(newIndex int)
+	style    uint
 }
 
 var _ Control = (*ComboBox)(nil)
@@ -45,7 +53,7 @@ func (e *ComboBox) create(id int) {
 		id,
 		w32.WS_EX_CLIENTEDGE,
 		"COMBOBOX",
-		w32.WS_TABSTOP|w32.CBS_DROPDOWNLIST,
+		e.style,
 	)
 	for _, s := range e.items {
 		e.addItem(s)
