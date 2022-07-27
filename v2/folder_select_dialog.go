@@ -29,7 +29,7 @@ func (dlg *FolderSelectDialog) Execute(parent *Window) (bool, string) {
 	idl := w32.SHBrowseForFolder(&w32.BROWSEINFO{
 		Owner: owner,
 		Title: title,
-		Flags: w32.BIF_NEWDIALOGSTYLE,
+		Flags: w32.BIF_USENEWUI,
 	})
 	folder := w32.SHGetPathFromIDList(idl)
 
