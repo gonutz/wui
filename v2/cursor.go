@@ -118,9 +118,13 @@ func NewCursorFromImage(img image.Image, x, y int) (*Cursor, error) {
 			}
 		}
 	}
-	handle := w32.CreateCursor(w32.GetModuleHandle(""), x, y, b.Dx(), b.Dy(), and, xor)
+	handle := w32.CreateCursor(
+		w32.GetModuleHandle(""), x, y, b.Dx(), b.Dy(), and, xor,
+	)
 	if handle == 0 {
-		return nil, errors.New("wui.NewCursorFromImage: CreateCursor returned 0 handle")
+		return nil, errors.New(
+			"wui.NewCursorFromImage: CreateCursor returned 0 handle",
+		)
 	}
 	return &Cursor{handle: handle}, nil
 }
