@@ -438,7 +438,7 @@ var textEditSubclassProc = syscall.NewCallback(func(
 // character in Text() and end is the position one character after the end of
 // the selection. The selected text is thus
 //
-//     c.Text()[start:end]
+//	c.Text()[start:end]
 func (c *textEditControl) CursorPosition() (start, end int) {
 	if c.handle != 0 {
 		var start, end uint32
