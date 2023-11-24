@@ -37,7 +37,7 @@ func (l *StringList) create(id int) {
 		id,
 		w32.WS_EX_CLIENTEDGE,
 		"LISTBOX",
-		w32.WS_TABSTOP|w32.LBS_NOTIFY,
+		w32.WS_VSCROLL|w32.WS_TABSTOP|w32.LBS_NOTIFY,
 	)
 	for _, s := range l.items {
 		l.addItem(s)
